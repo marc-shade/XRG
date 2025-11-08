@@ -200,7 +200,6 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
     appDefs[XRG_showDJIA] = @"YES";
 
     // AI Token defaults
-    appDefs[XRG_aiTokenOTelEndpoint] = @"http://localhost:8889/metrics";
     appDefs[XRG_aiTokenShowCost] = @"YES";
     appDefs[XRG_aiTokenShowRates] = @"YES";
     appDefs[XRG_aiTokenShowTotals] = @"YES";

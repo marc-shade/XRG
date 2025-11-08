@@ -28,11 +28,9 @@
 #import "XRGAppDelegate.h"
 #import "XRGGraphWindow.h"
 #import "definitions.h"
-#import "XRGAIPrefController.h"
 
 @interface XRGPrefController ()
 @property (strong) NSButton *showAITokensGraph;
-@property (strong) XRGAIPrefController *aiPrefController;
 @end
 
 @implementation XRGPrefController
@@ -1321,19 +1319,6 @@
 		[window setTitle:@"Stock Preferences"];
  		[toolbar setSelectedItemIdentifier:@"Stock"];
 	}
-}
-
--(IBAction) AI:(id)sender {
-    if (!self.aiPrefController) {
-        self.aiPrefController = [[XRGAIPrefController alloc] initWithNibName:nil bundle:nil];
-        (void)self.aiPrefController.view;
-    }
-    if (currentView != self.aiPrefController.view) {
-        [self switchWindowFromView:currentView toView:self.aiPrefController.view];
-        currentView = self.aiPrefController.view;
-        [window setTitle:@"AI Preferences"];
-        [toolbar setSelectedItemIdentifier:@"AI"];
-    }
 }
 
 -(IBAction) openWeatherStationList:(id)sender {

@@ -137,10 +137,6 @@ typedef struct network_interface_stats {
 #define XRG_showBatteryGraph			@"showBatteryGraph"
 #define XRG_showTemperatureGraph        @"showTemperatureGraph"
 #define XRG_showAITokenGraph            @"showAITokenGraph"
-
-#define XRG_aiTokenClaudeLogPath        @"aiTokenClaudeLogPath"
-#define XRG_aiTokenCodexLogPath         @"aiTokenCodexLogPath"
-#define XRG_aiTokenOTelEndpoint         @"aiTokenOTelEndpoint"
 #define XRG_aiTokenShowCost             @"aiTokenShowCost"
 #define XRG_aiTokenShowRates            @"aiTokenShowRates"
 #define XRG_aiTokenShowTotals           @"aiTokenShowTotals"

@@ -51,6 +51,7 @@
 		273ECF551574106600E65D82 /* Preferences.nib in Resources */ = {isa = PBXBuildFile; fileRef = 273ECF511574106600E65D82 /* Preferences.nib */; };
 		273ECF64157413D200E65D82 /* icon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 273ECF63157413D200E65D82 /* icon.icns */; };
 		273ECF661574145100E65D82 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 273ECF651574145100E65D82 /* IOKit.framework */; };
+		495AAAAA0000000000000001 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 495AAAAA0000000000000002 /* libsqlite3.tbd */; };
 		27461834273716B10065D1E4 /* XRGAppleSiliconSensorMiner.m in Sources */ = {isa = PBXBuildFile; fileRef = 27461833273716B10065D1E4 /* XRGAppleSiliconSensorMiner.m */; };
 		274AEDE52784BA5F008445AC /* XRGNonInteractableTextField.m in Sources */ = {isa = PBXBuildFile; fileRef = 274AEDE42784BA5F008445AC /* XRGNonInteractableTextField.m */; };
 		2755BBBC277E390200461C51 /* SMCSensorGroup.m in Sources */ = {isa = PBXBuildFile; fileRef = 2755BBBB277E390200461C51 /* SMCSensorGroup.m */; };
@@ -62,10 +63,6 @@
 		27AB7CFE2558F031002F6773 /* XRGSensorViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 27AB7CFD2558F031002F6773 /* XRGSensorViewController.m */; };
 		27C3A8A52551B4A40004F2EC /* XRGStatsManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 27C3A8A42551B4A40004F2EC /* XRGStatsManager.m */; };
 		27DA9FA22566232500DACB07 /* XRGFlippedView.m in Sources */ = {isa = PBXBuildFile; fileRef = 27DA9FA12566232500DACB07 /* XRGFlippedView.m */; };
-		4956E8B52EBEA68F00E88F19 /* XRGAIPrefController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4956E8B42EBEA68F00E88F19 /* XRGAIPrefController.m */; };
-		4956E8B82EBEA6AC00E88F19 /* XRGAITokensNotifications.m in Sources */ = {isa = PBXBuildFile; fileRef = 4956E8B72EBEA6AC00E88F19 /* XRGAITokensNotifications.m */; };
-		4956E8BB2EBEA7EF00E88F19 /* XRGAITokensObserver.m in Sources */ = {isa = PBXBuildFile; fileRef = 4956E8BA2EBEA7EF00E88F19 /* XRGAITokensObserver.m */; };
-		4956E8BE2EBEA84B00E88F19 /* XRGAppDelegate+AIPreferences.m in Sources */ = {isa = PBXBuildFile; fileRef = 4956E8BD2EBEA84B00E88F19 /* XRGAppDelegate+AIPreferences.m */; };
 		93151A0D254094EF0095E424 /* SMCSensorNames.plist in Resources */ = {isa = PBXBuildFile; fileRef = 93151A0C254094EF0095E424 /* SMCSensorNames.plist */; };
 		937851AA157CA243001D2A15 /* SMCInterface.m in Sources */ = {isa = PBXBuildFile; fileRef = 937851A8157CA243001D2A15 /* SMCInterface.m */; };
 		937851AD157CA5D0001D2A15 /* SMCSensors.m in Sources */ = {isa = PBXBuildFile; fileRef = 937851AC157CA5D0001D2A15 /* SMCSensors.m */; };
@@ -151,6 +148,7 @@
 		273ECF511574106600E65D82 /* Preferences.nib */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; path = Preferences.nib; sourceTree = "<group>"; };
 		273ECF63157413D200E65D82 /* icon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = icon.icns; sourceTree = "<group>"; };
 		273ECF651574145100E65D82 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		495AAAAA0000000000000002 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 		273ECF6D157803EF00E65D82 /* XRG-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "XRG-Info.plist"; sourceTree = SOURCE_ROOT; };
 		27461832273716B10065D1E4 /* XRGAppleSiliconSensorMiner.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XRGAppleSiliconSensorMiner.h; sourceTree = "<group>"; };
 		27461833273716B10065D1E4 /* XRGAppleSiliconSensorMiner.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = XRGAppleSiliconSensorMiner.m; sourceTree = "<group>"; };
@@ -178,23 +176,6 @@
 		27C3A8A42551B4A40004F2EC /* XRGStatsManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = XRGStatsManager.m; sourceTree = "<group>"; };
 		27DA9FA02566232500DACB07 /* XRGFlippedView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XRGFlippedView.h; sourceTree = "<group>"; };
 		27DA9FA12566232500DACB07 /* XRGFlippedView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = XRGFlippedView.m; sourceTree = "<group>"; };
-		4956E8AF2EBEA58700E88F19 /* XRGGraphWindow+AITokens.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "XRGGraphWindow+AITokens.h"; sourceTree = "<group>"; };
-		4956E8B02EBEA58900E88F19 /* XRGGraphWindow+AITokens.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "XRGGraphWindow+AITokens.m"; sourceTree = "<group>"; };
-		4956E8B22EBEA68400E88F19 /* XRGAISettingsKeys.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XRGAISettingsKeys.h; sourceTree = "<group>"; };
-		4956E8B32EBEA68600E88F19 /* XRGAIPrefController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XRGAIPrefController.h; sourceTree = "<group>"; };
-		4956E8B42EBEA68F00E88F19 /* XRGAIPrefController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = XRGAIPrefController.m; sourceTree = "<group>"; };
-		4956E8B62EBEA6A900E88F19 /* XRGAITokensNotifications.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XRGAITokensNotifications.h; sourceTree = "<group>"; };
-		4956E8B72EBEA6AC00E88F19 /* XRGAITokensNotifications.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = XRGAITokensNotifications.m; sourceTree = "<group>"; };
-		4956E8B92EBEA6DF00E88F19 /* XRGAITokensObserver.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XRGAITokensObserver.h; sourceTree = "<group>"; };
-		4956E8BA2EBEA7EF00E88F19 /* XRGAITokensObserver.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = XRGAITokensObserver.m; sourceTree = "<group>"; };
-		4956E8BC2EBEA84800E88F19 /* XRGAppDelegate+AIPreferences.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "XRGAppDelegate+AIPreferences.h"; sourceTree = "<group>"; };
-		4956E8BD2EBEA84B00E88F19 /* XRGAppDelegate+AIPreferences.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "XRGAppDelegate+AIPreferences.m"; sourceTree = "<group>"; };
-		4956E8BF2EBEA89C00E88F19 /* XRGAITokensMiner.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XRGAITokensMiner.h; sourceTree = "<group>"; };
-		4956E8C02EBEA8EF00E88F19 /* XRGAITokensView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XRGAITokensView.h; sourceTree = "<group>"; };
-		4956E8C12EBEA90700E88F19 /* XRGAITokensMiner.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = XRGAITokensMiner.m; sourceTree = "<group>"; };
-		4956E8C32EBEA98A00E88F19 /* XRGAITokensView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = XRGAITokensView.m; sourceTree = "<group>"; };
-		4956E8C52EBEAA7600E88F19 /* XRGAppDelegate+AIWindowIntegration.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "XRGAppDelegate+AIWindowIntegration.h"; sourceTree = "<group>"; };
-		4956E8C62EBEAA7D00E88F19 /* XRGAppDelegate+AIWindowIntegration.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "XRGAppDelegate+AIWindowIntegration.m"; sourceTree = "<group>"; };
 		633117936CFBBEF79A48CDDE /* XRGAITokenView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = XRGAITokenView.m; sourceTree = "<group>"; };
 		8A5D2C466276EB8F8F50FA02 /* XRGAITokenMiner.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = XRGAITokenMiner.h; sourceTree = "<group>"; };
 		93151A0C254094EF0095E424 /* SMCSensorNames.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = SMCSensorNames.plist; sourceTree = "<group>"; };
@@ -214,6 +195,7 @@
 			files = (
 				93C915F32550346600220EC5 /* Accelerate.framework in Frameworks */,
 				273ECF661574145100E65D82 /* IOKit.framework in Frameworks */,
+				495AAAAA0000000000000001 /* libsqlite3.tbd in Frameworks */,
 				273ECE6A15740DE700E65D82 /* Cocoa.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -247,6 +229,7 @@
 				2775AC211B42F4A700D867AC /* OpenGL.framework */,
 				273ECE6915740DE700E65D82 /* Cocoa.framework */,
 				273ECF651574145100E65D82 /* IOKit.framework */,
+				495AAAAA0000000000000002 /* libsqlite3.tbd */,
 				273ECE6B15740DE700E65D82 /* Other Frameworks */,
 			);
 			name = Frameworks;
@@ -379,23 +362,6 @@
 				273ECEE015740EAF00E65D82 /* Preferences-Temperature.tiff */,
 				273ECEE115740EAF00E65D82 /* Preferences-Weather.tiff */,
 				273ECEE415740EAF00E65D82 /* xtf.icns */,
-				4956E8AF2EBEA58700E88F19 /* XRGGraphWindow+AITokens.h */,
-				4956E8B02EBEA58900E88F19 /* XRGGraphWindow+AITokens.m */,
-				4956E8B22EBEA68400E88F19 /* XRGAISettingsKeys.h */,
-				4956E8B32EBEA68600E88F19 /* XRGAIPrefController.h */,
-				4956E8B42EBEA68F00E88F19 /* XRGAIPrefController.m */,
-				4956E8B62EBEA6A900E88F19 /* XRGAITokensNotifications.h */,
-				4956E8B72EBEA6AC00E88F19 /* XRGAITokensNotifications.m */,
-				4956E8B92EBEA6DF00E88F19 /* XRGAITokensObserver.h */,
-				4956E8BA2EBEA7EF00E88F19 /* XRGAITokensObserver.m */,
-				4956E8BC2EBEA84800E88F19 /* XRGAppDelegate+AIPreferences.h */,
-				4956E8BD2EBEA84B00E88F19 /* XRGAppDelegate+AIPreferences.m */,
-				4956E8BF2EBEA89C00E88F19 /* XRGAITokensMiner.h */,
-				4956E8C02EBEA8EF00E88F19 /* XRGAITokensView.h */,
-				4956E8C12EBEA90700E88F19 /* XRGAITokensMiner.m */,
-				4956E8C32EBEA98A00E88F19 /* XRGAITokensView.m */,
-				4956E8C52EBEAA7600E88F19 /* XRGAppDelegate+AIWindowIntegration.h */,
-				4956E8C62EBEAA7D00E88F19 /* XRGAppDelegate+AIWindowIntegration.m */,
 			);
 			path = Resources;
 			sourceTree = SOURCE_ROOT;
