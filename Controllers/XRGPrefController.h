@@ -56,6 +56,8 @@
     IBOutlet id showDiskGraph;
     IBOutlet id showWeatherGraph;
     IBOutlet id showStockGraph;
+    IBOutlet id showAITokenGraph;
+    
     IBOutlet id graphOrientation;
     IBOutlet id enableAntiAliasing;
     IBOutlet id graphRefreshValue;

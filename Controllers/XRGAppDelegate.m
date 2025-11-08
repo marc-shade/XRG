@@ -90,7 +90,10 @@
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
 	[self.xrgGraphWindow.moduleManager windowChangedToSize:self.xrgGraphWindow.frame.size];
-	
+
+	// Initialize AI Token view programmatically
+	[self.xrgGraphWindow initializeAITokenView];
+
 	if ([[NSUserDefaults standardUserDefaults] boolForKey:XRG_windowIsMinimized]) {
 		// minimize the window.
 		[self.xrgGraphWindow.backgroundView minimizeWindow];

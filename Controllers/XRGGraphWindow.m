@@ -148,6 +148,7 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
     appDefs[XRG_showWeatherGraph] = @"YES";
     appDefs[XRG_showStockGraph] = @"YES";
 	appDefs[XRG_showGPUGraph] = @"YES";
+    appDefs[XRG_showAITokenGraph] = @"YES";
     appDefs[XRG_windowLevel] = @"0";
     appDefs[XRG_stickyWindow] = @"YES";
     appDefs[XRG_checkForUpdates] = @"YES";
@@ -197,6 +198,12 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
     appDefs[XRG_stockGraphTimeFrame] = @"3";
     appDefs[XRG_stockShowChange] = @"YES";
     appDefs[XRG_showDJIA] = @"YES";
+
+    // AI Token defaults
+    appDefs[XRG_aiTokenOTelEndpoint] = @"http://localhost:8889/metrics";
+    appDefs[XRG_aiTokenShowCost] = @"YES";
+    appDefs[XRG_aiTokenShowRates] = @"YES";
+    appDefs[XRG_aiTokenShowTotals] = @"YES";
 
     return appDefs;
 }
@@ -469,6 +476,20 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 
 ///// Timer Methods /////
 
+- (void)initializeAITokenView {
+    if (!self.aiTokenView) {
+        // Create the AI Token view programmatically
+        NSRect viewFrame = NSMakeRect(0, 0, 200, 100);
+        self.aiTokenView = [[XRGAITokenView alloc] initWithFrame:viewFrame];
+
+        // Add to content view
+        [[self contentView] addSubview:self.aiTokenView];
+
+        // Manually trigger the initialization that would normally happen in awakeFromNib
+        [self.aiTokenView awakeFromNib];
+    }
+}
+
 - (void)initTimers {
     if (!self.min30Timer) {
         self.min30Timer = [NSTimer scheduledTimerWithTimeInterval:1800.0
@@ -567,6 +588,14 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 - (IBAction)setShowTemperatureGraph:(id)sender {
     [self.backgroundView expandWindow];
     [self.moduleManager setModule:@"Temperature" isDisplayed:([sender state] == NSOnState)];
+	[self setMinSize:[self.moduleManager getMinSize]];
+	[self checkWindowSize];
+    [self.moduleManager windowChangedToSize:[self frame].size];
+}
+
+- (IBAction)setShowAITokenGraph:(id)sender {
+    [self.backgroundView expandWindow];
+    [self.moduleManager setModule:@"AI Tokens" isDisplayed:([sender state] == NSOnState)];
 	[self setMinSize:[self.moduleManager getMinSize]];
 	[self checkWindowSize];
     [self.moduleManager windowChangedToSize:[self frame].size];

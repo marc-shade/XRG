@@ -34,6 +34,7 @@
 #import "XRGBatteryView.h"
 #import "XRGGPUView.h"
 #import "XRGTemperatureView.h"
+#import "XRGAITokenView.h"
 #import "XRGBackgroundView.h"
 #import "XRGSettings.h"
 #import "XRGModuleManager.h"
@@ -71,6 +72,7 @@
 @property XRGStockView *stockView;
 @property XRGBatteryView *batteryView;
 @property XRGTemperatureView *temperatureView;
+@property XRGAITokenView *aiTokenView;
 @property (nonatomic) IBOutlet id backgroundView;
 
 @property BOOL draggingWindow;
@@ -91,6 +93,7 @@
 
 // Timer methods
 - (void)initTimers;
+- (void)initializeAITokenView;
 - (void)min30Update:(NSTimer *)aTimer;
 - (void)min5Update:(NSTimer *)aTimer;
 - (void)graphUpdate:(NSTimer *)aTimer;
@@ -109,6 +112,7 @@
 - (IBAction)setShowStockGraph:(id)sender;
 - (IBAction)setShowBatteryGraph:(id)sender;
 - (IBAction)setShowTemperatureGraph:(id)sender;
+- (IBAction)setShowAITokenGraph:(id)sender;
 - (IBAction)setBorderWidthAction:(id)sender;
 - (IBAction)setGraphOrientation:(id)sender;
 - (IBAction)setAntiAliasing:(id)sender;

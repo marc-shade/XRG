@@ -28,6 +28,12 @@
 #import "XRGAppDelegate.h"
 #import "XRGGraphWindow.h"
 #import "definitions.h"
+#import "XRGAIPrefController.h"
+
+@interface XRGPrefController ()
+@property (strong) NSButton *showAITokensGraph;
+@property (strong) XRGAIPrefController *aiPrefController;
+@end
 
 @implementation XRGPrefController
 - (void)awakeFromNib {
@@ -42,7 +48,14 @@
     [item setLabel:@"General"];
     [item setPaletteLabel:@"General"];
     [item setToolTip:@"General Graph Options"];
-    [item setImage:[NSImage imageNamed:@"Preferences-General.tiff"]];
+    NSImage *generalImg = nil;
+    if (@available(macOS 11.0, *)) {
+        generalImg = [NSImage imageWithSystemSymbolName:@"gearshape" accessibilityDescription:@"General"];
+    }
+    if (!generalImg) { generalImg = [NSImage imageNamed:@"Preferences-General.tiff"]; }
+    [generalImg setTemplate:YES];
+    [item setImage:generalImg];
+
     [item setTarget:self];
     [item setAction:@selector(General:)];
     toolbarItems[@"General"] = item;
@@ -52,7 +65,17 @@
     [item setLabel:@"Appearance"];
     [item setPaletteLabel:@"Appearance"];
     [item setToolTip:@"Graph Color, Opacity, and Font Options"];
-    [item setImage:[NSImage imageNamed:@"Preferences-Appearance.tiff"]];
+    NSImage *appearanceImg = nil;
+    if (@available(macOS 11.0, *)) {
+        appearanceImg = [NSImage imageWithSystemSymbolName:@"paintbrush" accessibilityDescription:@"Appearance"];
+        if (!appearanceImg) {
+            appearanceImg = [NSImage imageWithSystemSymbolName:@"paintpalette" accessibilityDescription:@"Appearance"];
+        }
+    }
+    if (!appearanceImg) { appearanceImg = [NSImage imageNamed:@"Preferences-Appearance.tiff"]; }
+    [appearanceImg setTemplate:YES];
+    [item setImage:appearanceImg];
+
     [item setTarget:self];
     [item setAction:@selector(Colors:)];
     toolbarItems[@"Appearance"] = item;
@@ -62,7 +85,17 @@
     [item setLabel:@"CPU"];
     [item setPaletteLabel:@"CPU"];
     [item setToolTip:@"CPU Graph Options"];
-    [item setImage:[NSImage imageNamed:@"Preferences-CPU.tiff"]];
+    NSImage *cpuImg = nil;
+    if (@available(macOS 11.0, *)) {
+        cpuImg = [NSImage imageWithSystemSymbolName:@"cpu" accessibilityDescription:@"CPU"];
+        if (!cpuImg) {
+            cpuImg = [NSImage imageWithSystemSymbolName:@"gauge" accessibilityDescription:@"CPU"];
+        }
+    }
+    if (!cpuImg) { cpuImg = [NSImage imageNamed:@"Preferences-CPU.tiff"]; }
+    [cpuImg setTemplate:YES];
+    [item setImage:cpuImg];
+
     [item setTarget:self];
     [item setAction:@selector(CPU:)];
     toolbarItems[@"CPU"] = item;
@@ -72,7 +105,14 @@
     [item setLabel:@"Memory"];
     [item setPaletteLabel:@"Memory"];
     [item setToolTip:@"Memory Graph Options"];
-    [item setImage:[NSImage imageNamed:@"Preferences-Memory.tiff"]];
+    NSImage *memoryImg = nil;
+    if (@available(macOS 11.0, *)) {
+        memoryImg = [NSImage imageWithSystemSymbolName:@"memorychip" accessibilityDescription:@"Memory"];
+    }
+    if (!memoryImg) { memoryImg = [NSImage imageNamed:@"Preferences-Memory.tiff"]; }
+    [memoryImg setTemplate:YES];
+    [item setImage:memoryImg];
+
     [item setTarget:self];
     [item setAction:@selector(RAM:)];
     toolbarItems[@"RAM"] = item;
@@ -82,7 +122,14 @@
     [item setLabel:@"Temperature"];
     [item setPaletteLabel:@"Temperature"];
     [item setToolTip:@"Temperature Graph Options"];
-    [item setImage:[NSImage imageNamed:@"Preferences-Temperature.tiff"]];
+    NSImage *temperatureImg = nil;
+    if (@available(macOS 11.0, *)) {
+        temperatureImg = [NSImage imageWithSystemSymbolName:@"thermometer" accessibilityDescription:@"Temperature"];
+    }
+    if (!temperatureImg) { temperatureImg = [NSImage imageNamed:@"Preferences-Temperature.tiff"]; }
+    [temperatureImg setTemplate:YES];
+    [item setImage:temperatureImg];
+
     [item setTarget:self];
     [item setAction:@selector(Temperature:)];
     toolbarItems[@"Temperature"] = item;
@@ -92,7 +139,17 @@
     [item setLabel:@"Network"];
     [item setPaletteLabel:@"Network"];
     [item setToolTip:@"Network Graph Options"];
-    [item setImage:[NSImage imageNamed:@"Preferences-Network.tiff"]];
+    NSImage *networkImg = nil;
+    if (@available(macOS 11.0, *)) {
+        networkImg = [NSImage imageWithSystemSymbolName:@"network" accessibilityDescription:@"Network"];
+        if (!networkImg) {
+            networkImg = [NSImage imageWithSystemSymbolName:@"dot.radiowaves.left.and.right" accessibilityDescription:@"Network"];
+        }
+    }
+    if (!networkImg) { networkImg = [NSImage imageNamed:@"Preferences-Network.tiff"]; }
+    [networkImg setTemplate:YES];
+    [item setImage:networkImg];
+
     [item setTarget:self];
     [item setAction:@selector(Network:)];
     toolbarItems[@"Network"] = item;
@@ -102,7 +159,14 @@
     [item setLabel:@"Disk"];
     [item setPaletteLabel:@"Disk"];
     [item setToolTip:@"Disk Graph Options"];
-    [item setImage:[NSImage imageNamed:@"Preferences-Disk.tiff"]];
+    NSImage *diskImg = nil;
+    if (@available(macOS 11.0, *)) {
+        diskImg = [NSImage imageWithSystemSymbolName:@"externaldrive" accessibilityDescription:@"Disk"];
+    }
+    if (!diskImg) { diskImg = [NSImage imageNamed:@"Preferences-Disk.tiff"]; }
+    [diskImg setTemplate:YES];
+    [item setImage:diskImg];
+
     [item setTarget:self];
     [item setAction:@selector(Disk:)];
     toolbarItems[@"Disk"] = item;
@@ -112,7 +176,14 @@
     [item setLabel:@"Weather"];
     [item setPaletteLabel:@"Weather"];
     [item setToolTip:@"Weather Graph Options"];
-    [item setImage:[NSImage imageNamed:@"Preferences-Weather.tiff"]];
+    NSImage *weatherImg = nil;
+    if (@available(macOS 11.0, *)) {
+        weatherImg = [NSImage imageWithSystemSymbolName:@"cloud.sun" accessibilityDescription:@"Weather"];
+    }
+    if (!weatherImg) { weatherImg = [NSImage imageNamed:@"Preferences-Weather.tiff"]; }
+    [weatherImg setTemplate:YES];
+    [item setImage:weatherImg];
+
     [item setTarget:self];
     [item setAction:@selector(Weather:)];
     toolbarItems[@"Weather"] = item;
@@ -122,10 +193,43 @@
     [item setLabel:@"Stocks"];
     [item setPaletteLabel:@"Stocks"];
     [item setToolTip:@"Stock Graph Options"];
-    [item setImage:[NSImage imageNamed:@"Preferences-Stocks.tiff"]];
+    NSImage *stocksImg = nil;
+    if (@available(macOS 11.0, *)) {
+        stocksImg = [NSImage imageWithSystemSymbolName:@"chart.line.uptrend.xyaxis" accessibilityDescription:@"Stocks"];
+    }
+    if (!stocksImg) { stocksImg = [NSImage imageNamed:@"Preferences-Stocks.tiff"]; }
+    [stocksImg setTemplate:YES];
+    [item setImage:stocksImg];
+
     [item setTarget:self];
     [item setAction:@selector(Stocks:)];
     toolbarItems[@"Stocks"] = item;
+    
+    // add the AI toolbar item
+    item = [[NSToolbarItem alloc] initWithItemIdentifier:@"AI"];
+    [item setLabel:@"AI"];
+    [item setPaletteLabel:@"AI"];
+    [item setToolTip:@"AI Token Preferences"];
+    NSImage *aiImage = nil;
+    if (@available(macOS 11.0, *)) {
+        aiImage = [NSImage imageWithSystemSymbolName:@"robot" accessibilityDescription:@"AI"];
+        if (!aiImage) {
+            aiImage = [NSImage imageWithSystemSymbolName:@"brain" accessibilityDescription:@"AI"];
+        }
+    }
+    if (!aiImage) {
+        aiImage = [NSImage imageNamed:@"Preferences-AI.tiff"]; // optional bundled asset
+    }
+    if (!aiImage) {
+        aiImage = [NSImage imageNamed:@"Preferences-Stocks.tiff"]; // final fallback to avoid nil
+    }
+    [aiImage setTemplate:YES];
+    [item setImage:aiImage];
+
+    [item setTarget:self];
+    [item setAction:@selector(AI:)];
+    toolbarItems[@"AI"] = item;
+
     // we want to handle the actions for the toolbar
     [toolbar setDelegate:self];
 	[toolbar setSelectedItemIdentifier:@"General"];
@@ -185,23 +289,23 @@
     ];
     [defs setObject:
         [NSArchiver archivedDataWithRootObject:[graphFG1ColorWell color]]
-        forKey: XRG_graphFG1Color
+        forKey:XRG_graphFG1Color
     ];
     [defs setObject:
         [NSArchiver archivedDataWithRootObject: [graphFG2ColorWell color]]
-        forKey: XRG_graphFG2Color
+        forKey:XRG_graphFG2Color
     ];
     [defs setObject:
         [NSArchiver archivedDataWithRootObject: [graphFG3ColorWell color]]
-        forKey: XRG_graphFG3Color
+        forKey:XRG_graphFG3Color
     ];
     [defs setObject:
         [NSArchiver archivedDataWithRootObject: [borderColorWell color]]
-        forKey: XRG_borderColor
+        forKey:XRG_borderColor
     ];
     [defs setObject:
         [NSArchiver archivedDataWithRootObject: [textColorWell color]]
-        forKey: XRG_textColor
+        forKey:XRG_textColor
     ];
     
     if ([graphOrientation indexOfSelectedItem] == 0)
@@ -236,6 +340,10 @@
     [defs setObject: ([showDiskGraph state] == NSOnState ? @"YES" : @"NO")           forKey:XRG_showDiskGraph];    
     [defs setObject: ([showWeatherGraph state] == NSOnState ? @"YES" : @"NO")        forKey:XRG_showWeatherGraph];    
     [defs setObject: ([showStockGraph state] == NSOnState ? @"YES" : @"NO")          forKey:XRG_showStockGraph];   
+
+    if (self.showAITokensGraph) {
+        [defs setObject:([self.showAITokensGraph state] == NSOnState ? @"YES" : @"NO") forKey:XRG_showAITokenGraph];
+    }
      
     // CPU graph checkboxes
     [defs setObject: ([fastCPUUsageCheckbox state] == NSOnState ? @"YES" : @"NO")    forKey:XRG_showCPUBars];
@@ -434,6 +542,32 @@
         [showStockGraph setState:NSOnState];
     else
         [showStockGraph setState:NSOffState];
+
+    // Setup show AI Tokens graph (added programmatically)
+    if (!self.showAITokensGraph) {
+        NSButton *aiBtn = [NSButton checkboxWithTitle:@"AI Tokens" target:self.xrgGraphWindow action:@selector(setShowAITokenGraph:)];
+        // Position the new checkbox just below the Stock checkbox
+        NSView *container = [showStockGraph superview];
+        NSRect stockFrame = [showStockGraph frame];
+        NSRect aiFrame = stockFrame;
+        aiFrame.origin.y = NSMinY(stockFrame) - (NSHeight(stockFrame) + 8.0);
+        aiBtn.frame = aiFrame;
+        
+        // Initial state based on module visibility
+        if ([[self.xrgGraphWindow.moduleManager getModuleByName:@"AI Tokens"] isDisplayed])
+            [aiBtn setState:NSOnState];
+        else
+            [aiBtn setState:NSOffState];
+        
+        [container addSubview:aiBtn];
+        self.showAITokensGraph = aiBtn;
+    } else {
+        // Update state if it already exists
+        if ([[self.xrgGraphWindow.moduleManager getModuleByName:@"AI Tokens"] isDisplayed])
+            [self.showAITokensGraph setState:NSOnState];
+        else
+            [self.showAITokensGraph setState:NSOffState];
+    }
 
     // Setup graph refresh
     [graphRefreshValue setTarget:self];
@@ -1189,6 +1323,19 @@
 	}
 }
 
+-(IBAction) AI:(id)sender {
+    if (!self.aiPrefController) {
+        self.aiPrefController = [[XRGAIPrefController alloc] initWithNibName:nil bundle:nil];
+        (void)self.aiPrefController.view;
+    }
+    if (currentView != self.aiPrefController.view) {
+        [self switchWindowFromView:currentView toView:self.aiPrefController.view];
+        currentView = self.aiPrefController.view;
+        [window setTitle:@"AI Preferences"];
+        [toolbar setSelectedItemIdentifier:@"AI"];
+    }
+}
+
 -(IBAction) openWeatherStationList:(id)sender {
     [NSTask 
         launchedTaskWithLaunchPath:@"/usr/bin/open"
@@ -1233,17 +1380,17 @@
 // This method is required of NSToolbar delegates.  It returns an array holding identifiers for the default
 // set of toolbar items.  It can also be called by the customization palette to display the default toolbar.    
 - (NSArray *)toolbarDefaultItemIdentifiers:(NSToolbar*)toolbar {
-    return @[@"General", @"Appearance", @"CPU", @"RAM", @"Temperature", @"Network", @"Disk", @"Weather", @"Stocks"];
+    return @[@"General", @"Appearance", @"CPU", @"RAM", @"Temperature", @"Network", @"Disk", @"Weather", @"Stocks", @"AI"];
 }
 
 // This method is required of NSToolbar delegates.  It returns an array holding identifiers for all allowed
 // toolbar items in this toolbar.  Any not listed here will not be available in the customization palette.
 - (NSArray *)toolbarAllowedItemIdentifiers:(NSToolbar*)toolbar {
-    return @[@"General", @"Appearance", @"CPU", @"RAM", @"Temperature", @"Network", @"Disk", @"Weather", @"Stocks"];
+    return @[@"General", @"Appearance", @"CPU", @"RAM", @"Temperature", @"Network", @"Disk", @"Weather", @"Stocks", @"AI"];
 }
 
 - (NSArray *)toolbarSelectableItemIdentifiers:(NSToolbar*)toolbar {
-    return @[@"General", @"Appearance", @"CPU", @"RAM", @"Temperature", @"Network", @"Disk", @"Weather", @"Stocks"];
+    return @[@"General", @"Appearance", @"CPU", @"RAM", @"Temperature", @"Network", @"Disk", @"Weather", @"Stocks", @"AI"];
 }
 
 - (void) windowWillClose:(NSNotification *)aNotification {
@@ -1251,3 +1398,6 @@
 }
 
 @end
+
+
+

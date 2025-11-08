@@ -1,0 +1,563 @@
+/*
+ * XRG (X Resource Graph):  A system resource grapher for Mac OS X.
+ * Copyright (C) 2002-2022 Gaucho Software, LLC.
+ * You can view the complete license in the LICENSE file in the root
+ * of the source tree.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ *
+ */
+
+//
+//  XRGAITokenMiner.m
+//  Universal AI Token monitoring implementation
+//
+
+#import "XRGAITokenMiner.h"
+#import "definitions.h"
+#import <sqlite3.h>
+
+@implementation XRGAITokenMiner
+
+@synthesize totalClaudeTokens = _totalClaudeTokens;
+@synthesize totalCodexTokens = _totalCodexTokens;
+@synthesize totalOtherTokens = _totalOtherTokens;
+@synthesize totalCostUSD = _totalCostUSD;
+@synthesize activeStrategy;
+
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        // Initialize data sets
+        claudeCodeTokens = [[XRGDataSet alloc] init];
+        codexTokens = [[XRGDataSet alloc] init];
+        otherAITokens = [[XRGDataSet alloc] init];
+
+        // Initialize counters
+        _totalClaudeTokens = 0;
+        _totalCodexTokens = 0;
+        _totalOtherTokens = 0;
+        _totalCostUSD = 0.0;
+        lastClaudeCount = 0;
+        lastCodexCount = 0;
+        lastOtherCount = 0;
+
+        // Initialize current rates
+        currentClaudeRate = 0;
+        currentCodexRate = 0;
+        currentOtherRate = 0;
+
+        // Initialize paths
+        NSString *homeDir = NSHomeDirectory();
+        jsonlProjectsPath = [homeDir stringByAppendingPathComponent:@".claude/projects"];
+        dbPath = [homeDir stringByAppendingPathComponent:@".claude/monitoring/claude_usage.db"];
+        otelEndpoint = @"http://localhost:8889/metrics";
+
+        // Initialize JSONL cache for performance
+        jsonlFileModTimes = [[NSMutableDictionary alloc] init];
+        cachedJSONLTokens = 0;
+        lastJSONLScanTime = nil;
+
+        // Create background queue for non-blocking file operations
+        jsonlParsingQueue = dispatch_queue_create("com.xrg.jsonl.parsing", DISPATCH_QUEUE_SERIAL);
+        cacheSemaphore = dispatch_semaphore_create(1);
+
+        // Detect best data collection strategy
+        [self detectBestStrategy];
+
+        // Initial data fetch (will trigger background update if JSONL strategy)
+        [self getLatestTokenInfo];
+
+        // If using JSONL strategy, trigger immediate background cache build
+        if (activeStrategy == XRGAIDataStrategyJSONL) {
+            dispatch_async(jsonlParsingQueue, ^{
+                [self updateJSONLCacheInBackground];
+            });
+        }
+
+#ifdef XRG_DEBUG
+        NSLog(@"[XRGAITokenMiner] Initialized with strategy: %@", [self strategyName]);
+#endif
+    }
+
+    return self;
+}
+
+- (void)setDataSize:(int)newNumSamples {
+    if (newNumSamples < 0) return;
+
+    if (claudeCodeTokens && codexTokens && otherAITokens) {
+        [claudeCodeTokens resize:(size_t)newNumSamples];
+        [codexTokens resize:(size_t)newNumSamples];
+        [otherAITokens resize:(size_t)newNumSamples];
+    }
+    else {
+        claudeCodeTokens = [[XRGDataSet alloc] init];
+        codexTokens = [[XRGDataSet alloc] init];
+        otherAITokens = [[XRGDataSet alloc] init];
+
+        [claudeCodeTokens resize:(size_t)newNumSamples];
+        [codexTokens resize:(size_t)newNumSamples];
+        [otherAITokens resize:(size_t)newNumSamples];
+    }
+
+    numSamples = newNumSamples;
+}
+
+- (void)reset {
+    [claudeCodeTokens reset];
+    [codexTokens reset];
+    [otherAITokens reset];
+
+    _totalClaudeTokens = 0;
+    _totalCodexTokens = 0;
+    _totalOtherTokens = 0;
+    _totalCostUSD = 0.0;
+    lastClaudeCount = 0;
+    lastCodexCount = 0;
+    lastOtherCount = 0;
+
+    currentClaudeRate = 0;
+    currentCodexRate = 0;
+    currentOtherRate = 0;
+}
+
+- (void)detectBestStrategy {
+    // Try strategies in priority order until one works
+
+    // Strategy 1: JSONL transcripts (universal - works for EVERYONE with default Claude Code)
+    NSFileManager *fm = [NSFileManager defaultManager];
+    if ([fm fileExistsAtPath:jsonlProjectsPath]) {
+        activeStrategy = XRGAIDataStrategyJSONL;
+#ifdef XRG_DEBUG
+        NSLog(@"[XRGAITokenMiner] Using JSONL strategy: %@", jsonlProjectsPath);
+#endif
+        return;
+    }
+
+    // Strategy 2: SQLite database (advanced - custom monitoring setup)
+    if ([fm fileExistsAtPath:dbPath]) {
+        activeStrategy = XRGAIDataStrategySQLite;
+#ifdef XRG_DEBUG
+        NSLog(@"[XRGAITokenMiner] Using SQLite strategy: %@", dbPath);
+#endif
+        return;
+    }
+
+    // Strategy 3: OpenTelemetry endpoint (advanced - OTel configured)
+    NSURL *url = [NSURL URLWithString:otelEndpoint];
+    if (url) {
+        NSURLRequest *request = [NSURLRequest requestWithURL:url
+                                                 cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
+                                             timeoutInterval:1.0];
+        NSHTTPURLResponse *response = nil;
+        NSError *error = nil;
+        [NSURLConnection sendSynchronousRequest:request
+                              returningResponse:&response
+                                          error:&error];
+
+        if (!error && response && [response statusCode] == 200) {
+            activeStrategy = XRGAIDataStrategyOTel;
+#ifdef XRG_DEBUG
+            NSLog(@"[XRGAITokenMiner] Using OTel strategy: %@", otelEndpoint);
+#endif
+            return;
+        }
+    }
+
+    // No strategy available
+    activeStrategy = XRGAIDataStrategyNone;
+#ifdef XRG_DEBUG
+    NSLog(@"[XRGAITokenMiner] WARNING: No data strategy available");
+#endif
+}
+
+- (NSString *)strategyName {
+    switch (activeStrategy) {
+        case XRGAIDataStrategyJSONL:
+            return @"JSONL Transcripts (Universal - Default Claude Code)";
+        case XRGAIDataStrategySQLite:
+            return @"SQLite Database (Advanced - Custom Monitoring)";
+        case XRGAIDataStrategyOTel:
+            return @"OpenTelemetry Endpoint (Advanced - OTel Configured)";
+        default:
+            return @"None (No data available)";
+    }
+}
+
+- (void)getLatestTokenInfo {
+    BOOL success = NO;
+
+    // Try active strategy first
+    switch (activeStrategy) {
+        case XRGAIDataStrategyJSONL:
+            success = [self fetchFromJSONLTranscripts];
+            break;
+        case XRGAIDataStrategySQLite:
+            success = [self fetchFromSQLiteDatabase];
+            break;
+        case XRGAIDataStrategyOTel:
+            success = [self fetchFromOTelEndpoint];
+            break;
+        default:
+            break;
+    }
+
+    // If active strategy failed, try to detect a new strategy
+    if (!success && activeStrategy != XRGAIDataStrategyNone) {
+#ifdef XRG_DEBUG
+        NSLog(@"[XRGAITokenMiner] Active strategy failed, re-detecting...");
+#endif
+        [self detectBestStrategy];
+    }
+
+    // Calculate rates (delta from last update) - CRITICAL: Calculate BEFORE updating lastCount
+    currentClaudeRate = (UInt32)(_totalClaudeTokens - lastClaudeCount);
+    currentCodexRate = (UInt32)(_totalCodexTokens - lastCodexCount);
+    currentOtherRate = (UInt32)(_totalOtherTokens - lastOtherCount);
+
+    // Update last counts
+    lastClaudeCount = _totalClaudeTokens;
+    lastCodexCount = _totalCodexTokens;
+    lastOtherCount = _totalOtherTokens;
+
+    // Store rates in data sets
+    if (claudeCodeTokens) [claudeCodeTokens setNextValue:currentClaudeRate];
+    if (codexTokens) [codexTokens setNextValue:currentCodexRate];
+    if (otherAITokens) [otherAITokens setNextValue:currentOtherRate];
+}
+
+#pragma mark - Strategy 1: SQLite Database (Universal)
+
+- (BOOL)fetchFromSQLiteDatabase {
+    sqlite3 *db = NULL;
+    int rc = sqlite3_open([dbPath UTF8String], &db);
+
+    if (rc != SQLITE_OK) {
+#ifdef XRG_DEBUG
+        NSLog(@"[XRGAITokenMiner] Failed to open database: %s", sqlite3_errmsg(db));
+#endif
+        sqlite3_close(db);
+        return NO;
+    }
+
+    // Query for total tokens and cost
+    const char *sql = "SELECT SUM(tokens_used) as total_tokens, SUM(estimated_cost) as total_cost FROM sessions WHERE tokens_used > 0";
+    sqlite3_stmt *stmt = NULL;
+
+    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+#ifdef XRG_DEBUG
+        NSLog(@"[XRGAITokenMiner] Failed to prepare statement: %s", sqlite3_errmsg(db));
+#endif
+        sqlite3_close(db);
+        return NO;
+    }
+
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        _totalClaudeTokens = (UInt64)sqlite3_column_int64(stmt, 0);
+        _totalCostUSD = sqlite3_column_double(stmt, 1);
+
+#ifdef XRG_DEBUG
+        NSLog(@"[XRGAITokenMiner] SQLite: tokens=%llu, cost=$%.4f", _totalClaudeTokens, _totalCostUSD);
+#endif
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+
+    return YES;
+}
+
+#pragma mark - Strategy 2: OpenTelemetry Endpoint (Advanced)
+
+- (BOOL)fetchFromOTelEndpoint {
+    NSURL *url = [NSURL URLWithString:otelEndpoint];
+    if (!url) return NO;
+
+    NSURLRequest *request = [NSURLRequest requestWithURL:url
+                                             cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
+                                         timeoutInterval:2.0];
+
+    NSError *error = nil;
+    NSHTTPURLResponse *response = nil;
+    NSData *data = [NSURLConnection sendSynchronousRequest:request
+                                         returningResponse:&response
+                                                     error:&error];
+
+    if (error || !data || [response statusCode] != 200) {
+#ifdef XRG_DEBUG
+        if (error) NSLog(@"[XRGAITokenMiner] OTel error: %@", error);
+#endif
+        return NO;
+    }
+
+    NSString *metricsText = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    if (!metricsText) return NO;
+
+    // Parse Prometheus format metrics
+    [self parsePrometheusMetrics:metricsText];
+    return YES;
+}
+
+- (void)parsePrometheusMetrics:(NSString *)metricsText {
+    NSArray *lines = [metricsText componentsSeparatedByString:@"\n"];
+
+    UInt64 inputTokens = 0;
+    UInt64 outputTokens = 0;
+    UInt64 cacheReadTokens = 0;
+    UInt64 cacheCreateTokens = 0;
+    double costUSD = 0.0;
+
+    for (NSString *line in lines) {
+        if ([line hasPrefix:@"#"] || [line length] == 0) continue;
+
+        if ([line containsString:@"token_usage"] || [line containsString:@"tokens"]) {
+            if ([line containsString:@"input"]) {
+                inputTokens += [self extractValueFromMetricLine:line];
+            }
+            else if ([line containsString:@"output"]) {
+                outputTokens += [self extractValueFromMetricLine:line];
+            }
+            else if ([line containsString:@"cache_read"]) {
+                cacheReadTokens += [self extractValueFromMetricLine:line];
+            }
+            else if ([line containsString:@"cache_create"]) {
+                cacheCreateTokens += [self extractValueFromMetricLine:line];
+            }
+        }
+        else if ([line containsString:@"cost"]) {
+            costUSD += [self extractDoubleValueFromMetricLine:line];
+        }
+    }
+
+    _totalClaudeTokens = inputTokens + outputTokens + cacheReadTokens + cacheCreateTokens;
+    _totalCostUSD = costUSD;
+}
+
+- (UInt64)extractValueFromMetricLine:(NSString *)line {
+    NSArray *parts = [line componentsSeparatedByString:@" "];
+    NSMutableArray *nonEmptyParts = [NSMutableArray array];
+    for (NSString *part in parts) {
+        if ([part length] > 0) [nonEmptyParts addObject:part];
+    }
+
+    if ([nonEmptyParts count] >= 2) {
+        NSString *valueStr = nonEmptyParts[[nonEmptyParts count] - 2];
+        return (UInt64)[valueStr longLongValue];
+    }
+    return 0;
+}
+
+- (double)extractDoubleValueFromMetricLine:(NSString *)line {
+    NSArray *parts = [line componentsSeparatedByString:@" "];
+    NSMutableArray *nonEmptyParts = [NSMutableArray array];
+    for (NSString *part in parts) {
+        if ([part length] > 0) [nonEmptyParts addObject:part];
+    }
+
+    if ([nonEmptyParts count] >= 2) {
+        NSString *valueStr = nonEmptyParts[[nonEmptyParts count] - 2];
+        return [valueStr doubleValue];
+    }
+    return 0.0;
+}
+
+#pragma mark - Strategy 1: JSONL Transcripts (Universal)
+
+- (BOOL)fetchFromJSONLTranscripts {
+    // CRITICAL: Return immediately with cached value (non-blocking!)
+    // File operations happen asynchronously on background queue
+
+    // Thread-safe read of cached value
+    dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+    _totalClaudeTokens = cachedJSONLTokens;
+    dispatch_semaphore_signal(cacheSemaphore);
+
+    // Check if we should trigger background update
+    NSDate *now = [NSDate date];
+    BOOL shouldUpdate = NO;
+
+    dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+
+    // ALWAYS trigger update if:
+    // 1. First time (no last scan time)
+    // 2. Been more than 1 second since last scan (to catch active file writes)
+    // Original 30-second throttle was too slow for real-time tracking
+    if (!lastJSONLScanTime || [now timeIntervalSinceDate:lastJSONLScanTime] > 1.0) {
+        shouldUpdate = YES;
+        lastJSONLScanTime = now; // Prevent multiple simultaneous updates
+    }
+    dispatch_semaphore_signal(cacheSemaphore);
+
+    // Dispatch background update (non-blocking)
+    if (shouldUpdate) {
+        dispatch_async(jsonlParsingQueue, ^{
+            [self updateJSONLCacheInBackground];
+        });
+    }
+
+    return YES; // Always succeeds (returns cached value immediately)
+}
+
+// Background thread method - does all the heavy file I/O
+- (void)updateJSONLCacheInBackground {
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSError *error = nil;
+
+    // Get all project directories in ~/.claude/projects/
+    NSArray *projects = [fm contentsOfDirectoryAtPath:jsonlProjectsPath error:&error];
+    if (error || !projects) {
+#ifdef XRG_DEBUG
+        NSLog(@"[XRGAITokenMiner] Cannot access JSONL projects path: %@", jsonlProjectsPath);
+#endif
+        return;
+    }
+
+    // Thread-safe read of current cache
+    dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+    UInt64 totalTokens = cachedJSONLTokens;
+    NSMutableDictionary *modTimes = [jsonlFileModTimes mutableCopy]; // Work on copy
+    dispatch_semaphore_signal(cacheSemaphore);
+
+    BOOL anyChanges = NO;
+
+    // Scan all project directories (on background thread - won't block UI)
+    for (NSString *projectName in projects) {
+        NSString *projectPath = [jsonlProjectsPath stringByAppendingPathComponent:projectName];
+
+        BOOL isDir = NO;
+        if (![fm fileExistsAtPath:projectPath isDirectory:&isDir] || !isDir) {
+            continue;
+        }
+
+        NSArray *files = [fm contentsOfDirectoryAtPath:projectPath error:nil];
+        if (!files) continue;
+
+        for (NSString *filename in files) {
+            if ([filename hasSuffix:@".jsonl"]) {
+                NSString *filePath = [projectPath stringByAppendingPathComponent:filename];
+
+                NSDictionary *attrs = [fm attributesOfItemAtPath:filePath error:nil];
+                if (!attrs) continue;
+
+                NSDate *modTime = attrs[NSFileModificationDate];
+                NSDate *cachedModTime = modTimes[filePath];
+
+                // Skip unchanged files
+                if (cachedModTime && [modTime isEqualToDate:cachedModTime]) {
+                    continue;
+                }
+
+                // File is new or modified - parse it
+                anyChanges = YES;
+
+                // Subtract old tokens if file was previously cached
+                NSNumber *oldFileTokens = modTimes[[filePath stringByAppendingString:@"_tokens"]];
+                if (oldFileTokens) {
+                    totalTokens -= [oldFileTokens unsignedLongLongValue];
+                }
+
+                // Parse this file (on background thread)
+                UInt64 fileTokens = [self parseJSONLFile:filePath];
+
+                totalTokens += fileTokens;
+
+                // Update local copy of cache
+                modTimes[filePath] = modTime;
+                modTimes[[filePath stringByAppendingString:@"_tokens"]] = @(fileTokens);
+            }
+        }
+    }
+
+    // Thread-safe update of cache (only if changes detected)
+    if (anyChanges) {
+        dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+        cachedJSONLTokens = totalTokens;
+        jsonlFileModTimes = modTimes; // Replace with updated copy
+        dispatch_semaphore_signal(cacheSemaphore);
+
+#ifdef XRG_DEBUG
+        NSLog(@"[XRGAITokenMiner] JSONL cache updated in background: tokens=%llu", totalTokens);
+#endif
+    }
+}
+
+// Helper method to parse a single JSONL file
+- (UInt64)parseJSONLFile:(NSString *)filePath {
+    NSString *content = [NSString stringWithContentsOfFile:filePath
+                                                  encoding:NSUTF8StringEncoding
+                                                     error:nil];
+    if (!content) return 0;
+
+    UInt64 fileTokens = 0;
+
+    // Parse line-delimited JSON (JSONL format - one JSON object per line)
+    NSArray *lines = [content componentsSeparatedByString:@"\n"];
+    for (NSString *line in lines) {
+        if ([line length] == 0) continue;
+
+        NSData *jsonData = [line dataUsingEncoding:NSUTF8StringEncoding];
+        NSError *parseError = nil;
+        NSDictionary *data = [NSJSONSerialization JSONObjectWithData:jsonData
+                                                            options:0
+                                                              error:&parseError];
+
+        // Extract token usage from message.usage
+        if (data && data[@"message"] && data[@"message"][@"usage"]) {
+            NSDictionary *usage = data[@"message"][@"usage"];
+
+            // Sum all token types
+            fileTokens += [usage[@"input_tokens"] unsignedLongLongValue];
+            fileTokens += [usage[@"output_tokens"] unsignedLongLongValue];
+            fileTokens += [usage[@"cache_creation_input_tokens"] unsignedLongLongValue];
+            fileTokens += [usage[@"cache_read_input_tokens"] unsignedLongLongValue];
+        }
+    }
+
+    return fileTokens;
+}
+
+#pragma mark - Accessor Methods
+
+- (UInt32)claudeTokenRate {
+    return currentClaudeRate;
+}
+
+- (UInt32)codexTokenRate {
+    return currentCodexRate;
+}
+
+- (UInt32)otherTokenRate {
+    return currentOtherRate;
+}
+
+- (UInt32)totalTokenRate {
+    return currentClaudeRate + currentCodexRate + currentOtherRate;
+}
+
+- (XRGDataSet *)claudeTokenData {
+    return claudeCodeTokens;
+}
+
+- (XRGDataSet *)codexTokenData {
+    return codexTokens;
+}
+
+- (XRGDataSet *)otherTokenData {
+    return otherAITokens;
+}
+
+@end

@@ -136,6 +136,14 @@ typedef struct network_interface_stats {
 #define XRG_showStockGraph				@"showStockGraph"
 #define XRG_showBatteryGraph			@"showBatteryGraph"
 #define XRG_showTemperatureGraph        @"showTemperatureGraph"
+#define XRG_showAITokenGraph            @"showAITokenGraph"
+
+#define XRG_aiTokenClaudeLogPath        @"aiTokenClaudeLogPath"
+#define XRG_aiTokenCodexLogPath         @"aiTokenCodexLogPath"
+#define XRG_aiTokenOTelEndpoint         @"aiTokenOTelEndpoint"
+#define XRG_aiTokenShowCost             @"aiTokenShowCost"
+#define XRG_aiTokenShowRates            @"aiTokenShowRates"
+#define XRG_aiTokenShowTotals           @"aiTokenShowTotals"
 
 #define XRG_CPUOrder					@"CPUOrder"
 #define XRG_NetworkOrder				@"NetworkOrder"
@@ -144,6 +152,7 @@ typedef struct network_interface_stats {
 #define XRG_WeatherOrder				@"WeatherOrder"
 #define XRG_StockOrder					@"StockOrder"
 #define XRG_BatteryOrder				@"BatteryOrder"
+#define XRG_AITokenOrder				@"AITokenOrder"
 
 #define XRG_CPU							1
 #define XRG_MEMORY						2
@@ -151,6 +160,7 @@ typedef struct network_interface_stats {
 #define XRG_NET							4
 #define XRG_DISK						5
 #define XRG_WEATHER						6
+#define XRG_AITOKEN						7
 
 #define FLOAT(x) [NSNumber numberWithFloat:x]
 

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="22154" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="24128" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
     <dependencies>
         <deployment identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="22154"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="24128"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
@@ -101,7 +101,7 @@
             <windowStyleMask key="styleMask" titled="YES" closable="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="174" y="312" width="459" height="402"/>
-            <rect key="screenRect" x="0.0" y="0.0" width="1512" height="944"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="1710" height="1072"/>
             <value key="minSize" type="size" width="213" height="107"/>
             <view key="contentView" id="8">
                 <rect key="frame" x="0.0" y="0.0" width="459" height="402"/>
@@ -120,7 +120,7 @@
                     <rect key="frame" x="18" y="16" width="353" height="136"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <view key="contentView" id="Ykz-rs-RRJ">
-                        <rect key="frame" x="4" y="5" width="345" height="116"/>
+                        <rect key="frame" x="0.0" y="0.0" width="353" height="124"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <button toolTip="Enable/Disable the CPU Graph" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="556">
@@ -195,6 +195,14 @@
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
                             </button>
+                            <button toolTip="Enable/Disable the Stock Graph" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="iQy-4k-dsr">
+                                <rect key="frame" x="192" y="12" width="101" height="18"/>
+                                <autoresizingMask key="autoresizingMask"/>
+                                <buttonCell key="cell" type="check" title="AI Tokens" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="fyw-f5-aQG">
+                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                    <font key="font" metaFont="smallSystem"/>
+                                </buttonCell>
+                            </button>
                         </subviews>
                     </view>
                 </box>
@@ -202,7 +210,7 @@
                     <rect key="frame" x="373" y="88" width="353" height="218"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <view key="contentView" id="2n5-fw-sRY">
-                        <rect key="frame" x="4" y="5" width="345" height="198"/>
+                        <rect key="frame" x="0.0" y="0.0" width="353" height="206"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <slider toolTip="Change the amount of time between graph refresh." verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="377">
@@ -307,7 +315,7 @@
                     <rect key="frame" x="18" y="156" width="353" height="150"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <view key="contentView" id="tYp-3K-dTE">
-                        <rect key="frame" x="4" y="5" width="345" height="130"/>
+                        <rect key="frame" x="0.0" y="0.0" width="353" height="138"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <textField focusRingType="none" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" fixedFrame="YES" preferredMaxLayoutWidth="150" translatesAutoresizingMaskIntoConstraints="NO" id="378">
@@ -405,7 +413,7 @@
                     <rect key="frame" x="381" y="57" width="269" height="98"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <view key="contentView" id="1kz-y8-XAN">
-                        <rect key="frame" x="4" y="5" width="261" height="78"/>
+                        <rect key="frame" x="0.0" y="0.0" width="269" height="86"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <slider toolTip="Change the text transparency." verticalHuggingPriority="750" fixedFrame="YES" tag="27" translatesAutoresizingMaskIntoConstraints="NO" id="395">
@@ -438,7 +446,7 @@
                     <rect key="frame" x="381" y="160" width="269" height="81"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <view key="contentView" id="TkU-uW-OPc">
-                        <rect key="frame" x="4" y="5" width="261" height="61"/>
+                        <rect key="frame" x="0.0" y="0.0" width="269" height="69"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <button toolTip="Load colors and transparencies from an XRG Theme File." verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="733">
@@ -470,7 +478,7 @@
                     <rect key="frame" x="17" y="16" width="362" height="225"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <view key="contentView" id="rAx-53-u9V">
-                        <rect key="frame" x="4" y="5" width="354" height="205"/>
+                        <rect key="frame" x="0.0" y="0.0" width="362" height="213"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <colorWell toolTip="Change the secondary graph foreground color." fixedFrame="YES" tag="24" translatesAutoresizingMaskIntoConstraints="NO" id="391">
@@ -507,12 +515,12 @@
                                 </textFieldCell>
                             </textField>
                             <slider toolTip="Change the tertiary graph foreground transparency." verticalHuggingPriority="750" fixedFrame="YES" tag="25" translatesAutoresizingMaskIntoConstraints="NO" id="397">
-                                <rect key="frame" x="196" y="49" width="144" height="17"/>
+                                <rect key="frame" x="196" y="57" width="144" height="17"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                                 <sliderCell key="cell" controlSize="small" continuous="YES" alignment="left" tag="25" maxValue="1" doubleValue="1" tickMarkPosition="below" numberOfTickMarks="11" sliderType="linear" id="1125"/>
                             </slider>
                             <slider toolTip="Change the secondary graph foreground transparency." verticalHuggingPriority="750" fixedFrame="YES" tag="24" translatesAutoresizingMaskIntoConstraints="NO" id="398">
-                                <rect key="frame" x="196" y="79" width="144" height="17"/>
+                                <rect key="frame" x="196" y="87" width="144" height="17"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                                 <sliderCell key="cell" controlSize="small" continuous="YES" alignment="left" tag="24" maxValue="1" doubleValue="1" tickMarkPosition="below" numberOfTickMarks="11" sliderType="linear" id="1126"/>
                             </slider>
@@ -522,17 +530,17 @@
                                 <color key="color" red="0.058130499000000002" green="0.055541898999999999" blue="1" alpha="1" colorSpace="calibratedRGB"/>
                             </colorWell>
                             <slider toolTip="Change the primary graph foreground transparency." verticalHuggingPriority="750" fixedFrame="YES" tag="23" translatesAutoresizingMaskIntoConstraints="NO" id="400">
-                                <rect key="frame" x="196" y="109" width="144" height="17"/>
+                                <rect key="frame" x="196" y="117" width="144" height="17"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                                 <sliderCell key="cell" controlSize="small" continuous="YES" alignment="left" tag="23" maxValue="1" doubleValue="1" tickMarkPosition="below" numberOfTickMarks="11" sliderType="linear" id="1127"/>
                             </slider>
                             <slider toolTip="Change the window background transparency." verticalHuggingPriority="750" fixedFrame="YES" tag="21" translatesAutoresizingMaskIntoConstraints="NO" id="401">
-                                <rect key="frame" x="196" y="169" width="144" height="17"/>
+                                <rect key="frame" x="196" y="177" width="144" height="17"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                                 <sliderCell key="cell" controlSize="small" continuous="YES" alignment="left" tag="21" maxValue="1" doubleValue="0.69999999999999996" tickMarkPosition="below" numberOfTickMarks="11" sliderType="linear" id="1128"/>
                             </slider>
                             <slider toolTip="Change the window and graph border transparency." verticalHuggingPriority="750" fixedFrame="YES" tag="26" translatesAutoresizingMaskIntoConstraints="NO" id="402">
-                                <rect key="frame" x="196" y="19" width="144" height="17"/>
+                                <rect key="frame" x="196" y="27" width="144" height="17"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                                 <sliderCell key="cell" controlSize="small" continuous="YES" alignment="left" tag="26" maxValue="1" doubleValue="1" tickMarkPosition="below" numberOfTickMarks="11" sliderType="linear" id="1129"/>
                             </slider>
@@ -546,7 +554,7 @@
                                 </textFieldCell>
                             </textField>
                             <slider toolTip="Change the graph background transparency." verticalHuggingPriority="750" fixedFrame="YES" tag="22" translatesAutoresizingMaskIntoConstraints="NO" id="405">
-                                <rect key="frame" x="196" y="139" width="144" height="17"/>
+                                <rect key="frame" x="196" y="147" width="144" height="17"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                                 <sliderCell key="cell" controlSize="small" continuous="YES" alignment="left" tag="22" maxValue="1" doubleValue="0.69999999999999996" tickMarkPosition="below" numberOfTickMarks="11" sliderType="linear" id="1131"/>
                             </slider>
@@ -601,7 +609,7 @@
                     <rect key="frame" x="339" y="16" width="259" height="98"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <view key="contentView" id="Lde-gd-d5f">
-                        <rect key="frame" x="4" y="5" width="251" height="78"/>
+                        <rect key="frame" x="0.0" y="0.0" width="259" height="86"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <button toolTip="Display the load average in the upper right corner of the CPU Graph." fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="426">
@@ -635,7 +643,7 @@
                     <rect key="frame" x="19" y="35" width="318" height="79"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <view key="contentView" id="v5q-Ob-aeh">
-                        <rect key="frame" x="4" y="5" width="310" height="59"/>
+                        <rect key="frame" x="0.0" y="0.0" width="318" height="67"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <button toolTip="Fast CPU Bar shows a more immediate CPU usage, though XRG performance will decrease by about 10%." tag="32" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="429">
@@ -730,7 +738,7 @@
                     <rect key="frame" x="380" y="92" width="323" height="79"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <view key="contentView" id="8Hl-8M-2bs">
-                        <rect key="frame" x="4" y="5" width="315" height="59"/>
+                        <rect key="frame" x="0.0" y="0.0" width="323" height="67"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <button toolTip="Display the total bandwidth used since the machine was last booted." fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="820">
@@ -756,7 +764,7 @@
                     <rect key="frame" x="17" y="16" width="361" height="155"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <view key="contentView" id="Oes-m8-bHJ">
-                        <rect key="frame" x="4" y="5" width="353" height="135"/>
+                        <rect key="frame" x="0.0" y="0.0" width="361" height="143"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <popUpButton toolTip="Select which network interface to monitor." verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="440">
@@ -914,7 +922,7 @@
                     <rect key="frame" x="17" y="16" width="275" height="111"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <view key="contentView" id="Vl5-ZG-Gq8">
-                        <rect key="frame" x="4" y="5" width="267" height="91"/>
+                        <rect key="frame" x="0.0" y="0.0" width="275" height="99"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <popUpButton toolTip="Change the secondary network graph." tag="73" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="468">
@@ -974,7 +982,7 @@
                     <rect key="frame" x="294" y="16" width="261" height="112"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <view key="contentView" id="7gl-dJ-Ukl">
-                        <rect key="frame" x="4" y="5" width="253" height="92"/>
+                        <rect key="frame" x="0.0" y="0.0" width="261" height="100"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <textField focusRingType="none" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" fixedFrame="YES" preferredMaxLayoutWidth="88" translatesAutoresizingMaskIntoConstraints="NO" id="462">
