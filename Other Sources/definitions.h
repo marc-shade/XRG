@@ -137,12 +137,9 @@ typedef struct network_interface_stats {
 #define XRG_showBatteryGraph			@"showBatteryGraph"
 #define XRG_showTemperatureGraph        @"showTemperatureGraph"
 #define XRG_showAITokenGraph            @"showAITokenGraph"
-#define XRG_aiTokenClaudeLogPath        @"aiTokenClaudeLogPath"
-#define XRG_aiTokenCodexLogPath         @"aiTokenCodexLogPath"
-#define XRG_aiTokenOTelEndpoint         @"aiTokenOTelEndpoint"
-#define XRG_aiTokenShowCost             @"aiTokenShowCost"
-#define XRG_aiTokenShowRates            @"aiTokenShowRates"
-#define XRG_aiTokenShowTotals           @"aiTokenShowTotals"
+
+// Note: Additional AI Token settings are defined in XRGAISettingsKeys.h
+// to keep AI Token configuration centralized
 
 // AI Token Tracking Keys (for Observer/Budget system)
 #define XRGAITokensDailyPromptTokensKey             @"aiTokensDailyPromptTokens"

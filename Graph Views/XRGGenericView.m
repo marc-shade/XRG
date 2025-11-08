@@ -27,6 +27,7 @@
 #import "XRGGenericView.h"
 #import "XRGCommon.h"
 #import "XRGNonInteractableTextField.h"
+#import "XRGGraphWindow.h"
 
 @implementation XRGGenericView
 
@@ -41,6 +42,17 @@
 - (void)awakeFromNib {
     [super awakeFromNib];
     
+    // Wire up pointers to the parent window's settings and module manager
+    if (!parentWindow) {
+        parentWindow = (XRGGraphWindow *)self.window;
+    }
+    if (!appSettings && [parentWindow respondsToSelector:@selector(appSettings)]) {
+        appSettings = [parentWindow appSettings];
+    }
+    if (!moduleManager && [parentWindow respondsToSelector:@selector(moduleManager)]) {
+        moduleManager = [parentWindow moduleManager];
+    }
+    
     NSRect textRect = NSInsetRect(self.bounds, 3, 0);
     
     self.leftLabel = [[XRGNonInteractableTextField alloc] initWithFrame:textRect];
@@ -49,7 +61,7 @@
     self.leftLabel.editable = NO;
     self.leftLabel.bordered = NO;
     self.leftLabel.drawsBackground = NO;
-    self.leftLabel.enabled = NO;
+    self.leftLabel.enabled = YES;
     [self addSubview:self.leftLabel];
     
     self.centerLabel = [[XRGNonInteractableTextField alloc] initWithFrame:textRect];
@@ -58,7 +70,7 @@
     self.centerLabel.editable = NO;
     self.centerLabel.bordered = NO;
     self.centerLabel.drawsBackground = NO;
-    self.centerLabel.enabled = NO;
+    self.centerLabel.enabled = YES;
     [self addSubview:self.centerLabel];
 
     self.rightLabel = [[XRGNonInteractableTextField alloc] initWithFrame:textRect];
@@ -67,8 +79,17 @@
     self.rightLabel.editable = NO;
     self.rightLabel.bordered = NO;
     self.rightLabel.drawsBackground = NO;
-    self.rightLabel.enabled = NO;
+    self.rightLabel.enabled = YES;
     [self addSubview:self.rightLabel];
+}
+
+- (void)viewDidMoveToWindow {
+    [super viewDidMoveToWindow];
+    parentWindow = (XRGGraphWindow *)self.window;
+    if (parentWindow) {
+        appSettings = [parentWindow appSettings];
+        moduleManager = [parentWindow moduleManager];
+    }
 }
 
 - (void)setLabelRects:(NSRect)newRect {
@@ -166,8 +187,8 @@
     else {
         [bp setLineWidth:1.2f];
         [bp setFlatness: 10.0f];
-        [bp setLineCapStyle:NSRoundLineCapStyle];
-        [bp setLineJoinStyle:NSRoundLineJoinStyle];
+        [bp setLineCapStyle:NSLineCapStyleRound];
+        [bp setLineJoinStyle:NSLineJoinStyleRound];
         [bp stroke];
 	}
         
@@ -193,6 +214,15 @@
 
 - (void)drawMiniGraphWithValues:(NSArray<NSNumber *> *)values upperBound:(double)max lowerBound:(double)min leftLabel:(NSString *)leftLabel rightLabel:(NSString *)rightLabel {
     NSGraphicsContext *gc = [NSGraphicsContext currentContext];
+    
+    // Ensure bounds are sane and avoid divide-by-zero
+    if (fabs(max - min) < 0.0001) {
+        max = min + 1.0;
+    }
+    // If appSettings hasn't been wired yet, try to fetch it now
+    if (!appSettings && self.window && [self.window respondsToSelector:@selector(appSettings)]) {
+        appSettings = [(XRGGraphWindow *)self.window appSettings];
+    }
     
     NSRect bounds = self.bounds;
     NSRect barRect = bounds;
@@ -345,3 +375,4 @@
 }
 
 @end
+

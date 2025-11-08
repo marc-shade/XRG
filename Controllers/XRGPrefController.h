@@ -141,9 +141,7 @@
 - (IBAction)save:(id)sender;
 - (IBAction)revert:(id)sender;
 - (IBAction)loadTheme:(id)sender;
-- (void)loadTheme2:(NSOpenPanel *)sheet returnCode:(int)returnCode contextInfo:(void  *)contextInfo;
 - (IBAction)saveTheme:(id)sender;
-- (void)saveTheme2:(NSSavePanel *)sheet returnCode:(int)returnCode contextInfo:(void  *)contextInfo;
 
 - (NSWindow *)window;
 - (void)setUpGeneralPanel;

@@ -106,26 +106,26 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
     appDefs[XRG_textTransparency]       = @"1.0";
     
     NSColor *c = [NSColor colorWithDeviceRed: 0.0 green: 0.0 blue: 0.0 alpha: 0.9];
-    appDefs[XRG_backgroundColor] = [NSArchiver archivedDataWithRootObject:[c copy]];
+    appDefs[XRG_backgroundColor] = [NSKeyedArchiver archivedDataWithRootObject:[c copy] requiringSecureCoding:NO error:nil];
     
     c = [NSColor colorWithDeviceRed: 0.0 green: 0.0 blue: 0.0 alpha: 0.9];
-    appDefs[XRG_graphBGColor] = [NSArchiver archivedDataWithRootObject:[c copy]];
+    appDefs[XRG_graphBGColor] = [NSKeyedArchiver archivedDataWithRootObject:[c copy] requiringSecureCoding:NO error:nil];
     
     c = [NSColor colorWithDeviceRed: 0.165 green: 0.224 blue: 0.773 alpha: 1.0];
-    appDefs[XRG_graphFG1Color] = [NSArchiver archivedDataWithRootObject:[c copy]];
+    appDefs[XRG_graphFG1Color] = [NSKeyedArchiver archivedDataWithRootObject:[c copy] requiringSecureCoding:NO error:nil];
     
     c = [NSColor colorWithDeviceRed: 0.922 green: 0.667 blue: 0.337 alpha: 1.0];
-    appDefs[XRG_graphFG2Color] = [NSArchiver archivedDataWithRootObject:[c copy]];
+    appDefs[XRG_graphFG2Color] = [NSKeyedArchiver archivedDataWithRootObject:[c copy] requiringSecureCoding:NO error:nil];
     
     c = [NSColor colorWithDeviceRed: 0.690 green: 0.102 blue: 0.102 alpha: 1.0];
-    appDefs[XRG_graphFG3Color] = [NSArchiver archivedDataWithRootObject:[c copy]];
+    appDefs[XRG_graphFG3Color] = [NSKeyedArchiver archivedDataWithRootObject:[c copy] requiringSecureCoding:NO error:nil];
     
     c = [NSColor colorWithDeviceRed: 0.0 green: 0.0 blue: 0.0 alpha: 0.4];
-    appDefs[XRG_borderColor] = [NSArchiver archivedDataWithRootObject:[c copy]];
+    appDefs[XRG_borderColor] = [NSKeyedArchiver archivedDataWithRootObject:[c copy] requiringSecureCoding:NO error:nil];
         
-    appDefs[XRG_textColor] = [NSArchiver archivedDataWithRootObject: [NSColor whiteColor]];
+    appDefs[XRG_textColor] = [NSKeyedArchiver archivedDataWithRootObject:[NSColor whiteColor] requiringSecureCoding:NO error:nil];
     
-    appDefs[XRG_graphFont] = [NSArchiver archivedDataWithRootObject:[NSFont systemFontOfSize:10.0]];
+    appDefs[XRG_graphFont] = [NSKeyedArchiver archivedDataWithRootObject:[NSFont systemFontOfSize:10.0] requiringSecureCoding:NO error:nil];
                 
     appDefs[XRG_windowWidth] = @"140";
     appDefs[XRG_windowHeight] = @"700";
@@ -199,10 +199,7 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
     appDefs[XRG_stockShowChange] = @"YES";
     appDefs[XRG_showDJIA] = @"YES";
 
-    // AI Token defaults
-    appDefs[XRG_aiTokenShowCost] = @"YES";
-    appDefs[XRG_aiTokenShowRates] = @"YES";
-    appDefs[XRG_aiTokenShowTotals] = @"YES";
+    // AI Token defaults are registered in XRGAIPrefController
 
     return appDefs;
 }
@@ -222,14 +219,14 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
     [self.appSettings setMinimizeUpDown:          [defs[XRG_minimizeUpDown] intValue]];
     [self.appSettings setIsDockIconHidden:        [defs[XRG_isDockIconHidden] boolValue]];
 
-    [self.appSettings setBackgroundColor:        [NSUnarchiver unarchiveObjectWithData: defs[XRG_backgroundColor]]];
-    [self.appSettings setGraphBGColor:           [NSUnarchiver unarchiveObjectWithData: defs[XRG_graphBGColor]]];
-    [self.appSettings setGraphFG1Color:          [NSUnarchiver unarchiveObjectWithData: defs[XRG_graphFG1Color]]];
-    [self.appSettings setGraphFG2Color:          [NSUnarchiver unarchiveObjectWithData: defs[XRG_graphFG2Color]]];
-    [self.appSettings setGraphFG3Color:          [NSUnarchiver unarchiveObjectWithData: defs[XRG_graphFG3Color]]];
-    [self.appSettings setBorderColor:            [NSUnarchiver unarchiveObjectWithData: defs[XRG_borderColor]]];
-    [self.appSettings setTextColor:              [NSUnarchiver unarchiveObjectWithData: defs[XRG_textColor]]];
-    [self.appSettings setGraphFont:              [NSUnarchiver unarchiveObjectWithData: defs[XRG_graphFont]]];
+    [self.appSettings setBackgroundColor:        [NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:defs[XRG_backgroundColor] error:nil]];
+    [self.appSettings setGraphBGColor:           [NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:defs[XRG_graphBGColor] error:nil]];
+    [self.appSettings setGraphFG1Color:          [NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:defs[XRG_graphFG1Color] error:nil]];
+    [self.appSettings setGraphFG2Color:          [NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:defs[XRG_graphFG2Color] error:nil]];
+    [self.appSettings setGraphFG3Color:          [NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:defs[XRG_graphFG3Color] error:nil]];
+    [self.appSettings setBorderColor:            [NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:defs[XRG_borderColor] error:nil]];
+    [self.appSettings setTextColor:              [NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:defs[XRG_textColor] error:nil]];
+    [self.appSettings setGraphFont:              [NSKeyedUnarchiver unarchivedObjectOfClass:[NSFont class] fromData:defs[XRG_graphFont] error:nil]];
     [self.appSettings setBackgroundTransparency: [defs[XRG_backgroundTransparency] floatValue]];
     [self.appSettings setGraphBGTransparency:    [defs[XRG_graphBGTransparency] floatValue]];
     [self.appSettings setGraphFG1Transparency:   [defs[XRG_graphFG1Transparency] floatValue]];
@@ -341,29 +338,29 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 		if ([self isVersion:s laterThanVersion:myVersion]) {
 			NSString *mesg = [NSString stringWithFormat:@"XRG %@ is now available.  You are currently running XRG %@.  If you would like visit the XRG website to upgrade, click More Info.", s, myVersion];
 			
-            NSInteger buttonClicked = NSRunInformationalAlertPanel(@"Alert", @"%@", @"More Info", @"Disable Checking", @"Not Yet", mesg);
+            NSAlert *alert = [[NSAlert alloc] init];
+            [alert setMessageText:@"Alert"];
+            [alert setInformativeText:mesg];
+            [alert addButtonWithTitle:@"More Info"];
+            [alert addButtonWithTitle:@"Disable Checking"];
+            [alert addButtonWithTitle:@"Not Yet"];
+            [alert setAlertStyle:NSAlertStyleInformational];
             
-            switch(buttonClicked) {
-                case -1:		// Not Yet
-				{
-                    // don't do anything here
-                    break;
-				}
-                case 0:			// Disable Checking
-				{
-                    [self.appSettings setCheckForUpdates:NO];
-                    // save it to the user defaults
-                    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
-                    [defs setObject: @"NO"  forKey:XRG_checkForUpdates];
-                    [defs synchronize];
-                    break;
-				}
-                case 1:			// More Info
-				{
-					[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://www.gauchosoft.com/xrg/"]];
-                    break;
-				}
-			}
+            NSModalResponse response = [alert runModal];
+            
+            if (response == NSAlertFirstButtonReturn) {
+                // More Info
+                [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://www.gauchosoft.com/xrg/"]];
+            }
+            else if (response == NSAlertSecondButtonReturn) {
+                // Disable Checking
+                [self.appSettings setCheckForUpdates:NO];
+                // save it to the user defaults
+                NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+                [defs setObject: @"NO"  forKey:XRG_checkForUpdates];
+                [defs synchronize];
+            }
+            // NSAlertThirdButtonReturn - Not Yet - don't do anything
         }
         
         self.xrgCheckURL = nil;
@@ -554,7 +551,7 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 
 - (IBAction)setShowCPUGraph:(id)sender {
     [self.backgroundView expandWindow];
-    [self.moduleManager setModule:@"CPU" isDisplayed:([sender state] == NSOnState)];
+    [self.moduleManager setModule:@"CPU" isDisplayed:([sender state] == NSControlStateValueOn)];
 	[self setMinSize:[self.moduleManager getMinSize]];
 	[self checkWindowSize];
     [self.moduleManager windowChangedToSize:[self frame].size];
@@ -562,7 +559,7 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 
 - (IBAction)setShowGPUGraph:(id)sender {
 	[self.backgroundView expandWindow];
-	[self.moduleManager setModule:@"GPU" isDisplayed:([sender state] == NSOnState)];
+	[self.moduleManager setModule:@"GPU" isDisplayed:([sender state] == NSControlStateValueOn)];
 	[self setMinSize:[self.moduleManager getMinSize]];
 	[self checkWindowSize];
 	[self.moduleManager windowChangedToSize:[self frame].size];
@@ -570,7 +567,7 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 
 - (IBAction)setShowMemoryGraph:(id)sender {
     [self.backgroundView expandWindow];
-    [self.moduleManager setModule:@"Memory" isDisplayed:([sender state] == NSOnState)];
+    [self.moduleManager setModule:@"Memory" isDisplayed:([sender state] == NSControlStateValueOn)];
 	[self setMinSize:[self.moduleManager getMinSize]];
 	[self checkWindowSize];
     [self.moduleManager windowChangedToSize:[self frame].size];
@@ -578,7 +575,7 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 
 - (IBAction)setShowBatteryGraph:(id)sender {
     [self.backgroundView expandWindow];
-    [self.moduleManager setModule:@"Battery" isDisplayed:([sender state] == NSOnState)];
+    [self.moduleManager setModule:@"Battery" isDisplayed:([sender state] == NSControlStateValueOn)];
 	[self setMinSize:[self.moduleManager getMinSize]];
 	[self checkWindowSize];
     [self.moduleManager windowChangedToSize:[self frame].size];
@@ -586,7 +583,7 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 
 - (IBAction)setShowTemperatureGraph:(id)sender {
     [self.backgroundView expandWindow];
-    [self.moduleManager setModule:@"Temperature" isDisplayed:([sender state] == NSOnState)];
+    [self.moduleManager setModule:@"Temperature" isDisplayed:([sender state] == NSControlStateValueOn)];
 	[self setMinSize:[self.moduleManager getMinSize]];
 	[self checkWindowSize];
     [self.moduleManager windowChangedToSize:[self frame].size];
@@ -594,7 +591,7 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 
 - (IBAction)setShowAITokenGraph:(id)sender {
     [self.backgroundView expandWindow];
-    [self.moduleManager setModule:@"AI Tokens" isDisplayed:([sender state] == NSOnState)];
+    [self.moduleManager setModule:@"AI Tokens" isDisplayed:([sender state] == NSControlStateValueOn)];
 	[self setMinSize:[self.moduleManager getMinSize]];
 	[self checkWindowSize];
     [self.moduleManager windowChangedToSize:[self frame].size];
@@ -602,7 +599,7 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 
 - (IBAction)setShowNetGraph:(id)sender {    
     [self.backgroundView expandWindow];
-    [self.moduleManager setModule:@"Network" isDisplayed:([sender state] == NSOnState)];
+    [self.moduleManager setModule:@"Network" isDisplayed:([sender state] == NSControlStateValueOn)];
 	[self setMinSize:[self.moduleManager getMinSize]];
 	[self checkWindowSize];
    [self.moduleManager windowChangedToSize:[self frame].size];
@@ -610,7 +607,7 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 
 - (IBAction)setShowDiskGraph:(id)sender {
     [self.backgroundView expandWindow];
-    [self.moduleManager setModule:@"Disk" isDisplayed:([sender state] == NSOnState)];
+    [self.moduleManager setModule:@"Disk" isDisplayed:([sender state] == NSControlStateValueOn)];
 	[self setMinSize:[self.moduleManager getMinSize]];
 	[self checkWindowSize];
     [self.moduleManager windowChangedToSize:[self frame].size];
@@ -618,7 +615,7 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 
 - (IBAction)setShowWeatherGraph:(id)sender {
     [self.backgroundView expandWindow];
-    [self.moduleManager setModule:@"Weather" isDisplayed:([sender state] == NSOnState)];
+    [self.moduleManager setModule:@"Weather" isDisplayed:([sender state] == NSControlStateValueOn)];
 	[self setMinSize:[self.moduleManager getMinSize]];
 	[self checkWindowSize];
     [self.moduleManager windowChangedToSize:[self frame].size];
@@ -626,7 +623,7 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 
 - (IBAction)setShowStockGraph:(id)sender {
     [self.backgroundView expandWindow];
-    [self.moduleManager setModule:@"Stock" isDisplayed:([sender state] == NSOnState)];
+    [self.moduleManager setModule:@"Stock" isDisplayed:([sender state] == NSControlStateValueOn)];
 	[self setMinSize:[self.moduleManager getMinSize]];
 	[self checkWindowSize];
     [self.moduleManager windowChangedToSize:[self frame].size];
@@ -671,7 +668,7 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 }
 
 - (IBAction)setAntiAliasing:(id)sender {
-	[self.appSettings setAntiAliasing:([sender state] == NSOnState)];
+	[self.appSettings setAntiAliasing:([sender state] == NSControlStateValueOn)];
 }
 
 - (IBAction)setGraphRefreshActionPart2:(id)sender {
@@ -697,28 +694,28 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 
 
 - (IBAction)setStickyWindow:(id)sender {
-    [self.appSettings setStickyWindow:([sender state] == NSOnState)];
+    [self.appSettings setStickyWindow:([sender state] == NSControlStateValueOn)];
 }
 
 - (IBAction)setCheckForUpdates:(id)sender {
-    [self.appSettings setCheckForUpdates:([sender state] == NSOnState)];
+    [self.appSettings setCheckForUpdates:([sender state] == NSControlStateValueOn)];
 }
 
 - (IBAction)setDropShadow:(id)sender {
-    [self.parentWindow setHasShadow:([sender state] == NSOnState)];
-    [self.appSettings setDropShadow:([sender state] == NSOnState)];
+    [self.parentWindow setHasShadow:([sender state] == NSControlStateValueOn)];
+    [self.appSettings setDropShadow:([sender state] == NSControlStateValueOn)];
 }
 
 - (IBAction)setAutoExpandGraph:(id)sender {
-    [self.appSettings setAutoExpandGraph:([sender state] == NSOnState)];
+    [self.appSettings setAutoExpandGraph:([sender state] == NSControlStateValueOn)];
 }
 
 - (IBAction)setForegroundWhenExpanding:(id)sender {
-    [self.appSettings setForegroundWhenExpanding:([sender state] == NSOnState)];
+    [self.appSettings setForegroundWhenExpanding:([sender state] == NSControlStateValueOn)];
 }
 
 - (IBAction)setShowSummary:(id)sender {
-    [self.appSettings setShowSummary:([sender state] == NSOnState)];
+    [self.appSettings setShowSummary:([sender state] == NSControlStateValueOn)];
 }
 
 - (IBAction)setMinimizeUpDown:(id)sender {
@@ -726,11 +723,11 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 }
 
 - (IBAction)setShowTotalBandwidthSinceBoot:(id)sender {
-    [self.appSettings setShowTotalBandwidthSinceBoot:([sender state] == NSOnState)];
+    [self.appSettings setShowTotalBandwidthSinceBoot:([sender state] == NSControlStateValueOn)];
 }
 
 - (IBAction)setShowTotalBandwidthSinceLoad:(id)sender {
-    [self.appSettings setShowTotalBandwidthSinceLoad:([sender state] == NSOnState)];
+    [self.appSettings setShowTotalBandwidthSinceLoad:([sender state] == NSControlStateValueOn)];
 }
 
 - (IBAction)setObjectsToColor:(id)sender {
@@ -763,18 +760,18 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 }
 
 - (IBAction)setFastCPUUsageCheckbox:(id)sender {
-	[self.appSettings setFastCPUUsage:([sender state] == NSOnState)];
+	[self.appSettings setFastCPUUsage:([sender state] == NSControlStateValueOn)];
         
     [self.cpuView setWidth:[[self.moduleManager getModuleByName:@"CPU"] currentSize].width];
     [self.cpuView setNeedsDisplay:YES];
 }
 
 - (IBAction)setSeparateCPUColor:(id)sender {
-	[self.appSettings setSeparateCPUColor:([sender state] == NSOnState)];
+	[self.appSettings setSeparateCPUColor:([sender state] == NSControlStateValueOn)];
 }
 
 - (IBAction)setShowCPUTemperature:(id)sender {
-	[self.appSettings setShowCPUTemperature:([sender state] == NSOnState)];
+	[self.appSettings setShowCPUTemperature:([sender state] == NSControlStateValueOn)];
 }
 
 - (IBAction)setCPUTemperatureUnits:(id)sender {
@@ -782,45 +779,45 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 }
 
 - (IBAction)setShowLoadAverage:(id)sender {
-    [self.appSettings setShowLoadAverage:([sender state] == NSOnState)];
-    
+    [self.appSettings setShowLoadAverage:([sender state] == NSControlStateValueOn)];
+
     [self.cpuView graphUpdate:nil];
 }
 
 - (IBAction)setCPUShowAverageUsage:(id)sender {
-    [self.appSettings setCpuShowAverageUsage:([sender state] == NSOnState)];
-    
+    [self.appSettings setCpuShowAverageUsage:([sender state] == NSControlStateValueOn)];
+
     [self.cpuView graphUpdate:nil];
 }
 
 - (IBAction)setCPUShowUptime:(id)sender {
-    [self.appSettings setCpuShowUptime:([sender state] == NSOnState)];
-    
+    [self.appSettings setCpuShowUptime:([sender state] == NSControlStateValueOn)];
+
     [self.cpuView graphUpdate:nil];
 }
 
 - (IBAction)setMemoryCheckbox:(id)sender {
     switch ([sender tag]) {
         case 42:
-            [self.appSettings setMemoryShowWired:([sender state] == NSOnState)];
+            [self.appSettings setMemoryShowWired:([sender state] == NSControlStateValueOn)];
             break;
         case 43:
-            [self.appSettings setMemoryShowActive:([sender state] == NSOnState)];
+            [self.appSettings setMemoryShowActive:([sender state] == NSControlStateValueOn)];
             break;
         case 44:
-            [self.appSettings setMemoryShowInactive:([sender state] == NSOnState)];
+            [self.appSettings setMemoryShowInactive:([sender state] == NSControlStateValueOn)];
             break;
         case 45:
-            [self.appSettings setMemoryShowFree:([sender state] == NSOnState)];
+            [self.appSettings setMemoryShowFree:([sender state] == NSControlStateValueOn)];
             break;
         case 46:
-            [self.appSettings setMemoryShowCache:([sender state] == NSOnState)];
+            [self.appSettings setMemoryShowCache:([sender state] == NSControlStateValueOn)];
             break;
         case 47:
-            [self.appSettings setMemoryShowPage:([sender state] == NSOnState)];
+            [self.appSettings setMemoryShowPage:([sender state] == NSControlStateValueOn)];
             break;
         case 48:
-            [self.appSettings setShowMemoryPagingGraph:([sender state] == NSOnState)];
+            [self.appSettings setShowMemoryPagingGraph:([sender state] == NSControlStateValueOn)];
             break;
     }
     
@@ -910,12 +907,12 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 }
 
 - (IBAction)setStockShowChange:(id)sender {
-    [self.appSettings setStockShowChange:([sender state] == NSOnState)];
+    [self.appSettings setStockShowChange:([sender state] == NSControlStateValueOn)];
     [self.stockView setNeedsDisplay:YES];
 }
 
 - (IBAction)setShowDJIA:(id)sender {
-    [self.appSettings setShowDJIA:([sender state] == NSOnState)];
+    [self.appSettings setShowDJIA:([sender state] == NSControlStateValueOn)];
     [self.stockView setNeedsDisplay:YES];
 }
 

@@ -26,8 +26,13 @@
 //
 
 #import "XRGAITokenMiner.h"
+#import "XRGAITokensObserver.h"
 #import "definitions.h"
 #import <sqlite3.h>
+
+@interface XRGAITokenMiner ()
+- (NSData *)xrg_syncDataForRequest:(NSURLRequest *)request returningResponse:(NSHTTPURLResponse * _Nullable __autoreleasing *)response error:(NSError * _Nullable __autoreleasing *)error;
+@end
 
 @implementation XRGAITokenMiner
 
@@ -164,11 +169,8 @@
                                              timeoutInterval:1.0];
         NSHTTPURLResponse *response = nil;
         NSError *error = nil;
-        [NSURLConnection sendSynchronousRequest:request
-                              returningResponse:&response
-                                          error:&error];
-
-        if (!error && response && [response statusCode] == 200) {
+        (void)[self xrg_syncDataForRequest:request returningResponse:&response error:&error];
+        if (!error && response && response.statusCode == 200) {
             activeStrategy = XRGAIDataStrategyOTel;
 #ifdef XRG_DEBUG
             NSLog(@"[XRGAITokenMiner] Using OTel strategy: %@", otelEndpoint);
@@ -208,9 +210,10 @@
         case XRGAIDataStrategySQLite:
             success = [self fetchFromSQLiteDatabase];
             break;
-        case XRGAIDataStrategyOTel:
+        case XRGAIDataStrategyOTel: {
             success = [self fetchFromOTelEndpoint];
             break;
+        }
         default:
             break;
     }
@@ -293,11 +296,9 @@
 
     NSError *error = nil;
     NSHTTPURLResponse *response = nil;
-    NSData *data = [NSURLConnection sendSynchronousRequest:request
-                                         returningResponse:&response
-                                                     error:&error];
+    NSData *data = [self xrg_syncDataForRequest:request returningResponse:&response error:&error];
 
-    if (error || !data || [response statusCode] != 200) {
+    if (error || !data || response.statusCode != 200) {
 #ifdef XRG_DEBUG
         if (error) NSLog(@"[XRGAITokenMiner] OTel error: %@", error);
 #endif
@@ -503,6 +504,7 @@
     if (!content) return 0;
 
     UInt64 fileTokens = 0;
+    XRGAITokensObserver *observer = [XRGAITokensObserver shared];
 
     // Parse line-delimited JSON (JSONL format - one JSON object per line)
     NSArray *lines = [content componentsSeparatedByString:@"\n"];
@@ -518,12 +520,26 @@
         // Extract token usage from message.usage
         if (data && data[@"message"] && data[@"message"][@"usage"]) {
             NSDictionary *usage = data[@"message"][@"usage"];
+            NSDictionary *message = data[@"message"];
 
-            // Sum all token types
-            fileTokens += [usage[@"input_tokens"] unsignedLongLongValue];
-            fileTokens += [usage[@"output_tokens"] unsignedLongLongValue];
-            fileTokens += [usage[@"cache_creation_input_tokens"] unsignedLongLongValue];
-            fileTokens += [usage[@"cache_read_input_tokens"] unsignedLongLongValue];
+            // Extract model and provider information
+            NSString *model = message[@"model"] ?: @"unknown";
+            NSString *provider = @"anthropic";  // Default to anthropic for Claude Code JSONL files
+
+            // Calculate prompt and completion tokens
+            UInt64 promptTokens = [usage[@"input_tokens"] unsignedLongLongValue] +
+                                 [usage[@"cache_creation_input_tokens"] unsignedLongLongValue] +
+                                 [usage[@"cache_read_input_tokens"] unsignedLongLongValue];
+            UInt64 completionTokens = [usage[@"output_tokens"] unsignedLongLongValue];
+
+            // Sum all token types for total
+            fileTokens += promptTokens + completionTokens;
+
+            // Record event in Observer for model/provider tracking
+            [observer recordEventWithPromptTokens:promptTokens
+                                 completionTokens:completionTokens
+                                           model:model
+                                        provider:provider];
         }
     }
 
@@ -560,4 +576,52 @@
     return otherAITokens;
 }
 
+#pragma mark - Private Networking Helper
+
+- (NSData *)xrg_syncDataForRequest:(NSURLRequest *)request returningResponse:(NSHTTPURLResponse * _Nullable __autoreleasing *)response error:(NSError * _Nullable __autoreleasing *)error {
+    __block NSData *resultData = nil;
+    __block NSURLResponse *resultResponse = nil;
+    __block NSError *resultError = nil;
+
+    NSURLSessionConfiguration *config = [NSURLSessionConfiguration ephemeralSessionConfiguration];
+    config.requestCachePolicy = request.cachePolicy;
+    config.timeoutIntervalForRequest = request.timeoutInterval > 0 ? request.timeoutInterval : 2.0;
+    config.timeoutIntervalForResource = config.timeoutIntervalForRequest + 1.0;
+
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:config];
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+
+    NSURLSessionDataTask *task = [session dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable resp, NSError * _Nullable err) {
+        resultData = data;
+        resultResponse = resp;
+        resultError = err;
+        dispatch_semaphore_signal(sema);
+    }];
+    [task resume];
+
+    // Wait up to the timeout + small grace period
+    NSTimeInterval waitSeconds = config.timeoutIntervalForRequest + 0.5;
+    dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(waitSeconds * NSEC_PER_SEC));
+    if (dispatch_semaphore_wait(sema, timeout) != 0) {
+        // Timed out
+        [task cancel];
+        resultError = resultError ?: [NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorTimedOut userInfo:nil];
+    }
+
+    [session finishTasksAndInvalidate];
+
+    if (response) {
+        if ([resultResponse isKindOfClass:[NSHTTPURLResponse class]]) {
+            *response = (NSHTTPURLResponse *)resultResponse;
+        } else {
+            *response = nil;
+        }
+    }
+    if (error) {
+        *error = resultError;
+    }
+    return resultData;
+}
+
 @end
+

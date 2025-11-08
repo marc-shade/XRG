@@ -10,13 +10,13 @@
 
     // Register default values for AI Token settings
     NSDictionary *defaults = @{
-        XRGDefaultsKeyAITokensTrackingEnabled: @NO,
+        XRGDefaultsKeyAITokensTrackingEnabled: @YES,  // Enable tracking by default
         XRGDefaultsKeyShowAITokenGraph: @NO,
         XRGDefaultsKeyAITokensDailyAutoReset: @YES,
         XRGDefaultsKeyAITokensDailyBudget: @0,
         XRGDefaultsKeyAITokensBudgetNotifyPercent: @80,
         XRGDefaultsKeyAITokensAggregateByModel: @YES,
-        XRGDefaultsKeyAITokensAggregateByProvider: @NO,
+        XRGDefaultsKeyAITokensAggregateByProvider: @YES,  // Enable provider tracking by default
         XRGDefaultsKeyAITokensShowRate: @YES,
         XRGDefaultsKeyAITokensShowBreakdown: @YES
     };

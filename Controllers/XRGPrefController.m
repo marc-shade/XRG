@@ -279,31 +279,31 @@
     [defs setFloat: [textTransparency floatValue]       forKey:XRG_textTransparency];
     
     [defs setObject:
-        [NSArchiver archivedDataWithRootObject: [backgroundColorWell color]]
+        [NSKeyedArchiver archivedDataWithRootObject: [backgroundColorWell color] requiringSecureCoding:NO error:nil]
         forKey: XRG_backgroundColor
     ];
     [defs setObject:
-        [NSArchiver archivedDataWithRootObject:[graphBGColorWell color]]
+        [NSKeyedArchiver archivedDataWithRootObject:[graphBGColorWell color] requiringSecureCoding:NO error:nil]
         forKey: XRG_graphBGColor
     ];
     [defs setObject:
-        [NSArchiver archivedDataWithRootObject:[graphFG1ColorWell color]]
+        [NSKeyedArchiver archivedDataWithRootObject:[graphFG1ColorWell color] requiringSecureCoding:NO error:nil]
         forKey:XRG_graphFG1Color
     ];
     [defs setObject:
-        [NSArchiver archivedDataWithRootObject: [graphFG2ColorWell color]]
+        [NSKeyedArchiver archivedDataWithRootObject: [graphFG2ColorWell color] requiringSecureCoding:NO error:nil]
         forKey:XRG_graphFG2Color
     ];
     [defs setObject:
-        [NSArchiver archivedDataWithRootObject: [graphFG3ColorWell color]]
+        [NSKeyedArchiver archivedDataWithRootObject: [graphFG3ColorWell color] requiringSecureCoding:NO error:nil]
         forKey:XRG_graphFG3Color
     ];
     [defs setObject:
-        [NSArchiver archivedDataWithRootObject: [borderColorWell color]]
+        [NSKeyedArchiver archivedDataWithRootObject: [borderColorWell color] requiringSecureCoding:NO error:nil]
         forKey:XRG_borderColor
     ];
     [defs setObject:
-        [NSArchiver archivedDataWithRootObject: [textColorWell color]]
+        [NSKeyedArchiver archivedDataWithRootObject: [textColorWell color] requiringSecureCoding:NO error:nil]
         forKey:XRG_textColor
     ];
     
@@ -325,23 +325,23 @@
     [defs setInteger: [distanceUnits indexOfSelectedItem] forKey:XRG_distanceUnits];
     [defs setInteger: [pressureUnits indexOfSelectedItem] forKey:XRG_pressureUnits];
     [defs setFloat:   [graphRefreshValue floatValue] forKey:XRG_graphRefresh]; 
-    [defs setObject: ([generalAutoExpandGraph state] == NSOnState ? @"YES" : @"NO")  forKey:XRG_autoExpandGraph];
-    [defs setObject: ([generalForegroundWhenExpanding state] == NSOnState ? @"YES" : @"NO") forKey:XRG_foregroundWhenExpanding];
-    [defs setObject: ([generalShowSummary state] == NSOnState ? @"YES" : @"NO")      forKey:XRG_showSummary];
+    [defs setObject: ([generalAutoExpandGraph state] == NSControlStateValueOn ? @"YES" : @"NO")  forKey:XRG_autoExpandGraph];
+    [defs setObject: ([generalForegroundWhenExpanding state] == NSControlStateValueOn ? @"YES" : @"NO") forKey:XRG_foregroundWhenExpanding];
+    [defs setObject: ([generalShowSummary state] == NSControlStateValueOn ? @"YES" : @"NO")      forKey:XRG_showSummary];
     [defs setInteger: [generalMinimizeUpDown indexOfSelectedItem]                    forKey:XRG_minimizeUpDown];
     
-    [defs setObject: ([showCPUGraph state] == NSOnState ? @"YES" : @"NO")            forKey:XRG_showCPUGraph];    
-	[defs setObject: ([showGPUGraph state] == NSOnState ? @"YES" : @"NO")            forKey:XRG_showGPUGraph];
-    [defs setObject: ([showMemoryGraph state] == NSOnState ? @"YES" : @"NO")         forKey:XRG_showMemoryGraph];
-    [defs setObject: ([showBatteryGraph state] == NSOnState ? @"YES" : @"NO")        forKey:XRG_showBatteryGraph];
-    [defs setObject: ([showTemperatureGraph state] == NSOnState ? @"YES" : @"NO")    forKey:XRG_showTemperatureGraph];
-    [defs setObject: ([showNetGraph state] == NSOnState ? @"YES" : @"NO")            forKey:XRG_showNetworkGraph];    
-    [defs setObject: ([showDiskGraph state] == NSOnState ? @"YES" : @"NO")           forKey:XRG_showDiskGraph];    
-    [defs setObject: ([showWeatherGraph state] == NSOnState ? @"YES" : @"NO")        forKey:XRG_showWeatherGraph];    
-    [defs setObject: ([showStockGraph state] == NSOnState ? @"YES" : @"NO")          forKey:XRG_showStockGraph];   
+    [defs setObject: ([showCPUGraph state] == NSControlStateValueOn ? @"YES" : @"NO")            forKey:XRG_showCPUGraph];    
+	[defs setObject: ([showGPUGraph state] == NSControlStateValueOn ? @"YES" : @"NO")            forKey:XRG_showGPUGraph];
+    [defs setObject: ([showMemoryGraph state] == NSControlStateValueOn ? @"YES" : @"NO")         forKey:XRG_showMemoryGraph];
+    [defs setObject: ([showBatteryGraph state] == NSControlStateValueOn ? @"YES" : @"NO")        forKey:XRG_showBatteryGraph];
+    [defs setObject: ([showTemperatureGraph state] == NSControlStateValueOn ? @"YES" : @"NO")    forKey:XRG_showTemperatureGraph];
+    [defs setObject: ([showNetGraph state] == NSControlStateValueOn ? @"YES" : @"NO")            forKey:XRG_showNetworkGraph];    
+    [defs setObject: ([showDiskGraph state] == NSControlStateValueOn ? @"YES" : @"NO")           forKey:XRG_showDiskGraph];    
+    [defs setObject: ([showWeatherGraph state] == NSControlStateValueOn ? @"YES" : @"NO")        forKey:XRG_showWeatherGraph];    
+    [defs setObject: ([showStockGraph state] == NSControlStateValueOn ? @"YES" : @"NO")          forKey:XRG_showStockGraph];   
 
     if (self.showAITokensGraph) {
-        [defs setObject:([self.showAITokensGraph state] == NSOnState ? @"YES" : @"NO") forKey:XRG_showAITokenGraph];
+        [defs setObject:([self.showAITokensGraph state] == NSControlStateValueOn ? @"YES" : @"NO") forKey:XRG_showAITokenGraph];
     }
 
     // Save AI Token preferences
@@ -356,10 +356,10 @@
         NSButton *showBreakdown = (NSButton *)[AIPrefView viewWithTag:1007];
 
         if (trackingEnabled) {
-            [defs setBool:([trackingEnabled state] == NSOnState) forKey:@"aiTokensTrackingEnabled"];
+            [defs setBool:([trackingEnabled state] == NSControlStateValueOn) forKey:@"aiTokensTrackingEnabled"];
         }
         if (dailyAutoReset) {
-            [defs setBool:([dailyAutoReset state] == NSOnState) forKey:@"aiTokensDailyAutoReset"];
+            [defs setBool:([dailyAutoReset state] == NSControlStateValueOn) forKey:@"aiTokensDailyAutoReset"];
         }
         if (budgetField) {
             [defs setInteger:[budgetField integerValue] forKey:@"aiTokensDailyBudget"];
@@ -368,37 +368,37 @@
             [defs setInteger:[notifyField integerValue] forKey:@"aiTokensBudgetNotifyPercent"];
         }
         if (aggregateByModel) {
-            [defs setBool:([aggregateByModel state] == NSOnState) forKey:@"aiTokensAggregateByModel"];
+            [defs setBool:([aggregateByModel state] == NSControlStateValueOn) forKey:@"aiTokensAggregateByModel"];
         }
         if (aggregateByProvider) {
-            [defs setBool:([aggregateByProvider state] == NSOnState) forKey:@"aiTokensAggregateByProvider"];
+            [defs setBool:([aggregateByProvider state] == NSControlStateValueOn) forKey:@"aiTokensAggregateByProvider"];
         }
         if (showRate) {
-            [defs setBool:([showRate state] == NSOnState) forKey:@"aiTokensShowRate"];
+            [defs setBool:([showRate state] == NSControlStateValueOn) forKey:@"aiTokensShowRate"];
         }
         if (showBreakdown) {
-            [defs setBool:([showBreakdown state] == NSOnState) forKey:@"aiTokensShowBreakdown"];
+            [defs setBool:([showBreakdown state] == NSControlStateValueOn) forKey:@"aiTokensShowBreakdown"];
         }
     }
 
     // CPU graph checkboxes
-    [defs setObject: ([fastCPUUsageCheckbox state] == NSOnState ? @"YES" : @"NO")    forKey:XRG_showCPUBars];
-    [defs setObject: ([enableAntiAliasing state] == NSOnState ? @"YES" : @"NO")      forKey:XRG_antiAliasing];
-    [defs setObject: ([separateCPUColor state] == NSOnState ? @"YES" : @"NO")        forKey:XRG_separateCPUColor];
-    [defs setObject: ([showLoadAverage state] == NSOnState ? @"YES" : @"NO")         forKey:XRG_showLoadAverage];
-    [defs setObject: ([showCPUTemperature state] == NSOnState ? @"YES" : @"NO")      forKey:XRG_showCPUTemperature];
+    [defs setObject: ([fastCPUUsageCheckbox state] == NSControlStateValueOn ? @"YES" : @"NO")    forKey:XRG_showCPUBars];
+    [defs setObject: ([enableAntiAliasing state] == NSControlStateValueOn ? @"YES" : @"NO")      forKey:XRG_antiAliasing];
+    [defs setObject: ([separateCPUColor state] == NSControlStateValueOn ? @"YES" : @"NO")        forKey:XRG_separateCPUColor];
+    [defs setObject: ([showLoadAverage state] == NSControlStateValueOn ? @"YES" : @"NO")         forKey:XRG_showLoadAverage];
+    [defs setObject: ([showCPUTemperature state] == NSControlStateValueOn ? @"YES" : @"NO")      forKey:XRG_showCPUTemperature];
     [defs setInteger: [cpuTemperatureUnits indexOfSelectedItem] forKey:XRG_cpuTemperatureUnits];
-    [defs setObject: ([cpuShowAverageUsage state] == NSOnState ? @"YES" : @"NO")     forKey:XRG_cpuShowAverageUsage];
-    [defs setObject: ([cpuShowUptime state] == NSOnState ? @"YES" : @"NO")           forKey:XRG_cpuShowUptime];
+    [defs setObject: ([cpuShowAverageUsage state] == NSControlStateValueOn ? @"YES" : @"NO")     forKey:XRG_cpuShowAverageUsage];
+    [defs setObject: ([cpuShowUptime state] == NSControlStateValueOn ? @"YES" : @"NO")           forKey:XRG_cpuShowUptime];
 
     // Memory graph checkboxes
-    [defs setObject: ([memoryShowPagingGraph state] == NSOnState ? @"YES" : @"NO")   forKey:XRG_showMemoryPagingGraph];    
-    [defs setObject: ([memoryShowWired state] == NSOnState ? @"YES" : @"NO")         forKey:XRG_memoryShowWired];    
-    [defs setObject: ([memoryShowActive state] == NSOnState ? @"YES" : @"NO")        forKey:XRG_memoryShowActive];    
-    [defs setObject: ([memoryShowInactive state] == NSOnState ? @"YES" : @"NO")      forKey:XRG_memoryShowInactive];    
-    [defs setObject: ([memoryShowFree state] == NSOnState ? @"YES" : @"NO")          forKey:XRG_memoryShowFree];    
-    [defs setObject: ([memoryShowCache state] == NSOnState ? @"YES" : @"NO")         forKey:XRG_memoryShowCache];    
-    [defs setObject: ([memoryShowPage state] == NSOnState ? @"YES" : @"NO")          forKey:XRG_memoryShowPage];
+    [defs setObject: ([memoryShowPagingGraph state] == NSControlStateValueOn ? @"YES" : @"NO")   forKey:XRG_showMemoryPagingGraph];    
+    [defs setObject: ([memoryShowWired state] == NSControlStateValueOn ? @"YES" : @"NO")         forKey:XRG_memoryShowWired];    
+    [defs setObject: ([memoryShowActive state] == NSControlStateValueOn ? @"YES" : @"NO")        forKey:XRG_memoryShowActive];    
+    [defs setObject: ([memoryShowInactive state] == NSControlStateValueOn ? @"YES" : @"NO")      forKey:XRG_memoryShowInactive];    
+    [defs setObject: ([memoryShowFree state] == NSControlStateValueOn ? @"YES" : @"NO")          forKey:XRG_memoryShowFree];    
+    [defs setObject: ([memoryShowCache state] == NSControlStateValueOn ? @"YES" : @"NO")         forKey:XRG_memoryShowCache];    
+    [defs setObject: ([memoryShowPage state] == NSControlStateValueOn ? @"YES" : @"NO")          forKey:XRG_memoryShowPage];
     
     // Temperature graph options
     [defs setInteger: [tempUnits indexOfSelectedItem]                                forKey:XRG_tempUnits];
@@ -413,13 +413,13 @@
         [defs setObject:tempFG3SelectedIndex > 0 ? self.temperatureSensors[tempFG3SelectedIndex - 1].key : nil forKey:XRG_tempFG3Location];
     }
 
-    [defs setObject: ([stockShowChange state] == NSOnState ? @"YES" : @"NO")         forKey:XRG_stockShowChange];    
-    [defs setObject: ([showDJIA state] == NSOnState ? @"YES" : @"NO")                forKey:XRG_showDJIA];
-    [defs setObject: ([stickyWindow state] == NSOnState ? @"YES" : @"NO")            forKey:XRG_stickyWindow];
-    [defs setObject: ([checkForUpdates state] == NSOnState ? @"YES" : @"NO")         forKey:XRG_checkForUpdates];
-    [defs setObject: ([dropShadow state] == NSOnState ? @"YES" : @"NO")              forKey:XRG_dropShadow];
-    [defs setObject: ([showTotalBandwidthSinceBoot state] == NSOnState ? @"YES" : @"NO") forKey:XRG_showTotalBandwidthSinceBoot];
-    [defs setObject: ([showTotalBandwidthSinceLoad state] == NSOnState ? @"YES" : @"NO") forKey:XRG_showTotalBandwidthSinceLoad];
+    [defs setObject: ([stockShowChange state] == NSControlStateValueOn ? @"YES" : @"NO")         forKey:XRG_stockShowChange];    
+    [defs setObject: ([showDJIA state] == NSControlStateValueOn ? @"YES" : @"NO")                forKey:XRG_showDJIA];
+    [defs setObject: ([stickyWindow state] == NSControlStateValueOn ? @"YES" : @"NO")            forKey:XRG_stickyWindow];
+    [defs setObject: ([checkForUpdates state] == NSControlStateValueOn ? @"YES" : @"NO")         forKey:XRG_checkForUpdates];
+    [defs setObject: ([dropShadow state] == NSControlStateValueOn ? @"YES" : @"NO")              forKey:XRG_dropShadow];
+    [defs setObject: ([showTotalBandwidthSinceBoot state] == NSControlStateValueOn ? @"YES" : @"NO") forKey:XRG_showTotalBandwidthSinceBoot];
+    [defs setObject: ([showTotalBandwidthSinceLoad state] == NSControlStateValueOn ? @"YES" : @"NO") forKey:XRG_showTotalBandwidthSinceLoad];
 
     [defs setInteger:[netGraphMode selectedRow] forKey:XRG_netGraphMode];
     [defs setInteger:[diskGraphMode selectedRow] forKey:XRG_diskGraphMode];
@@ -471,7 +471,7 @@
         
     [defs setInteger:[windowLevel indexOfSelectedItem] - 1 forKey:XRG_windowLevel];
     
-    [defs setObject:[NSArchiver archivedDataWithRootObject:self.xrgGraphWindow.appSettings.graphFont] forKey:XRG_graphFont];
+    [defs setObject:[NSKeyedArchiver archivedDataWithRootObject:self.xrgGraphWindow.appSettings.graphFont requiringSecureCoding:NO error:nil] forKey:XRG_graphFont];
     
     [defs synchronize];
     [window orderOut:nil];
@@ -505,79 +505,79 @@
     // Setup anti-aliasing
     [enableAntiAliasing setTarget:self.xrgGraphWindow];
     [enableAntiAliasing setAction:@selector(setAntiAliasing:)];
-	[enableAntiAliasing setState:self.xrgGraphWindow.appSettings.antiAliasing ? NSOnState : NSOffState];
+	[enableAntiAliasing setState:self.xrgGraphWindow.appSettings.antiAliasing ? NSControlStateValueOn : NSControlStateValueOff];
 
     // Setup show CPU graph
     [showCPUGraph setTarget:self.xrgGraphWindow];
     [showCPUGraph setAction:@selector(setShowCPUGraph:)];
     if ([[self.xrgGraphWindow.moduleManager getModuleByName:@"CPU"] isDisplayed])
-        [showCPUGraph setState:NSOnState];
+        [showCPUGraph setState:NSControlStateValueOn];
     else
-        [showCPUGraph setState:NSOffState];
+        [showCPUGraph setState:NSControlStateValueOff];
 
 	// Setup show GPU graph
 	[showGPUGraph setTarget:self.xrgGraphWindow];
 	[showGPUGraph setAction:@selector(setShowGPUGraph:)];
 	if ([[self.xrgGraphWindow.moduleManager getModuleByName:@"GPU"] isDisplayed])
-		[showGPUGraph setState:NSOnState];
+		[showGPUGraph setState:NSControlStateValueOn];
 	else
-		[showGPUGraph setState:NSOffState];
+		[showGPUGraph setState:NSControlStateValueOff];
 
     // Setup show memory graph
     [showMemoryGraph setTarget:self.xrgGraphWindow];
     [showMemoryGraph setAction:@selector(setShowMemoryGraph:)];
     if ([[self.xrgGraphWindow.moduleManager getModuleByName:@"Memory"] isDisplayed])
-        [showMemoryGraph setState:NSOnState];
+        [showMemoryGraph setState:NSControlStateValueOn];
     else
-        [showMemoryGraph setState:NSOffState];
+        [showMemoryGraph setState:NSControlStateValueOff];
 
     // Setup show battery graph
     [showBatteryGraph setTarget:self.xrgGraphWindow];
     [showBatteryGraph setAction:@selector(setShowBatteryGraph:)];
     if ([[self.xrgGraphWindow.moduleManager getModuleByName:@"Battery"] isDisplayed])
-        [showBatteryGraph setState:NSOnState];
+        [showBatteryGraph setState:NSControlStateValueOn];
     else
-        [showBatteryGraph setState:NSOffState];
+        [showBatteryGraph setState:NSControlStateValueOff];
 
     // Setup show temperature graph
     [showTemperatureGraph setTarget:self.xrgGraphWindow];
     [showTemperatureGraph setAction:@selector(setShowTemperatureGraph:)];
     if ([[self.xrgGraphWindow.moduleManager getModuleByName:@"Temperature"] isDisplayed])
-        [showTemperatureGraph setState:NSOnState];
+        [showTemperatureGraph setState:NSControlStateValueOn];
     else
-        [showTemperatureGraph setState:NSOffState];
+        [showTemperatureGraph setState:NSControlStateValueOff];
 
     // Setup show network graph
     [showNetGraph setTarget:self.xrgGraphWindow];
     [showNetGraph setAction:@selector(setShowNetGraph:)];
     if ([[self.xrgGraphWindow.moduleManager getModuleByName:@"Network"] isDisplayed])
-        [showNetGraph setState:NSOnState];
+        [showNetGraph setState:NSControlStateValueOn];
     else
-        [showNetGraph setState:NSOffState];
+        [showNetGraph setState:NSControlStateValueOff];
     
     // Setup show disk graph
     [showDiskGraph setTarget:self.xrgGraphWindow];
     [showDiskGraph setAction:@selector(setShowDiskGraph:)];
     if ([[self.xrgGraphWindow.moduleManager getModuleByName:@"Disk"] isDisplayed])
-        [showDiskGraph setState:NSOnState];
+        [showDiskGraph setState:NSControlStateValueOn];
     else
-        [showDiskGraph setState:NSOffState];
+        [showDiskGraph setState:NSControlStateValueOff];
 
     // Setup show weather graph
     [showWeatherGraph setTarget:self.xrgGraphWindow];
     [showWeatherGraph setAction:@selector(setShowWeatherGraph:)];
     if ([[self.xrgGraphWindow.moduleManager getModuleByName:@"Weather"] isDisplayed])
-        [showWeatherGraph setState:NSOnState];
+        [showWeatherGraph setState:NSControlStateValueOn];
     else
-        [showWeatherGraph setState:NSOffState];
+        [showWeatherGraph setState:NSControlStateValueOff];
 
     // Setup show stock graph
     [showStockGraph setTarget:self.xrgGraphWindow];
     [showStockGraph setAction:@selector(setShowStockGraph:)];
     if ([[self.xrgGraphWindow.moduleManager getModuleByName:@"Stock"] isDisplayed])
-        [showStockGraph setState:NSOnState];
+        [showStockGraph setState:NSControlStateValueOn];
     else
-        [showStockGraph setState:NSOffState];
+        [showStockGraph setState:NSControlStateValueOff];
 
     // Setup show AI Tokens graph (added programmatically)
     if (!self.showAITokensGraph) {
@@ -591,18 +591,18 @@
         
         // Initial state based on module visibility
         if ([[self.xrgGraphWindow.moduleManager getModuleByName:@"AI Tokens"] isDisplayed])
-            [aiBtn setState:NSOnState];
+            [aiBtn setState:NSControlStateValueOn];
         else
-            [aiBtn setState:NSOffState];
+            [aiBtn setState:NSControlStateValueOff];
         
         [container addSubview:aiBtn];
         self.showAITokensGraph = aiBtn;
     } else {
         // Update state if it already exists
         if ([[self.xrgGraphWindow.moduleManager getModuleByName:@"AI Tokens"] isDisplayed])
-            [self.showAITokensGraph setState:NSOnState];
+            [self.showAITokensGraph setState:NSControlStateValueOn];
         else
-            [self.showAITokensGraph setState:NSOffState];
+            [self.showAITokensGraph setState:NSControlStateValueOff];
     }
 
     // Setup graph refresh
@@ -635,32 +635,32 @@
     // Setup sticky window
     [stickyWindow setTarget:self.xrgGraphWindow];
     [stickyWindow setAction:@selector(setStickyWindow:)];
-	[stickyWindow setState:self.xrgGraphWindow.appSettings.stickyWindow ? NSOnState : NSOffState];
+	[stickyWindow setState:self.xrgGraphWindow.appSettings.stickyWindow ? NSControlStateValueOn : NSControlStateValueOff];
 
     // Setup check for updates
     [checkForUpdates setTarget:self.xrgGraphWindow];
     [checkForUpdates setAction:@selector(setCheckForUpdates:)];
-	[checkForUpdates setState:self.xrgGraphWindow.appSettings.checkForUpdates ? NSOnState : NSOffState];
+	[checkForUpdates setState:self.xrgGraphWindow.appSettings.checkForUpdates ? NSControlStateValueOn : NSControlStateValueOff];
 
     // Setup drop shadow
     [dropShadow setTarget:self.xrgGraphWindow];
     [dropShadow setAction:@selector(setDropShadow:)];
-	[dropShadow setState:self.xrgGraphWindow.appSettings.dropShadow ? NSOnState : NSOffState];
+	[dropShadow setState:self.xrgGraphWindow.appSettings.dropShadow ? NSControlStateValueOn : NSControlStateValueOff];
 	
     // Setup auto-expand graph
     [generalAutoExpandGraph setTarget:self.xrgGraphWindow];
     [generalAutoExpandGraph setAction:@selector(setAutoExpandGraph:)];
-	[generalAutoExpandGraph setState:self.xrgGraphWindow.appSettings.autoExpandGraph ? NSOnState : NSOffState];
+	[generalAutoExpandGraph setState:self.xrgGraphWindow.appSettings.autoExpandGraph ? NSControlStateValueOn : NSControlStateValueOff];
 	
     // Setup foreground when expanding
     [generalForegroundWhenExpanding setTarget:self.xrgGraphWindow];
     [generalForegroundWhenExpanding setAction:@selector(setForegroundWhenExpanding:)];
-	[generalForegroundWhenExpanding setState:self.xrgGraphWindow.appSettings.foregroundWhenExpanding ? NSOnState : NSOffState];
+	[generalForegroundWhenExpanding setState:self.xrgGraphWindow.appSettings.foregroundWhenExpanding ? NSControlStateValueOn : NSControlStateValueOff];
 	
     // Setup show summary
     [generalShowSummary setTarget:self.xrgGraphWindow];
     [generalShowSummary setAction:@selector(setShowSummary:)];
-	[generalShowSummary setState:self.xrgGraphWindow.appSettings.showSummary ? NSOnState : NSOffState];
+	[generalShowSummary setState:self.xrgGraphWindow.appSettings.showSummary ? NSControlStateValueOn : NSControlStateValueOff];
 	
     // Setup minimize up/down
     [generalMinimizeUpDown setTarget:self.xrgGraphWindow];
@@ -694,17 +694,17 @@
     // Setup fast CPU usage checkbox
     [fastCPUUsageCheckbox setTarget:self.xrgGraphWindow];
     [fastCPUUsageCheckbox setAction:@selector(setFastCPUUsageCheckbox:)];
-	[fastCPUUsageCheckbox setState:self.xrgGraphWindow.appSettings.fastCPUUsage ? NSOnState : NSOffState];
+	[fastCPUUsageCheckbox setState:self.xrgGraphWindow.appSettings.fastCPUUsage ? NSControlStateValueOn : NSControlStateValueOff];
 
     // Setup separate CPU color
     [separateCPUColor setTarget:self.xrgGraphWindow];
     [separateCPUColor setAction:@selector(setSeparateCPUColor:)];
-	[separateCPUColor setState:self.xrgGraphWindow.appSettings.separateCPUColor ? NSOnState : NSOffState];
+	[separateCPUColor setState:self.xrgGraphWindow.appSettings.separateCPUColor ? NSControlStateValueOn : NSControlStateValueOff];
 
     // Setup show CPU temperature
     [showCPUTemperature setTarget:self.xrgGraphWindow];
     [showCPUTemperature setAction:@selector(setShowCPUTemperature:)];
-	[showCPUTemperature setState:self.xrgGraphWindow.appSettings.showCPUTemperature ? NSOnState : NSOffState];
+	[showCPUTemperature setState:self.xrgGraphWindow.appSettings.showCPUTemperature ? NSControlStateValueOn : NSControlStateValueOff];
 	
     [cpuTemperatureUnits setTarget:self.xrgGraphWindow];
     [cpuTemperatureUnits setAction:@selector(setCPUTemperatureUnits:)];
@@ -713,17 +713,17 @@
     // Setup show load average
     [showLoadAverage setTarget:self.xrgGraphWindow];
     [showLoadAverage setAction:@selector(setShowLoadAverage:)];
-	[showLoadAverage setState:self.xrgGraphWindow.appSettings.showLoadAverage ? NSOnState : NSOffState];
+	[showLoadAverage setState:self.xrgGraphWindow.appSettings.showLoadAverage ? NSControlStateValueOn : NSControlStateValueOff];
 	
     // Setup show average cpu usage
     [cpuShowAverageUsage setTarget:self.xrgGraphWindow];
     [cpuShowAverageUsage setAction:@selector(setCPUShowAverageUsage:)];
-	[cpuShowAverageUsage setState:self.xrgGraphWindow.appSettings.cpuShowAverageUsage ? NSOnState : NSOffState];
+	[cpuShowAverageUsage setState:self.xrgGraphWindow.appSettings.cpuShowAverageUsage ? NSControlStateValueOn : NSControlStateValueOff];
 
     // Setup show uptime
     [cpuShowUptime setTarget:self.xrgGraphWindow];
     [cpuShowUptime setAction:@selector(setCPUShowUptime:)];
-	[cpuShowUptime setState:self.xrgGraphWindow.appSettings.cpuShowUptime ? NSOnState : NSOffState];
+	[cpuShowUptime setState:self.xrgGraphWindow.appSettings.cpuShowUptime ? NSControlStateValueOn : NSControlStateValueOff];
 }
 
 - (void)setUpMemoryPanel {
@@ -743,13 +743,13 @@
     [memoryShowPage        setAction:@selector(setMemoryCheckbox:)];
     [memoryShowPagingGraph setAction:@selector(setMemoryCheckbox:)];
 	
-	[memoryShowWired setState:self.xrgGraphWindow.appSettings.memoryShowWired ? NSOnState : NSOffState];
-	[memoryShowActive setState:self.xrgGraphWindow.appSettings.memoryShowActive ? NSOnState : NSOffState];
-	[memoryShowInactive setState:self.xrgGraphWindow.appSettings.memoryShowInactive ? NSOnState : NSOffState];
-	[memoryShowFree setState:self.xrgGraphWindow.appSettings.memoryShowFree ? NSOnState : NSOffState];
-	[memoryShowCache setState:self.xrgGraphWindow.appSettings.memoryShowCache ? NSOnState : NSOffState];
-	[memoryShowPage setState:self.xrgGraphWindow.appSettings.memoryShowPage ? NSOnState : NSOffState];
-	[memoryShowPagingGraph setState:self.xrgGraphWindow.appSettings.showMemoryPagingGraph ? NSOnState : NSOffState];
+	[memoryShowWired setState:self.xrgGraphWindow.appSettings.memoryShowWired ? NSControlStateValueOn : NSControlStateValueOff];
+	[memoryShowActive setState:self.xrgGraphWindow.appSettings.memoryShowActive ? NSControlStateValueOn : NSControlStateValueOff];
+	[memoryShowInactive setState:self.xrgGraphWindow.appSettings.memoryShowInactive ? NSControlStateValueOn : NSControlStateValueOff];
+	[memoryShowFree setState:self.xrgGraphWindow.appSettings.memoryShowFree ? NSControlStateValueOn : NSControlStateValueOff];
+	[memoryShowCache setState:self.xrgGraphWindow.appSettings.memoryShowCache ? NSControlStateValueOn : NSControlStateValueOff];
+	[memoryShowPage setState:self.xrgGraphWindow.appSettings.memoryShowPage ? NSControlStateValueOn : NSControlStateValueOff];
+	[memoryShowPagingGraph setState:self.xrgGraphWindow.appSettings.showMemoryPagingGraph ? NSControlStateValueOn : NSControlStateValueOff];
 }
 
 - (void)setUpTemperaturePanel {
@@ -869,11 +869,11 @@
     // Setup show total bandwidth
     [showTotalBandwidthSinceBoot setTarget:self.xrgGraphWindow];
     [showTotalBandwidthSinceBoot setAction:@selector(setShowTotalBandwidthSinceBoot:)];
-	[showTotalBandwidthSinceBoot setState:self.xrgGraphWindow.appSettings.showTotalBandwidthSinceBoot ? NSOnState : NSOffState];
+	[showTotalBandwidthSinceBoot setState:self.xrgGraphWindow.appSettings.showTotalBandwidthSinceBoot ? NSControlStateValueOn : NSControlStateValueOff];
 	
     [showTotalBandwidthSinceLoad setTarget:self.xrgGraphWindow];
     [showTotalBandwidthSinceLoad setAction:@selector(setShowTotalBandwidthSinceLoad:)];
-	[showTotalBandwidthSinceLoad setState:self.xrgGraphWindow.appSettings.showTotalBandwidthSinceLoad ? NSOnState : NSOffState];
+	[showTotalBandwidthSinceLoad setState:self.xrgGraphWindow.appSettings.showTotalBandwidthSinceLoad ? NSControlStateValueOn : NSControlStateValueOff];
 	
     // Setup network interface to monitor
     [networkInterface setTarget:self.xrgGraphWindow];
@@ -1001,14 +1001,31 @@
     
     [stockShowChange setTarget:self.xrgGraphWindow];
     [stockShowChange setAction:@selector(setStockShowChange:)];
-	[stockShowChange setState:self.xrgGraphWindow.appSettings.stockShowChange ? NSOnState : NSOffState];
+	[stockShowChange setState:self.xrgGraphWindow.appSettings.stockShowChange ? NSControlStateValueOn : NSControlStateValueOff];
         
     [showDJIA setTarget:self.xrgGraphWindow];
     [showDJIA setAction:@selector(setShowDJIA:)];
-	[showDJIA setState:self.xrgGraphWindow.appSettings.showDJIA ? NSOnState : NSOffState];
+	[showDJIA setState:self.xrgGraphWindow.appSettings.showDJIA ? NSControlStateValueOn : NSControlStateValueOff];
 }
 
 - (void)setUpAIPanel {
+    // Register default values for AI Token settings
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        NSDictionary *defaults = @{
+            @"aiTokensTrackingEnabled": @NO,
+            @"showAITokenGraph": @NO,
+            @"aiTokensDailyAutoReset": @YES,
+            @"aiTokensDailyBudget": @0,
+            @"aiTokensBudgetNotifyPercent": @80,
+            @"aiTokensAggregateByModel": @YES,
+            @"aiTokensAggregateByProvider": @NO,
+            @"aiTokensShowRate": @YES,
+            @"aiTokensShowBreakdown": @YES
+        };
+        [[NSUserDefaults standardUserDefaults] registerDefaults:defaults];
+    });
+
     // Create the AI preferences panel programmatically if it doesn't exist
     if (!AIPrefView) {
         AIPrefView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 500, 400)];
@@ -1033,7 +1050,7 @@
         // Enable tracking checkbox
         NSButton *trackingEnabled = [NSButton checkboxWithTitle:@"Enable AI Token Tracking" target:nil action:nil];
         [trackingEnabled setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
-        [trackingEnabled setState:self.xrgGraphWindow.appSettings.aiTokensTrackingEnabled ? NSOnState : NSOffState];
+        [trackingEnabled setState:self.xrgGraphWindow.appSettings.aiTokensTrackingEnabled ? NSControlStateValueOn : NSControlStateValueOff];
         [trackingEnabled setTag:1000];
         [AIPrefView addSubview:trackingEnabled];
 
@@ -1042,7 +1059,7 @@
         // Daily auto-reset checkbox
         NSButton *dailyAutoReset = [NSButton checkboxWithTitle:@"Auto-reset daily counters at midnight" target:nil action:nil];
         [dailyAutoReset setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
-        [dailyAutoReset setState:self.xrgGraphWindow.appSettings.aiTokensDailyAutoReset ? NSOnState : NSOffState];
+        [dailyAutoReset setState:self.xrgGraphWindow.appSettings.aiTokensDailyAutoReset ? NSControlStateValueOn : NSControlStateValueOff];
         [dailyAutoReset setTag:1001];
         [AIPrefView addSubview:dailyAutoReset];
 
@@ -1083,7 +1100,7 @@
         // Aggregate by model checkbox
         NSButton *aggregateByModel = [NSButton checkboxWithTitle:@"Track usage by AI model" target:nil action:nil];
         [aggregateByModel setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
-        [aggregateByModel setState:self.xrgGraphWindow.appSettings.aiTokensAggregateByModel ? NSOnState : NSOffState];
+        [aggregateByModel setState:self.xrgGraphWindow.appSettings.aiTokensAggregateByModel ? NSControlStateValueOn : NSControlStateValueOff];
         [aggregateByModel setTag:1004];
         [AIPrefView addSubview:aggregateByModel];
 
@@ -1092,7 +1109,7 @@
         // Aggregate by provider checkbox
         NSButton *aggregateByProvider = [NSButton checkboxWithTitle:@"Track usage by AI provider" target:nil action:nil];
         [aggregateByProvider setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
-        [aggregateByProvider setState:self.xrgGraphWindow.appSettings.aiTokensAggregateByProvider ? NSOnState : NSOffState];
+        [aggregateByProvider setState:self.xrgGraphWindow.appSettings.aiTokensAggregateByProvider ? NSControlStateValueOn : NSControlStateValueOff];
         [aggregateByProvider setTag:1005];
         [AIPrefView addSubview:aggregateByProvider];
 
@@ -1101,7 +1118,7 @@
         // Show rate checkbox
         NSButton *showRate = [NSButton checkboxWithTitle:@"Show token rate (tokens/second)" target:nil action:nil];
         [showRate setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
-        [showRate setState:self.xrgGraphWindow.appSettings.aiTokensShowRate ? NSOnState : NSOffState];
+        [showRate setState:self.xrgGraphWindow.appSettings.aiTokensShowRate ? NSControlStateValueOn : NSControlStateValueOff];
         [showRate setTag:1006];
         [AIPrefView addSubview:showRate];
 
@@ -1110,7 +1127,7 @@
         // Show breakdown checkbox
         NSButton *showBreakdown = [NSButton checkboxWithTitle:@"Show detailed breakdown" target:nil action:nil];
         [showBreakdown setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
-        [showBreakdown setState:self.xrgGraphWindow.appSettings.aiTokensShowBreakdown ? NSOnState : NSOffState];
+        [showBreakdown setState:self.xrgGraphWindow.appSettings.aiTokensShowBreakdown ? NSControlStateValueOn : NSControlStateValueOff];
         [showBreakdown setTag:1007];
         [AIPrefView addSubview:showBreakdown];
 
@@ -1142,167 +1159,164 @@
 }
 
 - (IBAction)loadTheme:(id)sender {                   
-    NSArray *fileTypes = @[@"xtf"];
     NSOpenPanel *oPanel = [NSOpenPanel openPanel];
 
     [oPanel setAllowsMultipleSelection:NO];
     [oPanel setCanChooseFiles:YES];
-    [oPanel beginSheetForDirectory:NSHomeDirectory() 
-                              file:@"" 
-                             types:fileTypes 
-                    modalForWindow:window 
-                     modalDelegate:self 
-                    didEndSelector:@selector(loadTheme2:returnCode:contextInfo:) 
-                       contextInfo:nil];
-}
-
-- (void)loadTheme2:(NSOpenPanel *)sheet returnCode:(int)returnCode contextInfo:(void  *)contextInfo {
-    ;
-    NSData *themeData;
-    NSString *error;        
-    NSPropertyListFormat format;
-    NSDictionary *themeDictionary;
+    [oPanel setAllowedFileTypes:@[@"xtf"]];
+    [oPanel setDirectoryURL:[NSURL fileURLWithPath:NSHomeDirectory()]];
     
-    /* if successful, open file under designated name */
-    if (returnCode == NSOKButton) {
-        NSArray *filenames = [sheet URLs];
-        NSURL *path = filenames[0];
+    [oPanel beginSheetModalForWindow:window completionHandler:^(NSInteger returnCode) {
+        if (returnCode == NSModalResponseOK) {
+            NSArray *filenames = [oPanel URLs];
+            NSURL *path = filenames[0];
 
-        themeData = [NSData dataWithContentsOfURL:path];
+            NSData *themeData = [NSData dataWithContentsOfURL:path];
+            
+            if ([themeData length] == 0) {
+                NSAlert *alert = [[NSAlert alloc] init];
+                [alert setMessageText:@"Error"];
+                [alert setInformativeText:@"The theme file specified is not a valid theme file."];
+                [alert addButtonWithTitle:@"Okay"];
+                [alert runModal];
+                return;
+            }
+
+            NSError *error = nil;
+            NSPropertyListFormat format;
+            NSDictionary *themeDictionary = [NSPropertyListSerialization propertyListWithData:themeData
+                                                                                       options:NSPropertyListImmutable
+                                                                                        format:&format
+                                                                                         error:&error];
+                                                               
+            if (!themeDictionary) {
+                NSAlert *alert = [[NSAlert alloc] init];
+                [alert setMessageText:@"Error"];
+                [alert setInformativeText:@"The theme file specified is not a valid theme file."];
+                [alert addButtonWithTitle:@"Okay"];
+                [alert runModal];
+                NSLog(@"%@", [error localizedDescription]);
+            }
+            else {
+                @try {
+                    NSData *d = themeDictionary[XRG_backgroundColor];
+                    [self->backgroundColorWell setColor:[NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:d error:nil]];
+                    
+                    d = themeDictionary[XRG_graphBGColor];
+                    [self->graphBGColorWell setColor:[NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:d error:nil]];
+                    
+                    d = themeDictionary[XRG_graphFG1Color];
+                    [self->graphFG1ColorWell setColor:[NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:d error:nil]];
+                    
+                    d = themeDictionary[XRG_graphFG2Color];
+                    [self->graphFG2ColorWell setColor:[NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:d error:nil]];
+                    
+                    d = themeDictionary[XRG_graphFG3Color];
+                    [self->graphFG3ColorWell setColor:[NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:d error:nil]];
+                    
+                    d = themeDictionary[XRG_borderColor];
+                    [self->borderColorWell setColor:[NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:d error:nil]];
+                    
+                    d = themeDictionary[XRG_textColor];
+                    [self->textColorWell setColor:[NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:d error:nil]];
+                    
+                    NSNumber *n = (NSNumber *)themeDictionary[XRG_backgroundTransparency];
+                    [self->backgroundTransparency setFloatValue: [n floatValue]];
+                    
+                    n = (NSNumber *)themeDictionary[XRG_graphBGTransparency];
+                    [self->graphBGTransparency setFloatValue:    [n floatValue]];
+                    
+                    n = (NSNumber *)themeDictionary[XRG_graphFG1Transparency];
+                    [self->graphFG1Transparency setFloatValue:   [n floatValue]];
+                    
+                    n = (NSNumber *)themeDictionary[XRG_graphFG2Transparency];
+                    [self->graphFG2Transparency setFloatValue:   [n floatValue]];
+                    
+                    n = (NSNumber *)themeDictionary[XRG_graphFG3Transparency];
+                    [self->graphFG3Transparency setFloatValue:   [n floatValue]];
+                    
+                    n = (NSNumber *)themeDictionary[XRG_borderTransparency];
+                    [self->borderTransparency setFloatValue:     [n floatValue]];
+                    
+                    n = (NSNumber *)themeDictionary[XRG_textTransparency];
+                    [self->textTransparency setFloatValue:       [n floatValue]];
+                    
+                    [self.xrgGraphWindow setObjectsToColor:self->backgroundColorWell];
+                    [self.xrgGraphWindow setObjectsToColor:self->graphBGColorWell];
+                    [self.xrgGraphWindow setObjectsToColor:self->graphFG1ColorWell];
+                    [self.xrgGraphWindow setObjectsToColor:self->graphFG2ColorWell];
+                    [self.xrgGraphWindow setObjectsToColor:self->graphFG3ColorWell];
+                    [self.xrgGraphWindow setObjectsToColor:self->borderColorWell];
+                    [self.xrgGraphWindow setObjectsToColor:self->textColorWell];
         
-        if ([themeData length] == 0) {
-            NSRunInformationalAlertPanel(@"Error", @"The theme file specified is not a valid theme file.", @"Okay", nil, nil);
-        }
-
-        themeDictionary = [NSPropertyListSerialization propertyListFromData:themeData
-                                                           mutabilityOption:NSPropertyListImmutable
-                                                                     format:&format
-                                                           errorDescription:&error];
-                                                           
-        if (!themeDictionary) {
-            NSRunInformationalAlertPanel(@"Error", @"The theme file specified is not a valid theme file.", @"Okay", nil, nil);
-            NSLog(@"%@", error);
-        }
-        else {
-            @try {
-                NSData *d = themeDictionary[XRG_backgroundColor];
-                [backgroundColorWell setColor:[NSUnarchiver unarchiveObjectWithData:d]];
-                
-                d = themeDictionary[XRG_graphBGColor];
-                [graphBGColorWell setColor:[NSUnarchiver unarchiveObjectWithData:d]];
-                
-                d = themeDictionary[XRG_graphFG1Color];
-                [graphFG1ColorWell setColor:[NSUnarchiver unarchiveObjectWithData:d]];
-                
-                d = themeDictionary[XRG_graphFG2Color];
-                [graphFG2ColorWell setColor:[NSUnarchiver unarchiveObjectWithData:d]];
-                
-                d = themeDictionary[XRG_graphFG3Color];
-                [graphFG3ColorWell setColor:[NSUnarchiver unarchiveObjectWithData:d]];
-                
-                d = themeDictionary[XRG_borderColor];
-                [borderColorWell setColor:[NSUnarchiver unarchiveObjectWithData:d]];
-                
-                d = themeDictionary[XRG_textColor];
-                [textColorWell setColor:[NSUnarchiver unarchiveObjectWithData:d]];
-                
-                NSNumber *n = (NSNumber *)themeDictionary[XRG_backgroundTransparency];
-                [backgroundTransparency setFloatValue: [n floatValue]];
-                
-                n = (NSNumber *)themeDictionary[XRG_graphBGTransparency];
-                [graphBGTransparency setFloatValue:    [n floatValue]];
-                
-                n = (NSNumber *)themeDictionary[XRG_graphFG1Transparency];
-                [graphFG1Transparency setFloatValue:   [n floatValue]];
-                
-                n = (NSNumber *)themeDictionary[XRG_graphFG2Transparency];
-                [graphFG2Transparency setFloatValue:   [n floatValue]];
-                
-                n = (NSNumber *)themeDictionary[XRG_graphFG3Transparency];
-                [graphFG3Transparency setFloatValue:   [n floatValue]];
-                
-                n = (NSNumber *)themeDictionary[XRG_borderTransparency];
-                [borderTransparency setFloatValue:     [n floatValue]];
-                
-                n = (NSNumber *)themeDictionary[XRG_textTransparency];
-                [textTransparency setFloatValue:       [n floatValue]];
-                
-                [self.xrgGraphWindow setObjectsToColor:backgroundColorWell];
-                [self.xrgGraphWindow setObjectsToColor:graphBGColorWell];
-                [self.xrgGraphWindow setObjectsToColor:graphFG1ColorWell];
-                [self.xrgGraphWindow setObjectsToColor:graphFG2ColorWell];
-                [self.xrgGraphWindow setObjectsToColor:graphFG3ColorWell];
-                [self.xrgGraphWindow setObjectsToColor:borderColorWell];
-                [self.xrgGraphWindow setObjectsToColor:textColorWell];
-    
-                [self.xrgGraphWindow setObjectsToTransparency:backgroundTransparency];
-                [self.xrgGraphWindow setObjectsToTransparency:graphBGTransparency];
-                [self.xrgGraphWindow setObjectsToTransparency:graphFG1Transparency];
-                [self.xrgGraphWindow setObjectsToTransparency:graphFG2Transparency];
-                [self.xrgGraphWindow setObjectsToTransparency:graphFG3Transparency];
-                [self.xrgGraphWindow setObjectsToTransparency:borderTransparency];
-                [self.xrgGraphWindow setObjectsToTransparency:textTransparency];
-            } @catch (NSException *e) {
-                NSRunInformationalAlertPanel(@"Error", @"The theme file specified is not a valid theme file.", @"Okay", nil, nil);
+                    [self.xrgGraphWindow setObjectsToTransparency:self->backgroundTransparency];
+                    [self.xrgGraphWindow setObjectsToTransparency:self->graphBGTransparency];
+                    [self.xrgGraphWindow setObjectsToTransparency:self->graphFG1Transparency];
+                    [self.xrgGraphWindow setObjectsToTransparency:self->graphFG2Transparency];
+                    [self.xrgGraphWindow setObjectsToTransparency:self->graphFG3Transparency];
+                    [self.xrgGraphWindow setObjectsToTransparency:self->borderTransparency];
+                    [self.xrgGraphWindow setObjectsToTransparency:self->textTransparency];
+                } @catch (NSException *e) {
+                    NSAlert *alert = [[NSAlert alloc] init];
+                    [alert setMessageText:@"Error"];
+                    [alert setInformativeText:@"The theme file specified is not a valid theme file."];
+                    [alert addButtonWithTitle:@"Okay"];
+                    [alert runModal];
+                }
             }
         }
-    }
+    }];
 }
 
 - (IBAction)saveTheme:(id)sender {
     NSSavePanel *sp = [NSSavePanel savePanel];
     
     [sp setAllowedFileTypes:@[@"xtf"]];
-    /* display the NSSavePanel */
-    [sp beginSheetForDirectory:NSHomeDirectory() 
-                          file:@"My Theme.xtf" 
-                modalForWindow:window 
-                 modalDelegate:self 
-                didEndSelector:@selector(saveTheme2:returnCode:contextInfo:) 
-                   contextInfo:nil];
-}
+    [sp setDirectoryURL:[NSURL fileURLWithPath:NSHomeDirectory()]];
+    [sp setNameFieldStringValue:@"My Theme.xtf"];
     
-- (void)saveTheme2:(NSSavePanel *)sheet returnCode:(int)returnCode contextInfo:(void  *)contextInfo {
-    NSData *xmlData;
-    NSString *error;        
-    
-    /* if successful, save file under designated name */
-    if (returnCode == NSOKButton) {
-        NSURL *path = [sheet URL];
-        
-        // Create the property dictionary
-        NSMutableDictionary *colorPrefs = [NSMutableDictionary dictionary];
+    [sp beginSheetModalForWindow:window completionHandler:^(NSInteger returnCode) {
+        if (returnCode == NSModalResponseOK) {
+            NSURL *path = [sp URL];
+            
+            // Create the property dictionary
+            NSMutableDictionary *colorPrefs = [NSMutableDictionary dictionary];
 
-        colorPrefs[XRG_backgroundTransparency] = @([backgroundTransparency floatValue]);
-        colorPrefs[XRG_graphBGTransparency] = @([graphBGTransparency floatValue]);
-        colorPrefs[XRG_graphFG1Transparency] = @([graphFG1Transparency floatValue]);
-        colorPrefs[XRG_graphFG2Transparency] = @([graphFG2Transparency floatValue]);
-        colorPrefs[XRG_graphFG3Transparency] = @([graphFG3Transparency floatValue]);
-        colorPrefs[XRG_borderTransparency] = @([borderTransparency floatValue]);
-        colorPrefs[XRG_textTransparency] = @([textTransparency floatValue]);
-        
-                //[NSArchiver archivedDataWithRootObject:[c copy]]
+            colorPrefs[XRG_backgroundTransparency] = @([self->backgroundTransparency floatValue]);
+            colorPrefs[XRG_graphBGTransparency] = @([self->graphBGTransparency floatValue]);
+            colorPrefs[XRG_graphFG1Transparency] = @([self->graphFG1Transparency floatValue]);
+            colorPrefs[XRG_graphFG2Transparency] = @([self->graphFG2Transparency floatValue]);
+            colorPrefs[XRG_graphFG3Transparency] = @([self->graphFG3Transparency floatValue]);
+            colorPrefs[XRG_borderTransparency] = @([self->borderTransparency floatValue]);
+            colorPrefs[XRG_textTransparency] = @([self->textTransparency floatValue]);
 
-        colorPrefs[XRG_backgroundColor] = [NSArchiver archivedDataWithRootObject:[backgroundColorWell color]];
-        colorPrefs[XRG_graphBGColor] = [NSArchiver archivedDataWithRootObject:[graphBGColorWell color]];
-        colorPrefs[XRG_graphFG1Color] = [NSArchiver archivedDataWithRootObject:[graphFG1ColorWell color]];
-        colorPrefs[XRG_graphFG2Color] = [NSArchiver archivedDataWithRootObject:[graphFG2ColorWell color]];
-        colorPrefs[XRG_graphFG3Color] = [NSArchiver archivedDataWithRootObject:[graphFG3ColorWell color]];
-        colorPrefs[XRG_borderColor] = [NSArchiver archivedDataWithRootObject:[borderColorWell color]];
-        colorPrefs[XRG_textColor] = [NSArchiver archivedDataWithRootObject:[textColorWell color]];
-                    
-        xmlData = [NSPropertyListSerialization dataFromPropertyList:colorPrefs
-                                                             format:NSPropertyListXMLFormat_v1_0
-                                                   errorDescription:&error];
-        if (xmlData) {
-            if (![xmlData writeToURL:path atomically:YES]) {
-                NSRunInformationalAlertPanel(@"Error", @"Could not save the theme to that location.", @"Okay", nil, nil);
+            colorPrefs[XRG_backgroundColor] = [NSKeyedArchiver archivedDataWithRootObject:[self->backgroundColorWell color] requiringSecureCoding:NO error:nil];
+            colorPrefs[XRG_graphBGColor] = [NSKeyedArchiver archivedDataWithRootObject:[self->graphBGColorWell color] requiringSecureCoding:NO error:nil];
+            colorPrefs[XRG_graphFG1Color] = [NSKeyedArchiver archivedDataWithRootObject:[self->graphFG1ColorWell color] requiringSecureCoding:NO error:nil];
+            colorPrefs[XRG_graphFG2Color] = [NSKeyedArchiver archivedDataWithRootObject:[self->graphFG2ColorWell color] requiringSecureCoding:NO error:nil];
+            colorPrefs[XRG_graphFG3Color] = [NSKeyedArchiver archivedDataWithRootObject:[self->graphFG3ColorWell color] requiringSecureCoding:NO error:nil];
+            colorPrefs[XRG_borderColor] = [NSKeyedArchiver archivedDataWithRootObject:[self->borderColorWell color] requiringSecureCoding:NO error:nil];
+            colorPrefs[XRG_textColor] = [NSKeyedArchiver archivedDataWithRootObject:[self->textColorWell color] requiringSecureCoding:NO error:nil];
+            
+            NSError *error = nil;
+            NSData *xmlData = [NSPropertyListSerialization dataWithPropertyList:colorPrefs
+                                                                         format:NSPropertyListXMLFormat_v1_0
+                                                                        options:0
+                                                                          error:&error];
+            if (xmlData) {
+                if (![xmlData writeToURL:path atomically:YES]) {
+                    NSAlert *alert = [[NSAlert alloc] init];
+                    [alert setMessageText:@"Error"];
+                    [alert setInformativeText:@"Could not save the theme to that location."];
+                    [alert addButtonWithTitle:@"Okay"];
+                    [alert runModal];
+                }
+            }
+            else {
+                NSLog(@"%@", [error localizedDescription]);
             }
         }
-        else {
-            NSLog(@"%@", error);
-        }
-    }
+    }];
 }
 
 - (NSWindow *)window {
@@ -1340,13 +1354,21 @@
 - (IBAction)setNetMinGraphUnitsAction:(id)sender {
     int sInt = [[netMinGraphScaleValue stringValue] intValue];
     if (sInt == INT_MAX || sInt == INT_MIN) {
-        NSBeginAlertSheet(@"Error", @"OK", nil, nil, window, nil, nil, nil, nil, @"The minimum network scale must be a number.");
+        NSAlert *alert = [[NSAlert alloc] init];
+        [alert setMessageText:@"Error"];
+        [alert setInformativeText:@"The minimum network scale must be a number."];
+        [alert addButtonWithTitle:@"OK"];
+        [alert beginSheetModalForWindow:window completionHandler:nil];
         [netMinGraphScaleValue setStringValue:@"0"];
         return;
     }
     if (sInt == 0) {
         if (![[netMinGraphScaleValue stringValue] isEqualToString:@"0"]) {
-            NSBeginAlertSheet(@"Error", @"OK", nil, nil, window, nil, nil, nil, nil, @"The minimum network scale must be a number.");            
+            NSAlert *alert = [[NSAlert alloc] init];
+            [alert setMessageText:@"Error"];
+            [alert setInformativeText:@"The minimum network scale must be a number."];
+            [alert addButtonWithTitle:@"OK"];
+            [alert beginSheetModalForWindow:window completionHandler:nil];
             [netMinGraphScaleValue setStringValue:@"0"];
             return;
         }
@@ -1364,13 +1386,21 @@
     NSString *s = [sender stringValue];
     int sInt = [s intValue];
     if (sInt == INT_MAX || sInt == INT_MIN) {
-        NSBeginAlertSheet(@"Error", @"OK", nil, nil, window, nil, nil, nil, nil, @"The minimum network scale must be a number.");
+        NSAlert *alert = [[NSAlert alloc] init];
+        [alert setMessageText:@"Error"];
+        [alert setInformativeText:@"The minimum network scale must be a number."];
+        [alert addButtonWithTitle:@"OK"];
+        [alert beginSheetModalForWindow:window completionHandler:nil];
         [netMinGraphScaleValue setStringValue:@"0"];
         return;
     }
     if (sInt == 0) {
         if (![s isEqualToString:@"0"]) {
-            NSBeginAlertSheet(@"Error", @"OK", nil, nil, window, nil, nil, nil, nil, @"The minimum network scale must be a number.");            
+            NSAlert *alert = [[NSAlert alloc] init];
+            [alert setMessageText:@"Error"];
+            [alert setInformativeText:@"The minimum network scale must be a number."];
+            [alert addButtonWithTitle:@"OK"];
+            [alert beginSheetModalForWindow:window completionHandler:nil];
             [netMinGraphScaleValue setStringValue:@"0"];
             return;
         }

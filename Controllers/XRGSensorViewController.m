@@ -141,7 +141,7 @@
     }
 
     [[NSPasteboard generalPasteboard] clearContents];
-    [[NSPasteboard generalPasteboard] setString:copyText forType:NSStringPboardType];
+    [[NSPasteboard generalPasteboard] setString:copyText forType:NSPasteboardTypeString];
 }
 
 

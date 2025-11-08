@@ -341,19 +341,22 @@ Added real-time AI API token usage tracking that works on **all Macs** with **an
 
 The miner automatically detects and uses the best available data source:
 
-1. **Strategy 1 (Universal)**: SQLite Database `~/.claude/monitoring/claude_usage.db`
-   - Works on ALL Macs with Claude Code (no setup required)
-   - Queries session table for total tokens and costs
-   - Primary strategy - works out of the box
+1. **Strategy 1 (Universal)**: JSONL Transcripts `~/.claude/projects/*/sessionid.jsonl`
+   - Works on ALL Macs with default Claude Code installation
+   - No setup or configuration required
+   - Parses session transcripts for token usage
+   - Background threading for performance
+   - Intelligent caching to avoid re-parsing
 
-2. **Strategy 2 (Advanced)**: OpenTelemetry Endpoint `http://localhost:8889/metrics`
+2. **Strategy 2 (Advanced)**: SQLite Database `~/.claude/monitoring/claude_usage.db`
+   - For users with custom monitoring setups
+   - Queries session table for total tokens and costs
+   - Faster than JSONL parsing when available
+
+3. **Strategy 3 (Advanced)**: OpenTelemetry Endpoint `http://localhost:8889/metrics`
    - For users with OTel configured (optional)
    - Provides real-time granular metrics
    - Automatic health check on startup
-
-3. **Strategy 3 (Fallback)**: Session Files `~/.claude/sessions/[session-id]/`
-   - Emergency backup if database unavailable
-   - Monitors active session JSON files
 
 **Key Features**:
 - ✅ Zero configuration required
@@ -369,6 +372,101 @@ The miner automatically detects and uses the best available data source:
 - Three separate data series: `claudeCodeTokens`, `codexTokens`, `otherAITokens`
 - Uses native SQLite3 library (linked via `-lsqlite3` in project settings)
 - Critical bug fix: Must store rates BEFORE updating lastCount to avoid always-zero rate
+
+**Miner-Observer Integration** (Nov 2025 fix):
+The system uses two complementary components:
+- **XRGAITokenMiner**: Parses JSONL/SQLite/OTel data sources for total token counts and rates
+- **XRGAITokensObserver**: Tracks individual events with model/provider breakdown and budget notifications
+
+The Miner feeds parsed events to the Observer:
+```objc
+// In parseJSONLFile - for each JSONL line with token usage:
+[observer recordEventWithPromptTokens:promptTokens
+                     completionTokens:completionTokens
+                               model:model        // e.g. "claude-sonnet-4-5"
+                            provider:provider];   // e.g. "anthropic"
+```
+
+This enables:
+- Model breakdown: See which models (claude-sonnet-4-5, gpt-4, etc.) consume most tokens
+- Provider breakdown: Track usage across anthropic, openai, etc.
+- Budget tracking: Set daily limits and get threshold notifications
+- Prompt vs completion separation: Understand input vs output token usage
+
+**Critical**: `aiTokensTrackingEnabled` must be YES (default) or Observer will ignore all events.
+
+### AI Token Settings and Features
+
+The AI Token module has comprehensive settings for tracking, budgeting, and visualizing AI token usage. All settings are defined in `XRGAISettingsKeys.h` and managed through `XRGSettings`:
+
+**Available Settings** (all fully implemented):
+
+1. **`aiTokensTrackingEnabled`** (BOOL, default: NO)
+   - Master toggle for token tracking
+   - When disabled, no tokens are recorded
+   - Used by `XRGAITokensObserver` to gate all recording operations
+
+2. **`aiTokensDailyAutoReset`** (BOOL, default: YES)
+   - Automatically reset daily counters at midnight
+   - Triggered by `checkAndResetDailyIfNeeded` in Observer
+   - When disabled, daily counters persist until manually reset
+
+3. **`aiTokensDailyBudget`** (NSInteger, default: 0)
+   - Daily token budget limit (0 = unlimited)
+   - Displayed in view as "Daily: X/Y (Z%)"
+   - Triggers budget threshold notifications when exceeded
+
+4. **`aiTokensBudgetNotifyPercent`** (NSInteger, default: 80)
+   - Percentage of budget that triggers notification (1-100)
+   - Implemented in `checkBudgetThresholdAndNotifyIfNeeded`
+   - Sends `XRGAITokensBudgetThresholdReachedNotification` when reached
+   - Only notifies once per day to avoid spam
+
+5. **`aiTokensAggregateByModel`** (BOOL, default: YES)
+   - Track token usage per AI model (e.g., "claude-sonnet-4-5", "gpt-4")
+   - Displayed in breakdown section when `showBreakdown` is enabled
+   - Stored in `dailyModelPromptTokens` and `dailyModelCompletionTokens` dictionaries
+
+6. **`aiTokensAggregateByProvider`** (BOOL, default: NO)
+   - Track token usage per provider (e.g., "anthropic", "openai")
+   - Displayed in breakdown section when `showBreakdown` is enabled
+   - Stored in `dailyProviderPromptTokens` and `dailyProviderCompletionTokens` dictionaries
+
+7. **`aiTokensShowRate`** (BOOL, default: YES)
+   - Display current token rate (tokens/second) in graph
+   - Shows "Rate: X/s" or "Rate: XK/s" for rates over 1000
+
+8. **`aiTokensShowBreakdown`** (BOOL, default: YES)
+   - Display detailed breakdown by model/provider in graph
+   - Shows "─ By Model ─" and "─ By Provider ─" sections with per-item totals
+
+**Observer Pattern**:
+- `XRGAITokensObserver` is a singleton that manages all token tracking
+- Records events with `recordEventWithPromptTokens:completionTokens:model:provider:`
+- Persists daily counters to NSUserDefaults for crash resilience
+- Provides read-only properties for session and daily totals
+- Supports manual and automatic daily resets
+
+**Notification System**:
+- `XRGAITokensDidResetSessionNotification`: Posted when session counters reset
+- `XRGAITokensDidResetDailyNotification`: Posted when daily counters reset
+- `XRGAITokensBudgetThresholdReachedNotification`: Posted when budget threshold reached
+  - UserInfo contains: `@"progress"` (ratio) and `@"percent"` (0-100)
+
+**Context Menu Features**:
+The AI Token view provides a right-click context menu with:
+- Session statistics (prompt, completion, total tokens)
+- Daily statistics (total, budget progress)
+- Model breakdown (when aggregateByModel enabled)
+- Provider breakdown (when aggregateByProvider enabled)
+- All values formatted with K/M suffixes for readability
+
+**Visual Display**:
+- Stacked area graphs showing Claude Code (FG1 color), Codex (FG2 color), Other (FG3 color)
+- Real-time rate indicator on right side showing proportional breakdown
+- Text labels showing rate, session total, daily total, and optional breakdowns
+- Budget progress shown as "X/Y (Z%)" when budget configured
+- Mini graph mode for compact display
 
 ## Code Conventions
 
@@ -453,6 +551,29 @@ When implementing rate calculations from cumulative counters:
 }
 ```
 
+### Missing Readonly Property Getters
+
+When declaring readonly properties in the header, you **must** implement the getter method in the .m file:
+
+```objc
+// ❌ WRONG - Header declares property but .m has no implementation
+// XRGMyClass.h
+@property (readonly) NSDictionary *myData;
+
+// XRGMyClass.m
+// (no getter implementation - property returns nil!)
+
+// ✅ CORRECT - Implement the getter
+// XRGMyClass.m
+- (NSDictionary *)myData {
+    // Compute and return the value
+    return [self computeData];
+}
+```
+
+**Real Example from AI Token Observer** (Nov 2025 fix):
+The header declared `dailyByModel` and `dailyByProvider` as readonly properties, but had no getter implementations. This caused the breakdown sections to never display. Fixed by implementing getters that combine prompt and completion token dictionaries.
+
 ### macOS SDK Compatibility
 
 When targeting older macOS versions (10.13+), be aware of API availability:
@@ -507,17 +628,18 @@ open ~/Library/Developer/Xcode/DerivedData/XRG-*/Build/Products/Debug/XRG.app
 
 The AI Token module automatically detects the best data source:
 
-1. **Default (Everyone)**: Reads from `~/.claude/monitoring/claude_usage.db`
-   - Created automatically by Claude Code
+1. **Default (Everyone)**: Parses JSONL transcripts from `~/.claude/projects/*/sessionid.jsonl`
+   - Works with default Claude Code installation
    - No setup or configuration needed
-   - Works with any AI stack
+   - Background parsing with intelligent caching
 
-2. **Advanced (Optional)**: Queries OpenTelemetry endpoint if available
+2. **Advanced (Optional)**: Reads from `~/.claude/monitoring/claude_usage.db`
+   - For users with custom monitoring setups
+   - Faster database queries when available
+
+3. **Advanced (Optional)**: Queries OpenTelemetry endpoint if available
    - For users with OTel configured
    - Provides additional granular metrics
-
-3. **Fallback**: Monitors Claude Code session files
-   - Emergency backup if database unavailable
 
 ### Documentation
 

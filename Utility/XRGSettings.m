@@ -29,6 +29,15 @@
 
 @implementation XRGSettings
 
+@dynamic aiTokensTrackingEnabled;
+@dynamic aiTokensDailyAutoReset;
+@dynamic aiTokensDailyBudget;
+@dynamic aiTokensBudgetNotifyPercent;
+@dynamic aiTokensAggregateByModel;
+@dynamic aiTokensAggregateByProvider;
+@dynamic aiTokensShowRate;
+@dynamic aiTokensShowBreakdown;
+
 + (instancetype)sharedSettings {
     static XRGSettings *sharedInstance = nil;
     static dispatch_once_t onceToken;
@@ -40,18 +49,8 @@
 }
 
 - (void)loadSettingsFromDefaults {
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-
-    // Load AI Token settings
-    self.aiTokensTrackingEnabled = [defaults boolForKey:@"aiTokensTrackingEnabled"];
-    self.aiTokensDailyAutoReset = [defaults boolForKey:@"aiTokensDailyAutoReset"];
-    self.aiTokensDailyBudget = [defaults integerForKey:@"aiTokensDailyBudget"];
-    self.aiTokensBudgetNotifyPercent = [defaults integerForKey:@"aiTokensBudgetNotifyPercent"];
-    self.aiTokensAggregateByModel = [defaults boolForKey:@"aiTokensAggregateByModel"];
-    self.aiTokensAggregateByProvider = [defaults boolForKey:@"aiTokensAggregateByProvider"];
-    self.aiTokensShowRate = [defaults boolForKey:@"aiTokensShowRate"];
-    self.aiTokensShowBreakdown = [defaults boolForKey:@"aiTokensShowBreakdown"];
-    self.showAITokenGraph = [defaults boolForKey:XRG_showAITokenGraph];
+    // AI Token settings are now computed properties that read directly from NSUserDefaults
+    // No need to load them here - they're accessed dynamically via getters
 }
 
 - (instancetype) init {
@@ -77,9 +76,9 @@
 		self.alignRight = [[NSParagraphStyle defaultParagraphStyle] mutableCopyWithZone: nil];
 		self.alignLeft = [[NSParagraphStyle defaultParagraphStyle] mutableCopyWithZone: nil];
 		self.alignCenter = [[NSParagraphStyle defaultParagraphStyle] mutableCopyWithZone: nil];
-		[self.alignRight  setAlignment:NSRightTextAlignment];
-		[self.alignLeft   setAlignment:NSLeftTextAlignment];
-		[self.alignCenter setAlignment:NSCenterTextAlignment];
+		[self.alignRight  setAlignment:NSTextAlignmentRight];
+		[self.alignLeft   setAlignment:NSTextAlignmentLeft];
+		[self.alignCenter setAlignment:NSTextAlignmentCenter];
 		[self.alignLeft setLineBreakMode:NSLineBreakByTruncatingMiddle];
 
 		self.alignRightAttributes = [NSMutableDictionary dictionary];
@@ -141,25 +140,25 @@
 - (void) readXTFDictionary:(NSDictionary *)xtfD {
 	@try {
 		NSData *d = xtfD[XRG_backgroundColor];
-		[self setBackgroundColor:[NSUnarchiver unarchiveObjectWithData:d]];
-		
+		[self setBackgroundColor:[NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:d error:nil]];
+
 		d = xtfD[XRG_graphBGColor];
-		[self setGraphBGColor:[NSUnarchiver unarchiveObjectWithData:d]];
-		
+		[self setGraphBGColor:[NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:d error:nil]];
+
 		d = xtfD[XRG_graphFG1Color];
-		[self setGraphFG1Color:[NSUnarchiver unarchiveObjectWithData:d]];
-		
+		[self setGraphFG1Color:[NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:d error:nil]];
+
 		d = xtfD[XRG_graphFG2Color];
-		[self setGraphFG2Color:[NSUnarchiver unarchiveObjectWithData:d]];
-		
+		[self setGraphFG2Color:[NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:d error:nil]];
+
 		d = xtfD[XRG_graphFG3Color];
-		[self setGraphFG3Color:[NSUnarchiver unarchiveObjectWithData:d]];
-		
+		[self setGraphFG3Color:[NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:d error:nil]];
+
 		d = xtfD[XRG_borderColor];
-		[self setBorderColor:[NSUnarchiver unarchiveObjectWithData:d]];
-		
+		[self setBorderColor:[NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:d error:nil]];
+
 		d = xtfD[XRG_textColor];
-		[self setTextColor:[NSUnarchiver unarchiveObjectWithData:d]];
+		[self setTextColor:[NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:d error:nil]];
 		
 		NSNumber *n = (NSNumber *)xtfD[XRG_backgroundTransparency];
 		[self setBackgroundTransparency: [n floatValue]];
@@ -182,7 +181,12 @@
 		n = (NSNumber *)xtfD[XRG_textTransparency];
 		[self setTextTransparency:       [n floatValue]];
 	} @catch (NSException *e) {
-		NSRunInformationalAlertPanel(@"Error", @"The file dragged is not a valid theme file.", @"OK", nil, nil);
+		NSAlert *alert = [[NSAlert alloc] init];
+		[alert setMessageText:@"Error"];
+		[alert setInformativeText:@"The file dragged is not a valid theme file."];
+		[alert addButtonWithTitle:@"OK"];
+		[alert setAlertStyle:NSAlertStyleInformational];
+		[alert runModal];
 	}
 	
 	// Now save the new theme values to our prefs file
@@ -196,13 +200,13 @@
     [defs setFloat:[self borderTransparency]     forKey:XRG_borderTransparency];
     [defs setFloat:[self textTransparency]       forKey:XRG_textTransparency];
     
-    [defs setObject:[NSArchiver archivedDataWithRootObject:[self backgroundColor]] forKey:XRG_backgroundColor];
-    [defs setObject:[NSArchiver archivedDataWithRootObject:[self graphBGColor]] forKey: XRG_graphBGColor];
-    [defs setObject:[NSArchiver archivedDataWithRootObject:[self graphFG1Color]] forKey: XRG_graphFG1Color];
-    [defs setObject:[NSArchiver archivedDataWithRootObject: [self graphFG2Color]] forKey: XRG_graphFG2Color];
-    [defs setObject:[NSArchiver archivedDataWithRootObject: [self graphFG3Color]] forKey: XRG_graphFG3Color];
-    [defs setObject:[NSArchiver archivedDataWithRootObject: [self borderColor]] forKey: XRG_borderColor];
-    [defs setObject:[NSArchiver archivedDataWithRootObject: [self textColor]] forKey: XRG_textColor];
+    [defs setObject:[NSKeyedArchiver archivedDataWithRootObject:[self backgroundColor] requiringSecureCoding:NO error:nil] forKey:XRG_backgroundColor];
+    [defs setObject:[NSKeyedArchiver archivedDataWithRootObject:[self graphBGColor] requiringSecureCoding:NO error:nil] forKey: XRG_graphBGColor];
+    [defs setObject:[NSKeyedArchiver archivedDataWithRootObject:[self graphFG1Color] requiringSecureCoding:NO error:nil] forKey: XRG_graphFG1Color];
+    [defs setObject:[NSKeyedArchiver archivedDataWithRootObject: [self graphFG2Color] requiringSecureCoding:NO error:nil] forKey: XRG_graphFG2Color];
+    [defs setObject:[NSKeyedArchiver archivedDataWithRootObject: [self graphFG3Color] requiringSecureCoding:NO error:nil] forKey: XRG_graphFG3Color];
+    [defs setObject:[NSKeyedArchiver archivedDataWithRootObject: [self borderColor] requiringSecureCoding:NO error:nil] forKey: XRG_borderColor];
+    [defs setObject:[NSKeyedArchiver archivedDataWithRootObject: [self textColor] requiringSecureCoding:NO error:nil] forKey: XRG_textColor];
 	
     [defs synchronize];
 }
@@ -291,6 +295,72 @@
     else {
         NSLog(@"Couldn't change to a nil font.");
     }
+}
+
+#pragma mark - AI Token Settings (Dynamic Properties)
+
+- (BOOL)aiTokensTrackingEnabled {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"aiTokensTrackingEnabled"];
+}
+
+- (BOOL)aiTokensDailyAutoReset {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"aiTokensDailyAutoReset"];
+}
+
+- (NSInteger)aiTokensDailyBudget {
+    return [[NSUserDefaults standardUserDefaults] integerForKey:@"aiTokensDailyBudget"];
+}
+
+- (NSInteger)aiTokensBudgetNotifyPercent {
+    return [[NSUserDefaults standardUserDefaults] integerForKey:@"aiTokensBudgetNotifyPercent"];
+}
+
+- (BOOL)aiTokensAggregateByModel {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"aiTokensAggregateByModel"];
+}
+
+- (BOOL)aiTokensAggregateByProvider {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"aiTokensAggregateByProvider"];
+}
+
+- (BOOL)aiTokensShowRate {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"aiTokensShowRate"];
+}
+
+- (BOOL)aiTokensShowBreakdown {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"aiTokensShowBreakdown"];
+}
+
+- (void)setAiTokensTrackingEnabled:(BOOL)value {
+    [[NSUserDefaults standardUserDefaults] setBool:value forKey:@"aiTokensTrackingEnabled"];
+}
+
+- (void)setAiTokensDailyAutoReset:(BOOL)value {
+    [[NSUserDefaults standardUserDefaults] setBool:value forKey:@"aiTokensDailyAutoReset"];
+}
+
+- (void)setAiTokensDailyBudget:(NSInteger)value {
+    [[NSUserDefaults standardUserDefaults] setInteger:value forKey:@"aiTokensDailyBudget"];
+}
+
+- (void)setAiTokensBudgetNotifyPercent:(NSInteger)value {
+    [[NSUserDefaults standardUserDefaults] setInteger:value forKey:@"aiTokensBudgetNotifyPercent"];
+}
+
+- (void)setAiTokensAggregateByModel:(BOOL)value {
+    [[NSUserDefaults standardUserDefaults] setBool:value forKey:@"aiTokensAggregateByModel"];
+}
+
+- (void)setAiTokensAggregateByProvider:(BOOL)value {
+    [[NSUserDefaults standardUserDefaults] setBool:value forKey:@"aiTokensAggregateByProvider"];
+}
+
+- (void)setAiTokensShowRate:(BOOL)value {
+    [[NSUserDefaults standardUserDefaults] setBool:value forKey:@"aiTokensShowRate"];
+}
+
+- (void)setAiTokensShowBreakdown:(BOOL)value {
+    [[NSUserDefaults standardUserDefaults] setBool:value forKey:@"aiTokensShowBreakdown"];
 }
 
 @end

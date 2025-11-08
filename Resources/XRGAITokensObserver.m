@@ -7,8 +7,8 @@
 
 @property (nonatomic, strong) dispatch_queue_t serialQueue;
 
-@property (nonatomic, assign) NSUInteger sessionPromptTokens;
-@property (nonatomic, assign) NSUInteger sessionCompletionTokens;
+@property (atomic, assign) NSUInteger sessionPromptTokens;
+@property (atomic, assign) NSUInteger sessionCompletionTokens;
 
 @property (nonatomic, assign) NSUInteger dailyPromptTokens;
 @property (nonatomic, assign) NSUInteger dailyCompletionTokens;
@@ -128,10 +128,60 @@
         [self.dailyProviderCompletionTokens removeAllObjects];
         
         self.lastNotifyDate = nil;
-        
+
         [self saveTodayDateToDefaults];
         [self persistDailyCounters];
     });
+}
+
+#pragma mark - Property Getters
+
+- (NSUInteger)sessionTotalTokens {
+    return self.sessionPromptTokens + self.sessionCompletionTokens;
+}
+
+- (NSUInteger)dailyTotalTokens {
+    return self.dailyPromptTokens + self.dailyCompletionTokens;
+}
+
+- (NSDictionary<NSString *, NSNumber *> *)dailyByModel {
+    NSMutableDictionary *totals = [NSMutableDictionary dictionary];
+
+    // Combine prompt and completion tokens for each model
+    for (NSString *model in self.dailyModelPromptTokens) {
+        NSUInteger promptTokens = [self.dailyModelPromptTokens[model] unsignedIntegerValue];
+        NSUInteger completionTokens = [self.dailyModelCompletionTokens[model] unsignedIntegerValue];
+        totals[model] = @(promptTokens + completionTokens);
+    }
+
+    // Add any models that only have completion tokens
+    for (NSString *model in self.dailyModelCompletionTokens) {
+        if (!totals[model]) {
+            totals[model] = self.dailyModelCompletionTokens[model];
+        }
+    }
+
+    return [totals copy];
+}
+
+- (NSDictionary<NSString *, NSNumber *> *)dailyByProvider {
+    NSMutableDictionary *totals = [NSMutableDictionary dictionary];
+
+    // Combine prompt and completion tokens for each provider
+    for (NSString *provider in self.dailyProviderPromptTokens) {
+        NSUInteger promptTokens = [self.dailyProviderPromptTokens[provider] unsignedIntegerValue];
+        NSUInteger completionTokens = [self.dailyProviderCompletionTokens[provider] unsignedIntegerValue];
+        totals[provider] = @(promptTokens + completionTokens);
+    }
+
+    // Add any providers that only have completion tokens
+    for (NSString *provider in self.dailyProviderCompletionTokens) {
+        if (!totals[provider]) {
+            totals[provider] = self.dailyProviderCompletionTokens[provider];
+        }
+    }
+
+    return [totals copy];
 }
 
 #pragma mark - Private
@@ -251,27 +301,32 @@
     if (settings.aiTokensDailyBudget <= 0) {
         return;
     }
-    
+
     NSUInteger totalTokens = self.dailyPromptTokens + self.dailyCompletionTokens;
     NSUInteger budget = settings.aiTokensDailyBudget;
     CGFloat progress = (CGFloat)totalTokens / (CGFloat)budget;
-    
-    NSArray<NSNumber *> *thresholds = @[@(0.25), @(0.5), @(0.75), @(1.0)];
+    CGFloat progressPercent = progress * 100.0;
+
+    NSInteger notifyPercent = settings.aiTokensBudgetNotifyPercent;
+    if (notifyPercent <= 0) {
+        notifyPercent = 80; // Default to 80% if not set
+    }
+
     NSDate *today = [self todayDate];
-    
+
     if ([self.lastNotifyDate isKindOfClass:[NSDate class]] && [self isDate:self.lastNotifyDate sameDayAsDate:today]) {
         return; // Already notified today
     }
-    
-    for (NSNumber *threshold in thresholds) {
-        if (progress >= threshold.floatValue) {
-            self.lastNotifyDate = today;
-            [self persistDailyCounters];
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [[NSNotificationCenter defaultCenter] postNotificationName:XRGAITokensBudgetThresholdReachedNotification object:nil userInfo:@{@"progress": threshold}];
-            });
-            break;
-        }
+
+    // Check if we've reached the notification threshold
+    if (progressPercent >= notifyPercent) {
+        self.lastNotifyDate = today;
+        [self persistDailyCounters];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [[NSNotificationCenter defaultCenter] postNotificationName:XRGAITokensBudgetThresholdReachedNotification
+                                                                object:nil
+                                                              userInfo:@{@"progress": @(progress), @"percent": @(progressPercent)}];
+        });
     }
 }
 
