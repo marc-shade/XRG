@@ -264,6 +264,7 @@
     [self setUpDiskPanel];
     [self setUpWeatherPanel];
     [self setUpStockPanel];
+    [self setUpAIPanel];
 }
 
 - (IBAction)save:(id)sender {
@@ -342,7 +343,44 @@
     if (self.showAITokensGraph) {
         [defs setObject:([self.showAITokensGraph state] == NSOnState ? @"YES" : @"NO") forKey:XRG_showAITokenGraph];
     }
-     
+
+    // Save AI Token preferences
+    if (AIPrefView) {
+        NSButton *trackingEnabled = (NSButton *)[AIPrefView viewWithTag:1000];
+        NSButton *dailyAutoReset = (NSButton *)[AIPrefView viewWithTag:1001];
+        NSTextField *budgetField = (NSTextField *)[AIPrefView viewWithTag:1002];
+        NSTextField *notifyField = (NSTextField *)[AIPrefView viewWithTag:1003];
+        NSButton *aggregateByModel = (NSButton *)[AIPrefView viewWithTag:1004];
+        NSButton *aggregateByProvider = (NSButton *)[AIPrefView viewWithTag:1005];
+        NSButton *showRate = (NSButton *)[AIPrefView viewWithTag:1006];
+        NSButton *showBreakdown = (NSButton *)[AIPrefView viewWithTag:1007];
+
+        if (trackingEnabled) {
+            [defs setBool:([trackingEnabled state] == NSOnState) forKey:@"aiTokensTrackingEnabled"];
+        }
+        if (dailyAutoReset) {
+            [defs setBool:([dailyAutoReset state] == NSOnState) forKey:@"aiTokensDailyAutoReset"];
+        }
+        if (budgetField) {
+            [defs setInteger:[budgetField integerValue] forKey:@"aiTokensDailyBudget"];
+        }
+        if (notifyField) {
+            [defs setInteger:[notifyField integerValue] forKey:@"aiTokensBudgetNotifyPercent"];
+        }
+        if (aggregateByModel) {
+            [defs setBool:([aggregateByModel state] == NSOnState) forKey:@"aiTokensAggregateByModel"];
+        }
+        if (aggregateByProvider) {
+            [defs setBool:([aggregateByProvider state] == NSOnState) forKey:@"aiTokensAggregateByProvider"];
+        }
+        if (showRate) {
+            [defs setBool:([showRate state] == NSOnState) forKey:@"aiTokensShowRate"];
+        }
+        if (showBreakdown) {
+            [defs setBool:([showBreakdown state] == NSOnState) forKey:@"aiTokensShowBreakdown"];
+        }
+    }
+
     // CPU graph checkboxes
     [defs setObject: ([fastCPUUsageCheckbox state] == NSOnState ? @"YES" : @"NO")    forKey:XRG_showCPUBars];
     [defs setObject: ([enableAntiAliasing state] == NSOnState ? @"YES" : @"NO")      forKey:XRG_antiAliasing];
@@ -970,6 +1008,139 @@
 	[showDJIA setState:self.xrgGraphWindow.appSettings.showDJIA ? NSOnState : NSOffState];
 }
 
+- (void)setUpAIPanel {
+    // Create the AI preferences panel programmatically if it doesn't exist
+    if (!AIPrefView) {
+        AIPrefView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 500, 400)];
+
+        CGFloat yPos = 350;
+        CGFloat leftMargin = 20;
+        CGFloat labelWidth = 200;
+        CGFloat controlWidth = 250;
+
+        // Title label
+        NSTextField *titleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(leftMargin, yPos, 460, 24)];
+        [titleLabel setStringValue:@"AI Token Tracking Settings"];
+        [titleLabel setBezeled:NO];
+        [titleLabel setDrawsBackground:NO];
+        [titleLabel setEditable:NO];
+        [titleLabel setSelectable:NO];
+        [titleLabel setFont:[NSFont boldSystemFontOfSize:14]];
+        [AIPrefView addSubview:titleLabel];
+
+        yPos -= 40;
+
+        // Enable tracking checkbox
+        NSButton *trackingEnabled = [NSButton checkboxWithTitle:@"Enable AI Token Tracking" target:nil action:nil];
+        [trackingEnabled setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
+        [trackingEnabled setState:self.xrgGraphWindow.appSettings.aiTokensTrackingEnabled ? NSOnState : NSOffState];
+        [trackingEnabled setTag:1000];
+        [AIPrefView addSubview:trackingEnabled];
+
+        yPos -= 30;
+
+        // Daily auto-reset checkbox
+        NSButton *dailyAutoReset = [NSButton checkboxWithTitle:@"Auto-reset daily counters at midnight" target:nil action:nil];
+        [dailyAutoReset setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
+        [dailyAutoReset setState:self.xrgGraphWindow.appSettings.aiTokensDailyAutoReset ? NSOnState : NSOffState];
+        [dailyAutoReset setTag:1001];
+        [AIPrefView addSubview:dailyAutoReset];
+
+        yPos -= 40;
+
+        // Daily budget
+        NSTextField *budgetLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(leftMargin, yPos, labelWidth, 20)];
+        [budgetLabel setStringValue:@"Daily token budget (0 = no limit):"];
+        [budgetLabel setBezeled:NO];
+        [budgetLabel setDrawsBackground:NO];
+        [budgetLabel setEditable:NO];
+        [budgetLabel setSelectable:NO];
+        [AIPrefView addSubview:budgetLabel];
+
+        NSTextField *budgetField = [[NSTextField alloc] initWithFrame:NSMakeRect(leftMargin + labelWidth + 10, yPos, 80, 22)];
+        [budgetField setIntegerValue:self.xrgGraphWindow.appSettings.aiTokensDailyBudget];
+        [budgetField setTag:1002];
+        [AIPrefView addSubview:budgetField];
+
+        yPos -= 40;
+
+        // Budget notify percent
+        NSTextField *notifyLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(leftMargin, yPos, labelWidth, 20)];
+        [notifyLabel setStringValue:@"Budget notification threshold (%):"];
+        [notifyLabel setBezeled:NO];
+        [notifyLabel setDrawsBackground:NO];
+        [notifyLabel setEditable:NO];
+        [notifyLabel setSelectable:NO];
+        [AIPrefView addSubview:notifyLabel];
+
+        NSTextField *notifyField = [[NSTextField alloc] initWithFrame:NSMakeRect(leftMargin + labelWidth + 10, yPos, 80, 22)];
+        [notifyField setIntegerValue:self.xrgGraphWindow.appSettings.aiTokensBudgetNotifyPercent];
+        [notifyField setTag:1003];
+        [AIPrefView addSubview:notifyField];
+
+        yPos -= 40;
+
+        // Aggregate by model checkbox
+        NSButton *aggregateByModel = [NSButton checkboxWithTitle:@"Track usage by AI model" target:nil action:nil];
+        [aggregateByModel setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
+        [aggregateByModel setState:self.xrgGraphWindow.appSettings.aiTokensAggregateByModel ? NSOnState : NSOffState];
+        [aggregateByModel setTag:1004];
+        [AIPrefView addSubview:aggregateByModel];
+
+        yPos -= 30;
+
+        // Aggregate by provider checkbox
+        NSButton *aggregateByProvider = [NSButton checkboxWithTitle:@"Track usage by AI provider" target:nil action:nil];
+        [aggregateByProvider setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
+        [aggregateByProvider setState:self.xrgGraphWindow.appSettings.aiTokensAggregateByProvider ? NSOnState : NSOffState];
+        [aggregateByProvider setTag:1005];
+        [AIPrefView addSubview:aggregateByProvider];
+
+        yPos -= 30;
+
+        // Show rate checkbox
+        NSButton *showRate = [NSButton checkboxWithTitle:@"Show token rate (tokens/second)" target:nil action:nil];
+        [showRate setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
+        [showRate setState:self.xrgGraphWindow.appSettings.aiTokensShowRate ? NSOnState : NSOffState];
+        [showRate setTag:1006];
+        [AIPrefView addSubview:showRate];
+
+        yPos -= 30;
+
+        // Show breakdown checkbox
+        NSButton *showBreakdown = [NSButton checkboxWithTitle:@"Show detailed breakdown" target:nil action:nil];
+        [showBreakdown setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
+        [showBreakdown setState:self.xrgGraphWindow.appSettings.aiTokensShowBreakdown ? NSOnState : NSOffState];
+        [showBreakdown setTag:1007];
+        [AIPrefView addSubview:showBreakdown];
+
+        yPos -= 50;
+
+        // Reset buttons
+        NSButton *resetSessionBtn = [[NSButton alloc] initWithFrame:NSMakeRect(leftMargin, yPos, 150, 28)];
+        [resetSessionBtn setTitle:@"Reset Session"];
+        [resetSessionBtn setBezelStyle:NSBezelStyleRounded];
+        [resetSessionBtn setTarget:self];
+        [resetSessionBtn setAction:@selector(resetSessionCounters:)];
+        [AIPrefView addSubview:resetSessionBtn];
+
+        NSButton *resetDailyBtn = [[NSButton alloc] initWithFrame:NSMakeRect(leftMargin + 160, yPos, 150, 28)];
+        [resetDailyBtn setTitle:@"Reset Daily"];
+        [resetDailyBtn setBezelStyle:NSBezelStyleRounded];
+        [resetDailyBtn setTarget:self];
+        [resetDailyBtn setAction:@selector(resetDailyCounters:)];
+        [AIPrefView addSubview:resetDailyBtn];
+    }
+}
+
+- (IBAction)resetSessionCounters:(id)sender {
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"XRGAITokensDidResetSession" object:self];
+}
+
+- (IBAction)resetDailyCounters:(id)sender {
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"XRGAITokensDidResetDaily" object:self];
+}
+
 - (IBAction)loadTheme:(id)sender {                   
     NSArray *fileTypes = @[@"xtf"];
     NSOpenPanel *oPanel = [NSOpenPanel openPanel];
@@ -1319,6 +1490,15 @@
 		[window setTitle:@"Stock Preferences"];
  		[toolbar setSelectedItemIdentifier:@"Stock"];
 	}
+}
+
+-(IBAction) AI:(id)sender {
+    if (currentView != AIPrefView) {
+        [self switchWindowFromView:currentView toView:AIPrefView];
+        currentView = AIPrefView;
+        [window setTitle:@"AI Token Preferences"];
+        [toolbar setSelectedItemIdentifier:@"AI"];
+    }
 }
 
 -(IBAction) openWeatherStationList:(id)sender {

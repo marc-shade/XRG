@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		09233112854F9BFB5EF66F4D /* XRGAITokenMiner.m in Sources */ = {isa = PBXBuildFile; fileRef = FCE32C499808A2D4B4FD36C1 /* XRGAITokenMiner.m */; };
 		27186E2C1D88EA7A003DF559 /* XRGCommon.m in Sources */ = {isa = PBXBuildFile; fileRef = 27186E2B1D88EA7A003DF559 /* XRGCommon.m */; };
+		A1B2C3D4E5F6071829AABBCC /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829AABBDD /* libsqlite3.tbd */; };
 		271FA60F15AC79A100E16233 /* Online Help in Resources */ = {isa = PBXBuildFile; fileRef = 271FA60E15AC79A100E16233 /* Online Help */; };
 		273ECE6A15740DE700E65D82 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 273ECE6915740DE700E65D82 /* Cocoa.framework */; };
 		273ECEFA15740EAF00E65D82 /* XRGAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 273ECE8D15740EAF00E65D82 /* XRGAppDelegate.m */; };
@@ -189,6 +190,7 @@
 		937851AB157CA5D0001D2A15 /* SMCSensors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SMCSensors.h; sourceTree = "<group>"; };
 		937851AC157CA5D0001D2A15 /* SMCSensors.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SMCSensors.m; sourceTree = "<group>"; };
 		93C915F22550346600220EC5 /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
+		A1B2C3D4E5F6071829AABBDD /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 		F7916C368838EFEB44933A00 /* XRGAITokenView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = XRGAITokenView.h; sourceTree = "<group>"; };
 		FCE32C499808A2D4B4FD36C1 /* XRGAITokenMiner.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = XRGAITokenMiner.m; sourceTree = "<group>"; };
 		4956E8B32EBEA68600E88F19 /* XRGAIPrefController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = XRGAIPrefController.h; path = Resources/XRGAIPrefController.h; sourceTree = "<group>"; };
@@ -216,6 +218,7 @@
 				93C915F32550346600220EC5 /* Accelerate.framework in Frameworks */,
 				273ECF661574145100E65D82 /* IOKit.framework in Frameworks */,
 				273ECE6A15740DE700E65D82 /* Cocoa.framework in Frameworks */,
+				A1B2C3D4E5F6071829AABBCC /* libsqlite3.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -248,7 +251,7 @@
 				2775AC211B42F4A700D867AC /* OpenGL.framework */,
 				273ECE6915740DE700E65D82 /* Cocoa.framework */,
 				273ECF651574145100E65D82 /* IOKit.framework */,
-				495AAAAA0000000000000002 /* libsqlite3.tbd */,
+				A1B2C3D4E5F6071829AABBDD /* libsqlite3.tbd */,
 				273ECE6B15740DE700E65D82 /* Other Frameworks */,
 			);
 			name = Frameworks;

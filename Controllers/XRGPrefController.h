@@ -43,6 +43,7 @@
     IBOutlet NSView *DiskPrefView;
     IBOutlet NSView *WeatherPrefView;
     IBOutlet NSView *StockPrefView;
+    IBOutlet NSView *AIPrefView;
 
     IBOutlet NSWindow *window;
 
@@ -154,6 +155,7 @@
 - (void)setUpDiskPanel;
 - (void)setUpWeatherPanel;
 - (void)setUpStockPanel;
+- (void)setUpAIPanel;
 
 - (void)setUpWell:(NSColorWell *)well withTransparency:(NSSlider *)tSlider;
 - (void)setUpModuleSelection;
@@ -177,6 +179,7 @@
 - (IBAction)Disk:(id)sender;
 - (IBAction)Weather:(id)sender;
 - (IBAction)Stocks:(id)sender;
+- (IBAction)AI:(id)sender;
 - (IBAction)setFont:(id)sender;
 
 - (IBAction)openWeatherStationList:(id)sender;

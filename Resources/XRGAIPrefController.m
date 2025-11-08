@@ -1,11 +1,14 @@
 #import "XRGAIPrefController.h"
 #import "XRGAISettingsKeys.h"
+#import "XRGAITokensNotifications.h"
+#import "XRGSettings.h"
 
 @implementation XRGAIPrefController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
 
+    // Register default values for AI Token settings
     NSDictionary *defaults = @{
         XRGDefaultsKeyAITokensTrackingEnabled: @NO,
         XRGDefaultsKeyShowAITokenGraph: @NO,
@@ -22,11 +25,11 @@
 }
 
 - (IBAction)resetSessionCounters:(id)sender {
-    [[NSNotificationCenter defaultCenter] postNotificationName:@"XRGAITokensDidResetSession" object:self];
+    [[NSNotificationCenter defaultCenter] postNotificationName:XRGAITokensDidResetSessionNotification object:self];
 }
 
 - (IBAction)resetDailyCounters:(id)sender {
-    [[NSNotificationCenter defaultCenter] postNotificationName:@"XRGAITokensDidResetDaily" object:self];
+    [[NSNotificationCenter defaultCenter] postNotificationName:XRGAITokensDidResetDailyNotification object:self];
 }
 
 @end
