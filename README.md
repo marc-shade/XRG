@@ -3,6 +3,8 @@ XRG
 
 A real-time system resource monitor for macOS with customizable floating graphs.
 
+![XRG with AI Token Monitoring](screenshots/xrg-with-ai-tokens.png)
+
 Website: https://gaucho.software/xrg/
 
 ## Features
