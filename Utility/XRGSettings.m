@@ -29,6 +29,31 @@
 
 @implementation XRGSettings
 
++ (instancetype)sharedSettings {
+    static XRGSettings *sharedInstance = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sharedInstance = [[XRGSettings alloc] init];
+        [sharedInstance loadSettingsFromDefaults];
+    });
+    return sharedInstance;
+}
+
+- (void)loadSettingsFromDefaults {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+
+    // Load AI Token settings
+    self.aiTokensTrackingEnabled = [defaults boolForKey:@"aiTokensTrackingEnabled"];
+    self.aiTokensDailyAutoReset = [defaults boolForKey:@"aiTokensDailyAutoReset"];
+    self.aiTokensDailyBudget = [defaults integerForKey:@"aiTokensDailyBudget"];
+    self.aiTokensBudgetNotifyPercent = [defaults integerForKey:@"aiTokensBudgetNotifyPercent"];
+    self.aiTokensAggregateByModel = [defaults boolForKey:@"aiTokensAggregateByModel"];
+    self.aiTokensAggregateByProvider = [defaults boolForKey:@"aiTokensAggregateByProvider"];
+    self.aiTokensShowRate = [defaults boolForKey:@"aiTokensShowRate"];
+    self.aiTokensShowBreakdown = [defaults boolForKey:@"aiTokensShowBreakdown"];
+    self.showAITokenGraph = [defaults boolForKey:XRG_showAITokenGraph];
+}
+
 - (instancetype) init {
 	self = [super init];
 	if (self) {

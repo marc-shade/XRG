@@ -1,0 +1,283 @@
+#import "XRGAITokensMiner.h"
+#import "definitions.h"
+
+@interface XRGAITokensMiner ()
+{
+    NSDate *_lastUpdate;
+    NSUInteger _lastSessionPrompt;
+    NSUInteger _lastSessionCompletion;
+
+    // OTel detection/state
+    BOOL _useOTel;
+    NSString *_otelEndpoint;
+    // Cumulative counters from OTel (total counts, not rates)
+    UInt64 _otelPromptTotal;
+    UInt64 _otelCompletionTotal;
+
+    // Endpoint discovery
+    NSString *_discoveredEndpoint;
+    NSArray<NSString *> *_endpointCandidates;
+}
+@property (nonatomic, strong) XRGDataSet *rateTokens;
+@property (nonatomic, strong) XRGDataSet *ratePrompt;
+@property (nonatomic, strong) XRGDataSet *rateCompletion;
+@end
+
+@implementation XRGAITokensMiner
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _rateTokens = [[XRGDataSet alloc] init];
+        _ratePrompt = [[XRGDataSet alloc] init];
+        _rateCompletion = [[XRGDataSet alloc] init];
+
+        // Determine OTel endpoint from env or defaults
+        NSDictionary *env = [[NSProcessInfo processInfo] environment];
+        NSString *envEndpoint = env[@"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] ?: env[@"OTEL_EXPORTER_OTLP_ENDPOINT"];
+        if (envEndpoint.length > 0) {
+            _otelEndpoint = envEndpoint;
+        } else {
+            NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+            NSString *defEndpoint = [defs stringForKey:XRG_aiTokenOTelEndpoint];
+            _otelEndpoint = defEndpoint.length > 0 ? defEndpoint : @"http://localhost:4318/v1/metrics";
+        }
+        _useOTel = YES; // try OTel first; will fall back if unreachable
+        _otelPromptTotal = 0;
+        _otelCompletionTotal = 0;
+
+        // Prepare a list of common local endpoints to probe if the configured endpoint fails
+        _endpointCandidates = @[
+            _otelEndpoint ?: @"",
+            @"http://localhost:4318/v1/metrics",   // OTLP HTTP metrics default
+            @"http://127.0.0.1:4318/v1/metrics",
+            @"http://localhost:9464/metrics",      // Prometheus exporter default
+            @"http://127.0.0.1:9464/metrics",
+            @"http://localhost:8008/metrics",      // common local scrape port
+            @"http://127.0.0.1:8008/metrics"
+        ];
+    }
+    return self;
+}
+
+- (void)setDataSize:(NSInteger)newNumSamples {
+    if (newNumSamples < 0) return;
+    [self.rateTokens resize:newNumSamples];
+    [self.ratePrompt resize:newNumSamples];
+    [self.rateCompletion resize:newNumSamples];
+}
+
+- (void)graphUpdate:(NSTimer * _Nullable)aTimer {
+    NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+    if (![defs boolForKey:XRGDefaultsKeyAITokensTrackingEnabled]) {
+        // If disabled, push zeros so UI can show 0 rate.
+        [self.rateTokens setNextValue:0];
+        [self.ratePrompt setNextValue:0];
+        [self.rateCompletion setNextValue:0];
+        _lastUpdate = [NSDate date];
+        _lastSessionPrompt = 0;
+        _lastSessionCompletion = 0;
+        _otelPromptTotal = 0;
+        _otelCompletionTotal = 0;
+        return;
+    }
+
+    BOOL updatedFromOTel = NO;
+    if (_useOTel && _otelEndpoint.length > 0) {
+        updatedFromOTel = [self updateFromOTel];
+        if (!updatedFromOTel) {
+            // If OTel failed, don't keep hammering; fall back this tick and try again next time
+        }
+    }
+
+    if (!updatedFromOTel) {
+        // Fallback: compute from XRGAITokensObserver session counters
+        XRGAITokensObserver *obs = [XRGAITokensObserver shared];
+        NSDate *now = [NSDate date];
+        if (!_lastUpdate) {
+            _lastUpdate = now;
+            _lastSessionPrompt = obs.sessionPromptTokens;
+            _lastSessionCompletion = obs.sessionCompletionTokens;
+            [self.rateTokens setNextValue:0];
+            [self.ratePrompt setNextValue:0];
+            [self.rateCompletion setNextValue:0];
+            return;
+        }
+
+        NSTimeInterval dt = [now timeIntervalSinceDate:_lastUpdate];
+        if (dt <= 0) dt = 1; // avoid divide-by-zero
+
+        NSUInteger curPrompt = obs.sessionPromptTokens;
+        NSUInteger curCompletion = obs.sessionCompletionTokens;
+
+        NSInteger dPrompt = (NSInteger)curPrompt - (NSInteger)_lastSessionPrompt;
+        NSInteger dCompletion = (NSInteger)curCompletion - (NSInteger)_lastSessionCompletion;
+        if (dPrompt < 0) dPrompt = 0; // guard reset
+        if (dCompletion < 0) dCompletion = 0;
+
+        double perSecPrompt = (double)dPrompt / dt;
+        double perSecCompletion = (double)dCompletion / dt;
+        double perMinPrompt = perSecPrompt * 60.0;
+        double perMinCompletion = perSecCompletion * 60.0;
+
+        [self.ratePrompt setNextValue:perMinPrompt];
+        [self.rateCompletion setNextValue:perMinCompletion];
+        [self.rateTokens setNextValue:(perMinPrompt + perMinCompletion)];
+
+        _lastSessionPrompt = curPrompt;
+        _lastSessionCompletion = curCompletion;
+        _lastUpdate = now;
+    }
+}
+
+- (NSData *)fetchMetricsDataFromURLString:(NSString *)urlString {
+    if (urlString.length == 0) return nil;
+    NSURL *url = [NSURL URLWithString:urlString];
+    if (!url) return nil;
+    NSURLRequest *request = [NSURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:2.0];
+    NSError *error = nil;
+    NSHTTPURLResponse *response = nil;
+    NSData *data = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:&error];
+    if (error || !data || response.statusCode != 200) {
+        return nil;
+    }
+    return data;
+}
+
+- (NSData *)fetchOTelMetricsDataWithDiscovery {
+    // Try discovered endpoint first
+    if (_discoveredEndpoint.length > 0) {
+        NSData *d = [self fetchMetricsDataFromURLString:_discoveredEndpoint];
+        if (d) return d;
+    }
+    // Try configured then candidates; cache on first success
+    for (NSString *candidate in _endpointCandidates) {
+        if (candidate.length == 0) continue;
+        NSData *d = [self fetchMetricsDataFromURLString:candidate];
+        if (d) {
+            _discoveredEndpoint = candidate;
+            return d;
+        }
+    }
+    return nil;
+}
+
+- (BOOL)updateFromOTel {
+    NSData *data = [self fetchOTelMetricsDataWithDiscovery];
+    if (!data) return NO;
+    NSString *metricsText = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    if (!metricsText) return NO;
+
+    // Parse Prometheus/OTel style metrics with forgiving name/label handling
+    UInt64 inputTokens = 0;
+    UInt64 outputTokens = 0;
+    UInt64 cacheReadTokens = 0;
+    UInt64 cacheCreateTokens = 0;
+
+    NSArray *lines = [metricsText componentsSeparatedByString:@"\n"];
+    for (NSString *line in lines) {
+        if (line.length == 0 || [line hasPrefix:@"#"]) continue;
+
+        // Normalize the line for matching
+        NSString *lower = [line lowercaseString];
+
+        BOOL isTokenMetric = ([lower containsString:@"token_usage"]) ||
+                             ([lower containsString:@"token.usage"]) ||
+                             ([lower containsString:@"claude_code.token.usage"]) ||
+                             ([lower containsString:@"claude_code_token_usage"]);
+        if (isTokenMetric) {
+            BOOL isInput = ([lower containsString:@"type=\"input\""]) || ([lower containsString:@"type=input"]) || ([lower containsString:@"input\""]) || ([lower containsString:@"input}"]); // broad check
+            BOOL isOutput = ([lower containsString:@"type=\"output\""]) || ([lower containsString:@"type=output"]) || ([lower containsString:@"output\""]) || ([lower containsString:@"output}"]);
+            BOOL isCacheRead = ([lower containsString:@"cacheread"]) || ([lower containsString:@"cache_read"]) || ([lower containsString:@"cache read"]);
+            BOOL isCacheCreate = ([lower containsString:@"cachecreation"]) || ([lower containsString:@"cache_create"]) || ([lower containsString:@"cache creation"]);
+
+            UInt64 v = [self extractUInt64FromMetricLine:line];
+            if (isInput) inputTokens += v;
+            else if (isOutput) outputTokens += v;
+            else if (isCacheRead) cacheReadTokens += v;
+            else if (isCacheCreate) cacheCreateTokens += v;
+            else {
+                // If no explicit type, treat as total and split later (ignore here)
+            }
+            continue;
+        }
+
+        // Cost metrics (optional)
+        BOOL isCostMetric = ([lower containsString:@"cost_usage"]) ||
+                            ([lower containsString:@"cost.usage"]) ||
+                            ([lower containsString:@"claude_code.cost.usage"]) ||
+                            ([lower containsString:@"claude_code_cost_usage"]);
+        if (isCostMetric) {
+            // We ignore cost here in XRGAITokensMiner; handled in other components if needed
+            // Keep for future expansion
+            continue;
+        }
+    }
+
+    UInt64 promptTotal = inputTokens + cacheCreateTokens; // prompt-side
+    UInt64 completionTotal = outputTokens + cacheReadTokens; // completion-side
+
+    NSDate *now = [NSDate date];
+    if (!_lastUpdate) {
+        _lastUpdate = now;
+        _otelPromptTotal = promptTotal;
+        _otelCompletionTotal = completionTotal;
+        [self.rateTokens setNextValue:0];
+        [self.ratePrompt setNextValue:0];
+        [self.rateCompletion setNextValue:0];
+        return YES;
+    }
+
+    NSTimeInterval dt = [now timeIntervalSinceDate:_lastUpdate];
+    if (dt <= 0) dt = 1;
+
+    SInt64 dPrompt = (SInt64)promptTotal - (SInt64)_otelPromptTotal;
+    SInt64 dCompletion = (SInt64)completionTotal - (SInt64)_otelCompletionTotal;
+    if (dPrompt < 0) dPrompt = 0;
+    if (dCompletion < 0) dCompletion = 0;
+
+    double perSecPrompt = (double)dPrompt / dt;
+    double perSecCompletion = (double)dCompletion / dt;
+    double perMinPrompt = perSecPrompt * 60.0;
+    double perMinCompletion = perSecCompletion * 60.0;
+
+    [self.ratePrompt setNextValue:perMinPrompt];
+    [self.rateCompletion setNextValue:perMinCompletion];
+    [self.rateTokens setNextValue:(perMinPrompt + perMinCompletion)];
+
+    _otelPromptTotal = promptTotal;
+    _otelCompletionTotal = completionTotal;
+    _lastUpdate = now;
+
+    return YES;
+}
+
+- (UInt64)extractUInt64FromMetricLine:(NSString *)line {
+    NSRange spaceRange = [line rangeOfString:@" " options:NSBackwardsSearch];
+    if (spaceRange.location == NSNotFound) return 0;
+    NSString *remainder = [line substringFromIndex:spaceRange.location + 1];
+    NSRange tsRange = [remainder rangeOfString:@" "];
+    NSString *valueStr = (tsRange.location != NSNotFound) ? [remainder substringToIndex:tsRange.location] : remainder;
+    return (UInt64)[valueStr longLongValue];
+}
+
+- (double)extractDoubleFromMetricLine:(NSString *)line {
+    NSRange spaceRange = [line rangeOfString:@" " options:NSBackwardsSearch];
+    if (spaceRange.location == NSNotFound) return 0.0;
+    NSString *remainder = [line substringFromIndex:spaceRange.location + 1];
+    NSRange tsRange = [remainder rangeOfString:@" "];
+    NSString *valueStr = (tsRange.location != NSNotFound) ? [remainder substringToIndex:tsRange.location] : remainder;
+    return [valueStr doubleValue];
+}
+
+- (void)reset {
+    [self.rateTokens reset];
+    [self.ratePrompt reset];
+    [self.rateCompletion reset];
+    _lastUpdate = nil;
+    _lastSessionPrompt = 0;
+    _lastSessionCompletion = 0;
+    _otelPromptTotal = 0;
+    _otelCompletionTotal = 0;
+}
+
+@end

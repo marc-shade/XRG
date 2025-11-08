@@ -1,0 +1,44 @@
+# OpenTelemetry Collector for XRG AI Token Monitoring
+# Based on Anthropic's official claude-code-monitoring-guide
+# Receives Claude Code telemetry and exposes Prometheus metrics for XRG
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317  # Claude Code sends here
+      http:
+        endpoint: 0.0.0.0:4318  # HTTP alternative
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256  # Lower for lightweight usage
+
+exporters:
+  # Expose Prometheus metrics on :8889/metrics for XRG to poll
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    send_timestamps: true
+    metric_expiration: 180m
+    enable_open_metrics: true
+
+  # Debug logging to see what's happening
+  debug:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus, debug]
+
+  telemetry:
+    logs:
+      level: "info"  # Change to "debug" for troubleshooting

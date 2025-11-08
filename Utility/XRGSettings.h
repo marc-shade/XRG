@@ -33,6 +33,8 @@ typedef NS_ENUM(NSInteger, XRGTemperatureUnits) {
 
 @interface XRGSettings : NSObject
 
++ (instancetype)sharedSettings;
+
 // Colors
 @property (nonatomic) NSColor		*backgroundColor;
 @property (nonatomic) NSColor		*graphBGColor;
@@ -108,6 +110,14 @@ typedef NS_ENUM(NSInteger, XRGTemperatureUnits) {
 @property NSString		*tempFG3Location;
 @property BOOL          isDockIconHidden;
 @property BOOL          showAITokenGraph;
+@property BOOL          aiTokensTrackingEnabled;
+@property BOOL          aiTokensDailyAutoReset;
+@property NSInteger     aiTokensDailyBudget;
+@property NSInteger     aiTokensBudgetNotifyPercent;
+@property BOOL          aiTokensAggregateByModel;
+@property BOOL          aiTokensAggregateByProvider;
+@property BOOL          aiTokensShowRate;
+@property BOOL          aiTokensShowBreakdown;
 
 - (void) readXTFDictionary:(NSDictionary *)xtfD;
 

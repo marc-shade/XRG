@@ -1,0 +1,20 @@
+#import <Foundation/Foundation.h>
+#import "XRGDataSet.h"
+#import "XRGAITokensObserver.h"
+#import "XRGAISettingsKeys.h"
+
+NS_ASSUME_NONNULL_BEGIN
+
+@interface XRGAITokensMiner : NSObject
+
+@property (nonatomic, readonly) XRGDataSet *rateTokens;      // tokens/min (total)
+@property (nonatomic, readonly) XRGDataSet *ratePrompt;      // tokens/min (prompt)
+@property (nonatomic, readonly) XRGDataSet *rateCompletion;  // tokens/min (completion)
+
+- (void)setDataSize:(NSInteger)newNumSamples;
+- (void)graphUpdate:(NSTimer * _Nullable)aTimer;
+- (void)reset;
+
+@end
+
+NS_ASSUME_NONNULL_END
