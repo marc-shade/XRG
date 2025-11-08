@@ -1,6 +1,9 @@
 XRG
 ===
 
+<img width="1080" height="188" alt="AI-Tokens" src="https://github.com/user-attachments/assets/bfb873ea-6564-437f-af2c-315b14b3dfb0" />
+
+
 A real-time system resource monitor for macOS with customizable floating graphs.
 
 
