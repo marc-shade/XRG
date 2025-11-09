@@ -129,6 +129,10 @@
         self.haveGoodDisplayData = NO;
         self.gettingData = NO;
     }
+    // Notify on main to allow any views to refresh
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"XRGStockDataUpdated" object:self];
+    });
 }
 
 - (void)parseWebData:(NSData *)data {
@@ -224,7 +228,8 @@
 }
 
 - (BOOL)errorOccurred {
-    return (!self.gettingData && self.haveGoodDisplayData);
+    // Error if not getting data and we do NOT have good display data
+    return (!self.gettingData && !self.haveGoodDisplayData);
 }
 
 - (nullable NSArray<NSNumber *> *)get1MonthValues {

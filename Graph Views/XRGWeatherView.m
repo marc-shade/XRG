@@ -697,7 +697,7 @@ NSInteger matchRegex(char *pattern, char *inString) {
 - (void)drawGraph {
     NSGraphicsContext *gc = [NSGraphicsContext currentContext]; 
 
-    [gc setShouldAntialias:[appSettings antiAliasing]];
+    gc.shouldAntialias = [appSettings antiAliasing];
     
     // if we don't have good data, don't draw a graph
     if (hasGoodMETARArray) {
@@ -742,7 +742,7 @@ NSInteger matchRegex(char *pattern, char *inString) {
         }
     }
 
-    [gc setShouldAntialias:YES];
+    gc.shouldAntialias = YES;
 
         
     // now draw the text
@@ -938,7 +938,7 @@ NSInteger matchRegex(char *pattern, char *inString) {
         else [@"Invalid Data" drawInRect:textRect withAttributes:[appSettings alignLeftAttributes]];
     }
     
-    [gc setShouldAntialias:YES];
+    gc.shouldAntialias = YES;
 }
 
 - (CGFloat)convertHeight:(CGFloat)yComponent {

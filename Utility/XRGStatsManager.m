@@ -63,7 +63,9 @@
 
         case XRGStatsModuleNameStock:
             return @"XRG_Stock";
-            
+
+        default:
+            return @"XRG_Unknown";
     }
 }
 
@@ -131,7 +133,7 @@
 
 @end
 
-@implementation XRGStatsModuleContent: NSObject
+@implementation XRGStatsModuleContent
 
 - (instancetype)init {
     self = [super init];
@@ -207,3 +209,4 @@
 }
 
 @end
+

@@ -1,4 +1,6 @@
 #import "XRGAITokensObserver.h"
+#import "XRGAITokensObserver.h"
+#import "XRGAITokensNotifications.h"
 #import "XRGAISettingsKeys.h"
 #import "XRGSettings.h"
 #import "definitions.h"

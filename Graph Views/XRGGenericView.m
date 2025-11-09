@@ -230,7 +230,7 @@
     barRect.origin.y = barRect.origin.y + bounds.size.height - barRect.size.height;
     CGFloat spacing = barRect.size.height > 2 ? 1 : 0;
 
-    [gc setShouldAntialias:[appSettings antiAliasing]];
+    gc.shouldAntialias = [appSettings antiAliasing];
 
     [[appSettings graphFG1Color] set];
     for (NSInteger i = 0; i < values.count; i++) {
@@ -273,7 +273,7 @@
     NSGraphicsContext *gc = [NSGraphicsContext currentContext];
     CGFloat textRectHeight = [appSettings textRectHeight];
     
-    [gc setShouldAntialias:YES];
+    gc.shouldAntialias = YES;
 
     NSArray<NSString *> *leftLines = [leftText componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
     NSArray<NSString *> *centerLines = [centerText componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
@@ -326,7 +326,7 @@
         }
     }
     
-    [gc setShouldAntialias:[appSettings antiAliasing]];
+    gc.shouldAntialias = [appSettings antiAliasing];
 }
 
 - (BOOL)shouldDrawMiniGraph {

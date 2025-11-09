@@ -30,7 +30,9 @@
 @implementation XRGAppDelegate
 
 - (IBAction) showPrefs:(id)sender {
-    if(!self.prefController) [NSBundle loadNibNamed:@"Preferences.nib" owner:self];
+    if (!self.prefController) {
+        [NSBundle.mainBundle loadNibNamed:@"Preferences" owner:self topLevelObjects:nil];
+    }
 	
 	// Refresh the temperature settings to pick up any new sensors.
     [self.prefController setUpTemperaturePanel];
@@ -38,7 +40,9 @@
 }
 
 - (void) showPrefsWithPanel:(NSString *)panelName {
-    if (!self.prefController) [NSBundle loadNibNamed:@"Preferences.nib" owner:self];
+    if (!self.prefController) {
+        [NSBundle.mainBundle loadNibNamed:@"Preferences" owner:self topLevelObjects:nil];
+    }
 
 	// Refresh the temperature settings to pick up any new sensors.
     [self.prefController setUpTemperaturePanel];
@@ -73,15 +77,19 @@
     return YES;
 }
 
-- (void)changeFont:(id)sender {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
+- (void)changeFont:(nullable id)sender {
+    if (!sender) return;
+    
     NSFont *oldFont = [[self.xrgGraphWindow appSettings] graphFont];
     NSFont *newFont = [sender convertFont:oldFont];
-    if (oldFont == newFont) return;
+    if (oldFont == newFont || !newFont) return;
+    
     [[self.xrgGraphWindow appSettings] setGraphFont:newFont];
     [[self.xrgGraphWindow moduleManager] graphFontChanged];
-    
-    return;
 }
+#pragma clang diagnostic pop
 
 // Cleanup when the application exits caused by a restart or logout
 - (void)NSWorkSpaceWillPowerOffNotification:(NSNotification *)aNotification {
@@ -122,19 +130,32 @@
 	NSData *themeData = [NSData dataWithContentsOfFile:filename];
 	
 	if ([themeData length] == 0) {
-		NSRunInformationalAlertPanel(@"Error", @"The theme file dragged is not a valid theme file.", @"OK", nil, nil);
+		NSAlert *alert1 = [[NSAlert alloc] init];
+		alert1.alertStyle = NSAlertStyleInformational;
+		alert1.messageText = @"Error";
+		alert1.informativeText = @"The theme file dragged is not a valid theme file.";
+		[alert1 addButtonWithTitle:@"OK"];
+		[alert1 runModal];
 	}
 	
-	NSString *error = nil;
+	NSError *error = nil;
 	NSPropertyListFormat format;
-	NSDictionary *themeDictionary = [NSPropertyListSerialization propertyListFromData:themeData
-																	 mutabilityOption:NSPropertyListImmutable
-																			   format:&format
-																	 errorDescription:&error];
+	id plist = [NSPropertyListSerialization propertyListWithData:themeData
+															   options:NSPropertyListImmutable
+															    format:&format
+															     error:&error];
+	NSDictionary *themeDictionary = ([plist isKindOfClass:[NSDictionary class]] ? (NSDictionary *)plist : nil);
 	
 	if (!themeDictionary) {
-		NSRunInformationalAlertPanel(@"Error", @"The theme file dragged is not a valid theme file.", @"OK", nil, nil);
-		NSLog(@"%@", error);
+		NSAlert *alert2 = [[NSAlert alloc] init];
+		alert2.alertStyle = NSAlertStyleInformational;
+		alert2.messageText = @"Error";
+		alert2.informativeText = @"The theme file dragged is not a valid theme file.";
+		[alert2 addButtonWithTitle:@"OK"];
+		[alert2 runModal];
+		if (error) {
+			NSLog(@"Error reading theme plist: %@", error);
+		}
 	}
 	else {
 		[self.xrgGraphWindow.appSettings readXTFDictionary:themeDictionary];
@@ -155,3 +176,4 @@
 }
 
 @end
+

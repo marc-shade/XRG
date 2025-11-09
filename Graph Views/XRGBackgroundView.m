@@ -55,7 +55,7 @@
     self.clickedMinimized = NO;
     lastWidth = [self frame].size.width;
     
-    [self registerForDraggedTypes:@[NSFilenamesPboardType]];
+    [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
     
     [parentWindow setBackgroundView: self];
 }
@@ -405,7 +405,11 @@
     
     [[NSUserDefaults standardUserDefaults] setBool:uiIsHidden forKey:XRG_isDockIconHidden];
     
-    NSRunInformationalAlertPanel(@"Hiding the XRG Dock Icon", @"Please re-launch XRG for changes to take effect.", @"OK", nil, nil);
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.messageText = @"Hiding the XRG Dock Icon";
+    alert.informativeText = @"Please re-launch XRG for changes to take effect.";
+    [alert addButtonWithTitle:@"OK"];
+    [alert runModal];
 }
 
 - (void)showUI:(NSEvent *)theEvent {
@@ -420,68 +424,53 @@
 } 
 
 - (NSDragOperation)draggingEntered:(id <NSDraggingInfo>)sender {
-    NSPasteboard *pasteBoard;
-    NSDragOperation sourceDragMask;
+    NSPasteboard *pasteBoard = [sender draggingPasteboard];
+    NSDragOperation sourceDragMask = [sender draggingSourceOperationMask];
 
-    sourceDragMask = [sender draggingSourceOperationMask];
-    pasteBoard = [sender draggingPasteboard];
-
-    if ( [[pasteBoard types] containsObject:NSFilenamesPboardType] ) {
-        if (sourceDragMask & NSDragOperationCopy) {
-            NSArray *files = [pasteBoard propertyListForType:NSFilenamesPboardType];
-            if ([files count] == 1 && [files[0] hasSuffix:@".xtf"]) {
-                return NSDragOperationCopy;
-            }
-            else {
-                return NSDragOperationNone;
-            }
+    if (sourceDragMask & NSDragOperationCopy) {
+        NSArray<NSURL *> *urls = [pasteBoard readObjectsForClasses:@[[NSURL class]] options:@{ NSPasteboardURLReadingFileURLsOnlyKey: @YES }];
+        if (urls.count == 1 && [[urls.firstObject path] hasSuffix:@".xtf"]) {
+            return NSDragOperationCopy;
         }
     }
     return NSDragOperationNone;
-}    
+}
 
 - (BOOL)performDragOperation:(id <NSDraggingInfo>)sender {
     NSPasteboard *pasteBoard = [sender draggingPasteboard];
-    
-    if ([[pasteBoard types] containsObject:NSFilenamesPboardType]) {
-        NSArray *files = [pasteBoard propertyListForType:NSFilenamesPboardType];
-        
-        // Check the same conditions as in draggingEntered:
-        if ([files count] == 1 && [files[0] hasSuffix:@".xtf"]) {
-            NSString *path;
-            NSData *themeData;
-            NSString *error;        
-            NSPropertyListFormat format;
-            NSDictionary *themeDictionary;
-            
-            /* if successful, open file under designated name */
-            path = files[0];
-
-            themeData = [NSData dataWithContentsOfFile:path];
-            
-            if ([themeData length] == 0) {
-                NSRunInformationalAlertPanel(@"Error", @"The theme file dragged is not a valid theme file.", @"OK", nil, nil);
-            }
-
-            themeDictionary = [NSPropertyListSerialization propertyListFromData:themeData
-                                                               mutabilityOption:NSPropertyListImmutable
-                                                                         format:&format
-                                                               errorDescription:&error];
-                                                               
-            if (!themeDictionary) {
-                NSRunInformationalAlertPanel(@"Error", @"The theme file dragged is not a valid theme file.", @"OK", nil, nil);
-				NSLog(@"%@", error);
-            }
-            else {
-				[appSettings readXTFDictionary:themeDictionary];                
-                [self setNeedsDisplay:YES];
-            }
+    NSArray<NSURL *> *urls = [pasteBoard readObjectsForClasses:@[[NSURL class]] options:@{ NSPasteboardURLReadingFileURLsOnlyKey: @YES }];
+    if (urls.count == 1 && [[urls.firstObject path] hasSuffix:@".xtf"]) {
+        NSURL *url = urls.firstObject;
+        NSData *themeData = [NSData dataWithContentsOfURL:url];
+        if (themeData.length == 0) {
+            NSAlert *alert = [[NSAlert alloc] init];
+            alert.messageText = @"Error";
+            alert.informativeText = @"The theme file dragged is not a valid theme file.";
+            [alert addButtonWithTitle:@"OK"];
+            [alert runModal];
+            return YES;
         }
-    }
-    	
-	[[(XRGAppDelegate *)[NSApp delegate] prefController] setUpColorPanel];
 
-    return YES;
+        NSError *plistError = nil;
+        NSPropertyListFormat format;
+        id plist = [NSPropertyListSerialization propertyListWithData:themeData options:NSPropertyListImmutable format:&format error:&plistError];
+        if (![plist isKindOfClass:[NSDictionary class]] || plistError) {
+            NSAlert *alert = [[NSAlert alloc] init];
+            alert.messageText = @"Error";
+            alert.informativeText = @"The theme file dragged is not a valid theme file.";
+            [alert addButtonWithTitle:@"OK"];
+            [alert runModal];
+        } else {
+            NSDictionary *themeDictionary = (NSDictionary *)plist;
+            [appSettings readXTFDictionary:themeDictionary];
+            [self setNeedsDisplay:YES];
+        }
+
+        [[(XRGAppDelegate *)[NSApp delegate] prefController] setUpColorPanel];
+        return YES;
+    }
+
+    return NO;
 }
 
 - (void)updateTrackingAreas {

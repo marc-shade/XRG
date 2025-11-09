@@ -213,7 +213,7 @@
         return;
     }
 
-    [gc setShouldAntialias:[appSettings antiAliasing]];
+    gc.shouldAntialias = [appSettings antiAliasing];
     
     CGFloat currentWatts = self.batteryMiner.chargeWatts.currentValue - self.batteryMiner.dischargeWatts.currentValue;
     CGFloat maxWatts = MAX(self.batteryMiner.chargeWatts.max, self.batteryMiner.dischargeWatts.max);
@@ -278,7 +278,7 @@
             [self drawGraphWithDataFromDataSet:self.batteryMiner.dischargeWatts maxValue:maxWatts inRect:percentRect flipped:YES filled:YES color:[appSettings graphFG2Color]];
         }
 	}
-    [gc setShouldAntialias:YES];
+    gc.shouldAntialias = YES;
 
     // Draw the text.
     NSRect textRect = [self paddedTextRect];
@@ -356,7 +356,7 @@
         [@"No Battery Info Found" drawInRect:NSInsetRect(self.bounds, 3, 0) withAttributes:wrapAttributes];
     }
     
-    [gc setShouldAntialias:YES];
+    gc.shouldAntialias = YES;
 }
 
 - (NSMenu *)menuForEvent:(NSEvent *)theEvent {

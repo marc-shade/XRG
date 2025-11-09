@@ -99,15 +99,14 @@
     textRectHeight = [appSettings textRectHeight];
 
     [[appSettings graphBGColor] set];
-    NSRect bounds = [self bounds];
-    CGContextFillRect(gc.CGContext, bounds);
+    NSRectFill([self bounds]);
 
     if ([self shouldDrawMiniGraph]) {
         [self drawMiniGraph:self.bounds];
         return;
     }
 
-    [gc setShouldAntialias:[appSettings antiAliasing]];
+    gc.shouldAntialias = [appSettings antiAliasing];
 
     // Draw the token usage graphs
     NSColor *claudeColor = [appSettings graphFG1Color];
@@ -272,13 +271,13 @@
     }
 
     [self drawLeftText:label centerText:nil rightText:nil inRect:[self paddedTextRect]];
-    [gc setShouldAntialias:YES];
+    gc.shouldAntialias = YES;
 }
 
 - (void)drawMiniGraph:(NSRect)rect {
     // Mini graph for when the view is very small
     NSGraphicsContext *gc = [NSGraphicsContext currentContext];
-    [gc setShouldAntialias:[appSettings antiAliasing]];
+    gc.shouldAntialias = [appSettings antiAliasing];
 
     NSRect graphRect = NSMakeRect(0, 0, rect.size.width, rect.size.height);
     XRGDataSet *totalData = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:[tokenMiner claudeTokenData]];

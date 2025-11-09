@@ -82,10 +82,11 @@
         // Detect best data collection strategy
         [self detectBestStrategy];
 
-        // Initial data fetch (will trigger background update if JSONL strategy)
-        [self getLatestTokenInfo];
+        // DON'T call getLatestTokenInfo during init - it could block!
+        // Instead, start with zeros and let the first graphUpdate call handle it
 
         // If using JSONL strategy, trigger immediate background cache build
+        // This will populate the cache before the first graph update
         if (activeStrategy == XRGAIDataStrategyJSONL) {
             dispatch_async(jsonlParsingQueue, ^{
                 [self updateJSONLCacheInBackground];
@@ -141,6 +142,7 @@
 
 - (void)detectBestStrategy {
     // Try strategies in priority order until one works
+    // NOTE: This method should be fast and non-blocking!
 
     // Strategy 1: JSONL transcripts (universal - works for EVERYONE with default Claude Code)
     NSFileManager *fm = [NSFileManager defaultManager];
@@ -162,27 +164,14 @@
     }
 
     // Strategy 3: OpenTelemetry endpoint (advanced - OTel configured)
-    NSURL *url = [NSURL URLWithString:otelEndpoint];
-    if (url) {
-        NSURLRequest *request = [NSURLRequest requestWithURL:url
-                                                 cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
-                                             timeoutInterval:1.0];
-        NSHTTPURLResponse *response = nil;
-        NSError *error = nil;
-        (void)[self xrg_syncDataForRequest:request returningResponse:&response error:&error];
-        if (!error && response && response.statusCode == 200) {
-            activeStrategy = XRGAIDataStrategyOTel;
-#ifdef XRG_DEBUG
-            NSLog(@"[XRGAITokenMiner] Using OTel strategy: %@", otelEndpoint);
-#endif
-            return;
-        }
-    }
-
-    // No strategy available
+    // SKIP network check during initialization - too slow!
+    // Will be attempted on first getLatestTokenInfo() call if needed
+    
+    // No file-based strategy available - default to None
+    // (OTel will be tried later if needed)
     activeStrategy = XRGAIDataStrategyNone;
 #ifdef XRG_DEBUG
-    NSLog(@"[XRGAITokenMiner] WARNING: No data strategy available");
+    NSLog(@"[XRGAITokenMiner] No file-based strategy found, will try OTel on first update");
 #endif
 }
 
@@ -504,7 +493,11 @@
     if (!content) return 0;
 
     UInt64 fileTokens = 0;
-    XRGAITokensObserver *observer = [XRGAITokensObserver shared];
+    
+    // NOTE: We DON'T call observer.recordEvent here anymore!
+    // This was causing massive queue buildup and freezing.
+    // The observer should be updated separately by the actual API calls,
+    // not by parsing historical files.
 
     // Parse line-delimited JSON (JSONL format - one JSON object per line)
     NSArray *lines = [content componentsSeparatedByString:@"\n"];
@@ -520,11 +513,6 @@
         // Extract token usage from message.usage
         if (data && data[@"message"] && data[@"message"][@"usage"]) {
             NSDictionary *usage = data[@"message"][@"usage"];
-            NSDictionary *message = data[@"message"];
-
-            // Extract model and provider information
-            NSString *model = message[@"model"] ?: @"unknown";
-            NSString *provider = @"anthropic";  // Default to anthropic for Claude Code JSONL files
 
             // Calculate prompt and completion tokens
             UInt64 promptTokens = [usage[@"input_tokens"] unsignedLongLongValue] +
@@ -532,14 +520,8 @@
                                  [usage[@"cache_read_input_tokens"] unsignedLongLongValue];
             UInt64 completionTokens = [usage[@"output_tokens"] unsignedLongLongValue];
 
-            // Sum all token types for total
+            // Sum all token types for total (for graph display)
             fileTokens += promptTokens + completionTokens;
-
-            // Record event in Observer for model/provider tracking
-            [observer recordEventWithPromptTokens:promptTokens
-                                 completionTokens:completionTokens
-                                           model:model
-                                        provider:provider];
         }
     }
 

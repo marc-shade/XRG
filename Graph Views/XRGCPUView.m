@@ -134,7 +134,7 @@
     
     [[appSettings graphBGColor] set];
     NSRect bounds = [self bounds];
-    CGContextFillRect(gc.CGContext, bounds);
+    CGContextFillRect([gc CGContext], bounds);
 
 	if ([self shouldDrawMiniGraph]) {
 		[self drawMiniGraph:inRect];
@@ -180,7 +180,7 @@
 	
     NSGraphicsContext *gc = [NSGraphicsContext currentContext]; 
 	
-    [gc setShouldAntialias:[appSettings antiAliasing]];
+    gc.shouldAntialias = [appSettings antiAliasing];
 	
     NSInteger numCPUs = [CPUMiner numberOfCPUs];
 	if (numCPUs == 0) return;

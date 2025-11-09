@@ -34,7 +34,6 @@ enum {
 typedef int XRGURLCacheMode;
 
 @interface XRGURL : NSObject
-@property NSURLConnection *urlConnection;
 @property (setter=setURL:) NSURL *url;
 @property (nonatomic,setter=setURLString:) NSString *urlString;
 @property (getter=getData) NSMutableData *urlData;
@@ -57,7 +56,6 @@ typedef int XRGURLCacheMode;
 - (void) setData:(NSData *)newData;
 - (void) appendData:(NSData *)appendData;
 
-- (void) setURLConnection:(NSURLConnection *)newConnection;
 - (void) setUserAgentForRequest:(NSMutableURLRequest *)request;
 
 #pragma mark Action Methods
@@ -72,3 +70,4 @@ typedef int XRGURLCacheMode;
 #pragma mark Notifications
 
 @end
+

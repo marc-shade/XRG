@@ -25,13 +25,19 @@
 //
 
 #import "XRGURL.h"
+#import <os/log.h>
 
 NSString		*userAgent = nil;
 
-@implementation XRGURL
+@implementation XRGURL {
+    NSURLSession *_urlSession;
+    NSURLSessionDataTask *_dataTask;
+}
+
 - (instancetype) init {
 	if (self = [super init]) {
-		_urlConnection = nil;
+		_urlSession = nil;
+		_dataTask = nil;
 		_url = nil;
 		_urlString = nil;
 		_urlData = nil;
@@ -56,7 +62,10 @@ NSString		*userAgent = nil;
 	[self setURL:nil];
 	[self setData:nil];
 	[self setURLString:nil];
-	[self setURLConnection:nil];
+	if (_dataTask) {
+		[_dataTask cancel];
+		_dataTask = nil;
+	}
 }
 
 #pragma mark Getter/Setters
@@ -98,15 +107,6 @@ NSString		*userAgent = nil;
 	}
 }
 
-- (void) setURLConnection:(NSURLConnection *)newConnection {
-	if (_urlConnection != newConnection) {
-		if (_urlConnection) {
-			[_urlConnection cancel];
-		}
-		_urlConnection = newConnection;
-	}
-}
-
 - (void) setUserAgentForRequest:(NSMutableURLRequest *)request {
 	if ([XRGURL userAgent] != nil) {
 		[request setValue:[XRGURL userAgent] forHTTPHeaderField:@"User-Agent"];
@@ -121,31 +121,46 @@ NSString		*userAgent = nil;
 	}
 	
 #ifdef XRG_DEBUG
-	NSLog(@"[XRGURL loadURLInForeground] Loading URL: %@", urlString);
-#endif
-	
-	if (self.cacheMode == XRGURLCacheIgnore) {
-		NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.url cachePolicy:NSURLRequestReloadIgnoringCacheData timeoutInterval:60];
-		[self setUserAgentForRequest:request];
-		[self setData:[NSURLConnection sendSynchronousRequest:request returningResponse:nil error:nil]];
-	}
-	else if (self.cacheMode == XRGURLCacheUse) {
-		NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.url cachePolicy:NSURLRequestReturnCacheDataElseLoad timeoutInterval:60];
-		[self setUserAgentForRequest:request];
-		[self setData:[NSURLConnection sendSynchronousRequest:request returningResponse:nil error:nil]];
-	}
-	else if (self.cacheMode == XRGURLCacheOnly) {
-		NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.url cachePolicy:NSURLRequestReturnCacheDataDontLoad timeoutInterval:60];
-		[self setUserAgentForRequest:request];
-		[self setData:[NSURLConnection sendSynchronousRequest:request returningResponse:nil error:nil]];
-	}
-	
-    if (_urlData == nil) self.errorOccurred = YES;
-	
-#ifdef XRG_DEBUG
-	NSLog(@"[XRGURL loadURLInForeground] Finished loading URL: %@", urlString);
+    NSLog(@"[XRGURL loadURLInForeground] Loading URL: %@", _urlString);
 #endif
     
+    NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
+    // Map cacheMode to requestCachePolicy
+    NSURLRequestCachePolicy policy = NSURLRequestReloadIgnoringCacheData;
+    switch (self.cacheMode) {
+        case XRGURLCacheIgnore: policy = NSURLRequestReloadIgnoringCacheData; break;
+        case XRGURLCacheUse: policy = NSURLRequestReturnCacheDataElseLoad; break;
+        case XRGURLCacheOnly: policy = NSURLRequestReturnCacheDataDontLoad; break;
+    }
+    config.requestCachePolicy = policy;
+    config.timeoutIntervalForRequest = 60;
+    
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:config];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.url cachePolicy:policy timeoutInterval:60];
+    [self setUserAgentForRequest:request];
+    
+    __block NSData *responseData = nil;
+    __block NSError *taskError = nil;
+    dispatch_semaphore_t sema = dispatch_semaphore_create(1);
+    dispatch_semaphore_wait(sema, DISPATCH_TIME_NOW); // take the semaphore
+    NSURLSessionDataTask *task = [session dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+        if (data) {
+            responseData = data;
+        }
+        taskError = error;
+        dispatch_semaphore_signal(sema);
+    }];
+    [task resume];
+    
+    // Ensure we are not blocking the main/UI thread; this method should be called off-main.
+    dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+    [session finishTasksAndInvalidate];
+    [self setData:responseData];
+    if (_urlData == nil || taskError) self.errorOccurred = YES;
+    
+#ifdef XRG_DEBUG
+    NSLog(@"[XRGURL loadURLInForeground] Finished loading URL: %@", _urlString);
+#endif
     self.dataReady = YES;
 }
 
@@ -156,33 +171,49 @@ NSString		*userAgent = nil;
 	}
 	
 #ifdef XRG_DEBUG
-	NSLog(@"[XRGURL] Started Background Loading %@", urlString);
+    NSLog(@"[XRGURL] Started Background Loading %@", _urlString);
 #endif
-	
-	self.isLoading = YES;
-	
-	if (self.cacheMode == XRGURLCacheIgnore) {
-		NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.url cachePolicy:NSURLRequestReloadIgnoringCacheData timeoutInterval:60];
-		[self setUserAgentForRequest:request];
-		
-		NSURLConnection *connection = [NSURLConnection connectionWithRequest:request delegate:self];
-		[self setURLConnection:connection];
-	}
-	else if (self.cacheMode == XRGURLCacheUse) {
-		NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.url cachePolicy:NSURLRequestReturnCacheDataElseLoad timeoutInterval:60];
-		[self setUserAgentForRequest:request];
-		
-		NSURLConnection *connection = [NSURLConnection connectionWithRequest:request delegate:self];
-		[self setURLConnection:connection];
-	}
-	else if (self.cacheMode == XRGURLCacheOnly) {
-		// Do a cache-only request.
-		NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.url cachePolicy:NSURLRequestReturnCacheDataDontLoad timeoutInterval:60];
-		[self setUserAgentForRequest:request];
-		
-		NSURLConnection *connection = [NSURLConnection connectionWithRequest:request delegate:self];
-		[self setURLConnection:connection];
-	}
+    self.isLoading = YES;
+    
+    NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
+    NSURLRequestCachePolicy policy = NSURLRequestReloadIgnoringCacheData;
+    switch (self.cacheMode) {
+        case XRGURLCacheIgnore: policy = NSURLRequestReloadIgnoringCacheData; break;
+        case XRGURLCacheUse: policy = NSURLRequestReturnCacheDataElseLoad; break;
+        case XRGURLCacheOnly: policy = NSURLRequestReturnCacheDataDontLoad; break;
+    }
+    config.requestCachePolicy = policy;
+    config.timeoutIntervalForRequest = 60;
+    
+    NSOperationQueue *delegateQueue = [[NSOperationQueue alloc] init];
+    delegateQueue.qualityOfService = NSQualityOfServiceUtility; // lower than user-interactive to avoid inversions
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:config delegate:nil delegateQueue:delegateQueue];
+    
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.url cachePolicy:policy timeoutInterval:60];
+    [self setUserAgentForRequest:request];
+    
+    __weak typeof(self) weakSelf = self;
+    _dataTask = [session dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+        __strong typeof(self) strongSelf = weakSelf;
+        if (!strongSelf) { return; }
+        if (error) {
+            strongSelf.errorOccurred = YES;
+        } else if (data) {
+            [strongSelf setData:data];
+            strongSelf.dataReady = YES;
+        }
+        strongSelf.isLoading = NO;
+        
+#ifdef XRG_DEBUG
+        if (error) {
+            NSLog(@"[XRGURL] Failed Loading %@: %@", strongSelf->_urlString, error.localizedDescription);
+        } else {
+            NSLog(@"[XRGURL] Finished Loading %@", strongSelf->_urlString);
+        }
+#endif
+        [session finishTasksAndInvalidate];
+    }];
+    [_dataTask resume];
 }
 
 // Returns whether or not the URL is ready to load.
@@ -200,7 +231,7 @@ NSString		*userAgent = nil;
 		
 		if (self.url == nil) {
 #ifdef XRG_DEBUG
-			NSLog(@"[XRGURL prepareForURLLoad] Error:  Failed to initialize NSURL with urlString: %@.", urlString);
+			NSLog(@"[XRGURL prepareForURLLoad] Error:  Failed to initialize NSURL with urlString: %@.", _urlString);
 #endif
 			return NO;
 		}
@@ -215,7 +246,10 @@ NSString		*userAgent = nil;
 }
 
 - (void) cancelLoading {
-	if (self.urlConnection != nil) [self.urlConnection cancel];
+	if (_dataTask != nil) {
+		[_dataTask cancel];
+		_dataTask = nil;
+	}
     
 	[self setData:nil];
     
@@ -230,49 +264,6 @@ NSString		*userAgent = nil;
 }
 
 #pragma mark Notifications
-- (void) connection:(NSURLConnection *)connection didReceiveData:(NSData *)data {
-	if (self.urlConnection == connection) {
-		[self appendData:data];
-	}
-	else {
-#ifdef XRG_DEBUG
-		NSLog(@"[XRGURL]  Hmm, we got data but the connections didn't match");
-#endif
-	}
-}
-
--(void) connectionDidFinishLoading:(NSURLConnection *)connection {
-	if (self.urlConnection == connection) {
-		self.dataReady = YES;
-		self.isLoading = NO;
-		
-#ifdef XRG_DEBUG
-		NSLog(@"[XRGURL] Finished Loading %@", urlString);
-#endif
-	}
-	else {
-#ifdef XRG_DEBUG
-		NSLog(@"[XRGURL]  Hmm, we finished loading but the connections didn't match");
-#endif
-	}
-}
-
-- (void) connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
-#ifdef XRG_DEBUG
-	NSLog(@"[XRGURL] Failed Loading %@: %@", urlString, [error localizedDescription]);
-#endif
-	
-	self.isLoading = NO;
-	self.errorOccurred = YES;
-}
-
-// Request got redirected.
-- (NSURLRequest *) connection:(NSURLConnection *)connection willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse {
-#ifdef XRG_DEBUG
-	NSLog(@"[XRGURL] Connection is redirecting.");
-#endif
-	
-	return request;
-}
+// Removed NSURLConnection delegate methods as requested
 
 @end
