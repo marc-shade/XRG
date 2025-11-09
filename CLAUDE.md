@@ -329,6 +329,34 @@ int main() {
 
 ## Recent Changes
 
+### Default Color Scheme Improvement (Nov 2025)
+
+Updated the default color palette for first-time installations to provide a modern, visually appealing out-of-box experience:
+
+**New Default Colors**:
+- **Background**: Dark gray (0.1, 0.1, 0.1, 0.9) - softer than pure black
+- **Graph Background**: Slightly lighter gray (0.15, 0.15, 0.15, 0.9) - creates subtle depth
+- **Graph FG1**: Bright cyan (0.2, 0.8, 0.9) - primary data series, high visibility
+- **Graph FG2**: Vibrant purple (0.7, 0.3, 0.9) - secondary data series, complementary to cyan
+- **Graph FG3**: Warm amber/gold (1.0, 0.7, 0.2) - tertiary data series, warm accent
+- **Border**: Subtle gray (0.3, 0.3, 0.3, 0.4) - visible but not intrusive
+- **Text**: White - maintains excellent contrast
+
+**Previous Default Colors** (replaced):
+- Background/GraphBG: Pure black (0, 0, 0) - harsh, no depth
+- FG1: Dark blue (0.165, 0.224, 0.773) - too dark, low visibility
+- FG2: Orange (0.922, 0.667, 0.337) - decent
+- FG3: Dark red (0.690, 0.102, 0.102) - too dark
+
+**Benefits**:
+- Modern appearance aligned with contemporary macOS design
+- Better visual separation between data series
+- Improved readability and aesthetics on first launch
+- Professional look without user customization
+- Only affects new installations - existing user preferences preserved
+
+**Implementation**: `Controllers/XRGGraphWindow.m` lines 108-128 in `getDefaultPrefs` method.
+
 ### AI Token Monitoring Module (Nov 2025) - Universal Implementation
 
 Added real-time AI API token usage tracking that works on **all Macs** with **any Claude Code installation**:
