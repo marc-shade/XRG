@@ -63,8 +63,8 @@ sudo pacman -S lm_sensors upower  # Optional
 
 ```bash
 # Clone repository
-git clone https://github.com/marc-shade/xrg-linux.git
-cd xrg-linux
+git clone https://github.com/marc-shade/XRG.git
+cd XRG/xrg-linux
 
 # Create build directory
 mkdir build && cd build
@@ -143,12 +143,12 @@ XRG-Linux stores preferences in `~/.config/xrg-linux/settings.conf` (GKeyFile fo
   - Normal (1s): Memory, Disk, GPU
   - Slow (5s): Temperature, Battery
   - Very Slow (5min): Weather, Stocks
-- **Colors:** Customizable dark theme
-  - Background: #1A1A1A (90% opacity)
-  - Graph BG: #262626 (90% opacity)
-  - FG1: Cyan (#33CCEE)
-  - FG2: Purple (#B34DE6)
-  - FG3: Amber (#FFB233)
+- **Colors:** Customizable cyberpunk theme
+  - Background: Dark blue-black (RGB 0.02, 0.05, 0.12, 95% opacity)
+  - Graph BG: Dark blue (RGB 0.05, 0.08, 0.15, 95% opacity)
+  - FG1: Electric Cyan (RGB 0.0, 0.95, 1.0) - #00F2FF
+  - FG2: Magenta (RGB 1.0, 0.0, 0.8) - #FF00CC
+  - FG3: Electric Green (RGB 0.2, 1.0, 0.3) - #33FF4D
 
 ### Module Configuration
 
@@ -287,7 +287,7 @@ Based on the original XRG by Gaucho Software, LLC.
 
 ## Links
 
-- **Original XRG:** https://gaucho.software/xrg/
-- **Original Repository:** https://github.com/marc-shade/XRG
-- **Issues:** https://github.com/marc-shade/xrg-linux/issues
-- **Documentation:** https://github.com/marc-shade/xrg-linux/wiki
+- **XRG Website:** https://gaucho.software/xrg/
+- **GitHub Repository:** https://github.com/marc-shade/XRG
+- **Issues:** https://github.com/marc-shade/XRG/issues
+- **Documentation:** https://github.com/marc-shade/XRG/wiki

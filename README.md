@@ -4,7 +4,10 @@ XRG
 <img width="1080" height="188" alt="AI-Tokens" src="https://github.com/user-attachments/assets/bfb873ea-6564-437f-af2c-315b14b3dfb0" />
 
 
-A real-time system resource monitor for macOS with customizable floating graphs.
+A real-time system resource monitor for **macOS and Linux** with customizable floating graphs.
+
+🍎 **macOS**: Native Objective-C/Cocoa implementation
+🐧 **Linux**: Native C/GTK3 implementation
 
 
 
@@ -66,12 +69,13 @@ For detailed documentation, see [README_AI_TOKENS.md](README_AI_TOKENS.md)
 
 ## Building
 
-### Requirements
+### macOS
 
+**Requirements:**
 - macOS 10.13 or later
 - Xcode with Command Line Tools
 
-### Build Commands
+**Build Commands:**
 
 ```bash
 # Build
@@ -83,6 +87,34 @@ xcodebuild -project XRG.xcodeproj -scheme XRG clean build
 # Open in Xcode
 open XRG.xcodeproj
 ```
+
+### Linux
+
+**Requirements:**
+- GTK 3.24+
+- Cairo 1.16+
+- GLib 2.66+
+- json-glib
+- CMake 3.16+
+- C compiler (gcc/clang)
+
+**Build Commands:**
+
+```bash
+cd xrg-linux
+mkdir build && cd build
+cmake ..
+make -j$(nproc)
+./xrg-linux
+```
+
+**Install System-Wide:**
+
+```bash
+sudo make install
+```
+
+For detailed Linux documentation, see [xrg-linux/README.md](xrg-linux/README.md)
 
 ## License
 
