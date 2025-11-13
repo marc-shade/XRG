@@ -1,0 +1,242 @@
+#include <gtk/gtk.h>
+#include <glib.h>
+#include <stdio.h>
+#include "core/preferences.h"
+#include "core/dataset.h"
+#include "core/utils.h"
+#include "collectors/cpu_collector.h"
+
+/* Application state */
+typedef struct {
+    GtkWidget *window;
+    GtkWidget *cpu_drawing_area;
+    XRGPreferences *prefs;
+    XRGCPUCollector *cpu_collector;
+    guint update_timer_id;
+} AppState;
+
+/* Forward declarations */
+static void on_activate(GtkApplication *app, gpointer user_data);
+static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data);
+static gboolean on_update_timer(gpointer user_data);
+static void on_window_destroy(GtkWidget *widget, gpointer user_data);
+
+/**
+ * Main entry point
+ */
+int main(int argc, char *argv[]) {
+    GtkApplication *app;
+    int status;
+
+    app = gtk_application_new("com.gaucho.xrg-linux", G_APPLICATION_DEFAULT_FLAGS);
+    g_signal_connect(app, "activate", G_CALLBACK(on_activate), NULL);
+    status = g_application_run(G_APPLICATION(app), argc, argv);
+    g_object_unref(app);
+
+    return status;
+}
+
+/**
+ * Application activation (create window and initialize)
+ */
+static void on_activate(GtkApplication *app, gpointer user_data) {
+    AppState *state = g_new0(AppState, 1);
+
+    /* Load preferences */
+    state->prefs = xrg_preferences_new();
+    if (!xrg_preferences_load(state->prefs)) {
+        g_message("Using default preferences (first run)");
+    }
+
+    /* Initialize collectors */
+    state->cpu_collector = xrg_cpu_collector_new(200);  /* 200 data points */
+
+    /* Create main window */
+    state->window = gtk_application_window_new(app);
+    gtk_window_set_title(GTK_WINDOW(state->window), "XRG-Linux");
+    gtk_window_set_default_size(GTK_WINDOW(state->window),
+                                state->prefs->window_width,
+                                state->prefs->window_height);
+    gtk_window_move(GTK_WINDOW(state->window),
+                    state->prefs->window_x,
+                    state->prefs->window_y);
+
+    /* Make window frameless and always-on-top */
+    gtk_window_set_decorated(GTK_WINDOW(state->window), FALSE);
+    if (state->prefs->window_always_on_top) {
+        gtk_window_set_keep_above(GTK_WINDOW(state->window), TRUE);
+    }
+
+    /* Set window transparency */
+    GdkScreen *screen = gtk_widget_get_screen(state->window);
+    GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
+    if (visual != NULL && gdk_screen_is_composited(screen)) {
+        gtk_widget_set_visual(state->window, visual);
+        gtk_widget_set_opacity(state->window, state->prefs->window_opacity);
+    }
+
+    /* Create CPU drawing area */
+    state->cpu_drawing_area = gtk_drawing_area_new();
+    gtk_widget_set_size_request(state->cpu_drawing_area,
+                                state->prefs->graph_width,
+                                state->prefs->graph_height_cpu);
+    g_signal_connect(state->cpu_drawing_area, "draw", G_CALLBACK(on_draw_cpu), state);
+
+    /* Add drawing area to window */
+    gtk_container_add(GTK_CONTAINER(state->window), state->cpu_drawing_area);
+
+    /* Connect destroy signal */
+    g_signal_connect(state->window, "destroy", G_CALLBACK(on_window_destroy), state);
+
+    /* Start update timer (1 second) */
+    state->update_timer_id = g_timeout_add(state->prefs->normal_update_interval,
+                                           on_update_timer, state);
+
+    /* Show window */
+    gtk_widget_show_all(state->window);
+
+    g_message("XRG-Linux started - Monitoring %d CPU cores",
+              xrg_cpu_collector_get_num_cpus(state->cpu_collector));
+}
+
+/**
+ * Draw CPU graph
+ */
+static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(widget, &allocation);
+
+    gint width = allocation.width;
+    gint height = allocation.height;
+
+    /* Draw background */
+    GdkRGBA *bg_color = &state->prefs->graph_bg_color;
+    cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
+    cairo_rectangle(cr, 0, 0, width, height);
+    cairo_fill(cr);
+
+    /* Draw border */
+    GdkRGBA *border_color = &state->prefs->border_color;
+    cairo_set_source_rgba(cr, border_color->red, border_color->green, border_color->blue, border_color->alpha);
+    cairo_set_line_width(cr, 1.0);
+    cairo_rectangle(cr, 0.5, 0.5, width - 1, height - 1);
+    cairo_stroke(cr);
+
+    /* Get CPU datasets */
+    XRGDataset *user_dataset = xrg_cpu_collector_get_user_dataset(state->cpu_collector);
+    XRGDataset *system_dataset = xrg_cpu_collector_get_system_dataset(state->cpu_collector);
+
+    gint count = xrg_dataset_get_count(user_dataset);
+    if (count < 2) {
+        /* Not enough data yet */
+        return FALSE;
+    }
+
+    /* Draw user CPU usage (cyan - FG1) */
+    GdkRGBA *fg1_color = &state->prefs->graph_fg1_color;
+    cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha);
+
+    cairo_move_to(cr, 0, height);
+    for (gint i = 0; i < count; i++) {
+        gdouble value = xrg_dataset_get_value(user_dataset, i);
+        gdouble x = (gdouble)i / count * width;
+        gdouble y = height - (value / 100.0 * height);
+        cairo_line_to(cr, x, y);
+    }
+    cairo_line_to(cr, width, height);
+    cairo_close_path(cr);
+    cairo_fill(cr);
+
+    /* Draw system CPU usage on top (purple - FG2) */
+    GdkRGBA *fg2_color = &state->prefs->graph_fg2_color;
+    cairo_set_source_rgba(cr, fg2_color->red, fg2_color->green, fg2_color->blue, fg2_color->alpha * 0.7);
+
+    cairo_move_to(cr, 0, height);
+    for (gint i = 0; i < count; i++) {
+        gdouble user_val = xrg_dataset_get_value(user_dataset, i);
+        gdouble system_val = xrg_dataset_get_value(system_dataset, i);
+        gdouble total_val = user_val + system_val;
+        gdouble x = (gdouble)i / count * width;
+        gdouble y = height - (total_val / 100.0 * height);
+        cairo_line_to(cr, x, y);
+    }
+    cairo_line_to(cr, width, height);
+    cairo_close_path(cr);
+    cairo_fill(cr);
+
+    /* Draw text labels */
+    GdkRGBA *text_color = &state->prefs->text_color;
+    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
+    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 10);
+
+    /* Current CPU usage */
+    gdouble current_usage = xrg_cpu_collector_get_total_usage(state->cpu_collector);
+    gchar *usage_text = g_strdup_printf("CPU: %.1f%%", current_usage);
+    cairo_move_to(cr, 5, 12);
+    cairo_show_text(cr, usage_text);
+    g_free(usage_text);
+
+    /* Load average */
+    gdouble load_avg = xrg_cpu_collector_get_load_average_1min(state->cpu_collector);
+    gchar *load_text = g_strdup_printf("Load: %.2f", load_avg);
+    cairo_move_to(cr, 5, 24);
+    cairo_show_text(cr, load_text);
+    g_free(load_text);
+
+    /* Core count */
+    gint num_cores = xrg_cpu_collector_get_num_cpus(state->cpu_collector);
+    gchar *cores_text = g_strdup_printf("%d cores", num_cores);
+    cairo_move_to(cr, width - 60, 12);
+    cairo_show_text(cr, cores_text);
+    g_free(cores_text);
+
+    return FALSE;
+}
+
+/**
+ * Update timer callback (1 second interval)
+ */
+static gboolean on_update_timer(gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+
+    /* Update CPU collector */
+    xrg_cpu_collector_update(state->cpu_collector);
+
+    /* Redraw CPU graph */
+    gtk_widget_queue_draw(state->cpu_drawing_area);
+
+    return G_SOURCE_CONTINUE;  /* Keep timer running */
+}
+
+/**
+ * Window destroy callback (cleanup)
+ */
+static void on_window_destroy(GtkWidget *widget, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+
+    /* Stop timer */
+    if (state->update_timer_id > 0) {
+        g_source_remove(state->update_timer_id);
+    }
+
+    /* Save window position */
+    gint x, y, width, height;
+    gtk_window_get_position(GTK_WINDOW(state->window), &x, &y);
+    gtk_window_get_size(GTK_WINDOW(state->window), &width, &height);
+    state->prefs->window_x = x;
+    state->prefs->window_y = y;
+    state->prefs->window_width = width;
+    state->prefs->window_height = height;
+
+    /* Save preferences */
+    xrg_preferences_save(state->prefs);
+
+    /* Cleanup */
+    xrg_cpu_collector_free(state->cpu_collector);
+    xrg_preferences_free(state->prefs);
+    g_free(state);
+
+    g_message("XRG-Linux stopped");
+}

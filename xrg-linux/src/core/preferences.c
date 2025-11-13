@@ -1,0 +1,395 @@
+#include "preferences.h"
+#include <glib/gstdio.h>
+
+#define CONFIG_DIR "xrg-linux"
+#define CONFIG_FILE "settings.conf"
+
+/* Helper function to parse RGBA color from string */
+static gboolean parse_color(const gchar *str, GdkRGBA *color) {
+    return gdk_rgba_parse(color, str);
+}
+
+/* Helper function to format RGBA color to string */
+static gchar* format_color(GdkRGBA *color) {
+    return g_strdup_printf("rgba(%.3f,%.3f,%.3f,%.3f)",
+                           color->red, color->green, color->blue, color->alpha);
+}
+
+/**
+ * Create new preferences with defaults
+ */
+XRGPreferences* xrg_preferences_new(void) {
+    XRGPreferences *prefs = g_new0(XRGPreferences, 1);
+
+    /* Build config path */
+    const gchar *config_dir = g_get_user_config_dir();
+    gchar *xrg_config_dir = g_build_filename(config_dir, CONFIG_DIR, NULL);
+    prefs->config_path = g_build_filename(xrg_config_dir, CONFIG_FILE, NULL);
+
+    /* Ensure config directory exists */
+    g_mkdir_with_parents(xrg_config_dir, 0755);
+    g_free(xrg_config_dir);
+
+    /* Initialize keyfile */
+    prefs->keyfile = g_key_file_new();
+
+    /* Set defaults */
+    xrg_preferences_set_defaults(prefs);
+
+    return prefs;
+}
+
+/**
+ * Free preferences
+ */
+void xrg_preferences_free(XRGPreferences *prefs) {
+    if (prefs == NULL)
+        return;
+
+    if (prefs->keyfile)
+        g_key_file_free(prefs->keyfile);
+
+    g_free(prefs->config_path);
+    g_free(prefs->aitoken_jsonl_path);
+    g_free(prefs->aitoken_db_path);
+    g_free(prefs->aitoken_otel_endpoint);
+    g_free(prefs);
+}
+
+/**
+ * Set default preferences (matching macOS XRG defaults)
+ */
+void xrg_preferences_set_defaults(XRGPreferences *prefs) {
+    g_return_if_fail(prefs != NULL);
+
+    /* Window settings */
+    prefs->window_x = 100;
+    prefs->window_y = 100;
+    prefs->window_width = 200;
+    prefs->window_height = 600;
+    prefs->window_always_on_top = TRUE;
+    prefs->window_transparent = TRUE;
+    prefs->window_opacity = 0.9;
+
+    /* Module visibility (all enabled by default) */
+    prefs->show_cpu = TRUE;
+    prefs->show_memory = TRUE;
+    prefs->show_network = TRUE;
+    prefs->show_disk = TRUE;
+    prefs->show_gpu = TRUE;
+    prefs->show_temperature = TRUE;
+    prefs->show_battery = TRUE;
+    prefs->show_aitoken = TRUE;
+    prefs->show_weather = FALSE;  /* Disabled by default (needs API key) */
+    prefs->show_stock = FALSE;    /* Disabled by default (needs API key) */
+
+    /* Update intervals (milliseconds) */
+    prefs->fast_update_interval = 100;      /* 0.1 second */
+    prefs->normal_update_interval = 1000;   /* 1 second */
+    prefs->slow_update_interval = 5000;     /* 5 seconds */
+    prefs->vslow_update_interval = 300000;  /* 5 minutes */
+
+    /* Colors - Cyberpunk/Cyber theme (vibrant neon on dark) */
+    prefs->background_color.red = 0.02; prefs->background_color.green = 0.05;
+    prefs->background_color.blue = 0.12; prefs->background_color.alpha = 0.95;  /* Dark blue-black */
+
+    prefs->graph_bg_color.red = 0.05; prefs->graph_bg_color.green = 0.08;
+    prefs->graph_bg_color.blue = 0.15; prefs->graph_bg_color.alpha = 0.95;  /* Dark blue */
+
+    prefs->graph_fg1_color.red = 0.0; prefs->graph_fg1_color.green = 0.95;
+    prefs->graph_fg1_color.blue = 1.0; prefs->graph_fg1_color.alpha = 1.0;  /* Electric Cyan */
+
+    prefs->graph_fg2_color.red = 1.0; prefs->graph_fg2_color.green = 0.0;
+    prefs->graph_fg2_color.blue = 0.8; prefs->graph_fg2_color.alpha = 1.0;  /* Magenta */
+
+    prefs->graph_fg3_color.red = 0.2; prefs->graph_fg3_color.green = 1.0;
+    prefs->graph_fg3_color.blue = 0.3; prefs->graph_fg3_color.alpha = 1.0;  /* Electric Green */
+
+    prefs->text_color.red = 0.9; prefs->text_color.green = 1.0;
+    prefs->text_color.blue = 1.0; prefs->text_color.alpha = 1.0;  /* Bright Cyan-White */
+
+    prefs->border_color.red = 0.0; prefs->border_color.green = 0.7;
+    prefs->border_color.blue = 0.9; prefs->border_color.alpha = 0.5;  /* Cyan border */
+
+    /* Module-specific colors (default to global colors) */
+    /* Memory */
+    prefs->memory_bg_color = prefs->graph_bg_color;
+    prefs->memory_fg1_color = prefs->graph_fg1_color;  /* Cyan */
+    prefs->memory_fg2_color = prefs->graph_fg2_color;  /* Purple */
+    prefs->memory_fg3_color = prefs->graph_fg3_color;  /* Amber */
+
+    /* Network */
+    prefs->network_bg_color = prefs->graph_bg_color;
+    prefs->network_fg1_color = prefs->graph_fg1_color;  /* Cyan - download */
+    prefs->network_fg2_color = prefs->graph_fg2_color;  /* Purple - upload */
+
+    /* Disk */
+    prefs->disk_bg_color = prefs->graph_bg_color;
+    prefs->disk_fg1_color = prefs->graph_fg1_color;  /* Cyan - read */
+    prefs->disk_fg2_color = prefs->graph_fg2_color;  /* Purple - write */
+
+    /* AI Token */
+    prefs->aitoken_bg_color = prefs->graph_bg_color;
+    prefs->aitoken_fg1_color = prefs->graph_fg1_color;  /* Cyan - input */
+    prefs->aitoken_fg2_color = prefs->graph_fg2_color;  /* Purple - output */
+
+    /* Graph dimensions */
+    prefs->graph_width = 200;
+    prefs->graph_height_cpu = 80;
+    prefs->graph_height_memory = 60;
+    prefs->graph_height_network = 60;
+    prefs->graph_height_disk = 60;
+    prefs->graph_height_gpu = 60;
+    prefs->graph_height_temperature = 60;
+    prefs->graph_height_battery = 40;
+    prefs->graph_height_aitoken = 60;
+
+    /* AI Token settings */
+    gchar *home = g_strdup(g_get_home_dir());
+    prefs->aitoken_jsonl_path = g_build_filename(home, ".claude", "projects", NULL);
+    prefs->aitoken_db_path = g_build_filename(home, ".claude", "monitoring", "claude_usage.db", NULL);
+    prefs->aitoken_otel_endpoint = g_strdup("http://localhost:8889/metrics");
+    prefs->aitoken_auto_detect = TRUE;
+    g_free(home);
+}
+
+/**
+ * Load preferences from config file
+ */
+gboolean xrg_preferences_load(XRGPreferences *prefs) {
+    g_return_val_if_fail(prefs != NULL, FALSE);
+
+    GError *error = NULL;
+    if (!g_key_file_load_from_file(prefs->keyfile, prefs->config_path, G_KEY_FILE_NONE, &error)) {
+        if (error->code != G_FILE_ERROR_NOENT) {
+            g_warning("Failed to load preferences: %s", error->message);
+        }
+        g_error_free(error);
+        return FALSE;
+    }
+
+    /* Load window settings */
+    prefs->window_x = g_key_file_get_integer(prefs->keyfile, "Window", "x", NULL);
+    prefs->window_y = g_key_file_get_integer(prefs->keyfile, "Window", "y", NULL);
+    prefs->window_width = g_key_file_get_integer(prefs->keyfile, "Window", "width", NULL);
+    prefs->window_height = g_key_file_get_integer(prefs->keyfile, "Window", "height", NULL);
+    prefs->window_always_on_top = g_key_file_get_boolean(prefs->keyfile, "Window", "always_on_top", NULL);
+    prefs->window_opacity = g_key_file_get_double(prefs->keyfile, "Window", "opacity", NULL);
+
+    /* Load module visibility */
+    prefs->show_cpu = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_cpu", NULL);
+    prefs->show_memory = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_memory", NULL);
+    prefs->show_network = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_network", NULL);
+    prefs->show_disk = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_disk", NULL);
+    prefs->show_gpu = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_gpu", NULL);
+    prefs->show_temperature = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_temperature", NULL);
+    prefs->show_battery = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_battery", NULL);
+    prefs->show_aitoken = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_aitoken", NULL);
+
+    /* Load colors */
+    gchar *color_str;
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "background", NULL);
+    if (color_str) { parse_color(color_str, &prefs->background_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "graph_bg", NULL);
+    if (color_str) { parse_color(color_str, &prefs->graph_bg_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "graph_fg1", NULL);
+    if (color_str) { parse_color(color_str, &prefs->graph_fg1_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "graph_fg2", NULL);
+    if (color_str) { parse_color(color_str, &prefs->graph_fg2_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "graph_fg3", NULL);
+    if (color_str) { parse_color(color_str, &prefs->graph_fg3_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "text", NULL);
+    if (color_str) { parse_color(color_str, &prefs->text_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "border", NULL);
+    if (color_str) { parse_color(color_str, &prefs->border_color); g_free(color_str); }
+
+    /* Load module-specific colors */
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "memory_bg", NULL);
+    if (color_str) { parse_color(color_str, &prefs->memory_bg_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "memory_fg1", NULL);
+    if (color_str) { parse_color(color_str, &prefs->memory_fg1_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "memory_fg2", NULL);
+    if (color_str) { parse_color(color_str, &prefs->memory_fg2_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "memory_fg3", NULL);
+    if (color_str) { parse_color(color_str, &prefs->memory_fg3_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "network_bg", NULL);
+    if (color_str) { parse_color(color_str, &prefs->network_bg_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "network_fg1", NULL);
+    if (color_str) { parse_color(color_str, &prefs->network_fg1_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "network_fg2", NULL);
+    if (color_str) { parse_color(color_str, &prefs->network_fg2_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "disk_bg", NULL);
+    if (color_str) { parse_color(color_str, &prefs->disk_bg_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "disk_fg1", NULL);
+    if (color_str) { parse_color(color_str, &prefs->disk_fg1_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "disk_fg2", NULL);
+    if (color_str) { parse_color(color_str, &prefs->disk_fg2_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "aitoken_bg", NULL);
+    if (color_str) { parse_color(color_str, &prefs->aitoken_bg_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "aitoken_fg1", NULL);
+    if (color_str) { parse_color(color_str, &prefs->aitoken_fg1_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "aitoken_fg2", NULL);
+    if (color_str) { parse_color(color_str, &prefs->aitoken_fg2_color); g_free(color_str); }
+
+    return TRUE;
+}
+
+/**
+ * Save preferences to config file
+ */
+gboolean xrg_preferences_save(XRGPreferences *prefs) {
+    g_return_val_if_fail(prefs != NULL, FALSE);
+
+    /* Save window settings */
+    g_key_file_set_integer(prefs->keyfile, "Window", "x", prefs->window_x);
+    g_key_file_set_integer(prefs->keyfile, "Window", "y", prefs->window_y);
+    g_key_file_set_integer(prefs->keyfile, "Window", "width", prefs->window_width);
+    g_key_file_set_integer(prefs->keyfile, "Window", "height", prefs->window_height);
+    g_key_file_set_boolean(prefs->keyfile, "Window", "always_on_top", prefs->window_always_on_top);
+    g_key_file_set_double(prefs->keyfile, "Window", "opacity", prefs->window_opacity);
+
+    /* Save module visibility */
+    g_key_file_set_boolean(prefs->keyfile, "Modules", "show_cpu", prefs->show_cpu);
+    g_key_file_set_boolean(prefs->keyfile, "Modules", "show_memory", prefs->show_memory);
+    g_key_file_set_boolean(prefs->keyfile, "Modules", "show_network", prefs->show_network);
+    g_key_file_set_boolean(prefs->keyfile, "Modules", "show_disk", prefs->show_disk);
+    g_key_file_set_boolean(prefs->keyfile, "Modules", "show_gpu", prefs->show_gpu);
+    g_key_file_set_boolean(prefs->keyfile, "Modules", "show_temperature", prefs->show_temperature);
+    g_key_file_set_boolean(prefs->keyfile, "Modules", "show_battery", prefs->show_battery);
+    g_key_file_set_boolean(prefs->keyfile, "Modules", "show_aitoken", prefs->show_aitoken);
+
+    /* Save colors */
+    gchar *color_str;
+    color_str = format_color(&prefs->background_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "background", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->graph_bg_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "graph_bg", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->graph_fg1_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "graph_fg1", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->graph_fg2_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "graph_fg2", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->graph_fg3_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "graph_fg3", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->text_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "text", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->border_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "border", color_str);
+    g_free(color_str);
+
+    /* Save module-specific colors */
+    color_str = format_color(&prefs->memory_bg_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "memory_bg", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->memory_fg1_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "memory_fg1", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->memory_fg2_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "memory_fg2", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->memory_fg3_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "memory_fg3", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->network_bg_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "network_bg", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->network_fg1_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "network_fg1", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->network_fg2_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "network_fg2", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->disk_bg_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "disk_bg", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->disk_fg1_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "disk_fg1", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->disk_fg2_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "disk_fg2", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->aitoken_bg_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "aitoken_bg", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->aitoken_fg1_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "aitoken_fg1", color_str);
+    g_free(color_str);
+
+    color_str = format_color(&prefs->aitoken_fg2_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "aitoken_fg2", color_str);
+    g_free(color_str);
+
+    /* Write to file */
+    GError *error = NULL;
+    if (!g_key_file_save_to_file(prefs->keyfile, prefs->config_path, &error)) {
+        g_warning("Failed to save preferences: %s", error->message);
+        g_error_free(error);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+/* Example getters and setters */
+
+gboolean xrg_preferences_get_show_cpu(XRGPreferences *prefs) {
+    g_return_val_if_fail(prefs != NULL, FALSE);
+    return prefs->show_cpu;
+}
+
+void xrg_preferences_set_show_cpu(XRGPreferences *prefs, gboolean show) {
+    g_return_if_fail(prefs != NULL);
+    prefs->show_cpu = show;
+}
+
+GdkRGBA xrg_preferences_get_graph_fg1_color(XRGPreferences *prefs) {
+    static const GdkRGBA black = {0, 0, 0, 1};
+    g_return_val_if_fail(prefs != NULL, black);
+    return prefs->graph_fg1_color;
+}
+
+void xrg_preferences_set_graph_fg1_color(XRGPreferences *prefs, GdkRGBA *color) {
+    g_return_if_fail(prefs != NULL);
+    g_return_if_fail(color != NULL);
+    prefs->graph_fg1_color = *color;
+}
