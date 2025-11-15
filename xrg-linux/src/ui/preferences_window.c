@@ -13,6 +13,7 @@ struct _XRGPreferencesWindow {
     GtkWidget *window_height_spin;
     GtkWidget *window_opacity_scale;
     GtkWidget *window_always_on_top_check;
+    GtkWidget *show_activity_bars_check;
 
     /* CPU module tab widgets */
     GtkWidget *cpu_enabled_check;
@@ -208,6 +209,19 @@ static GtkWidget* create_window_tab(XRGPreferencesWindow *win) {
     gtk_scale_set_value_pos(GTK_SCALE(win->window_opacity_scale), GTK_POS_RIGHT);
     gtk_widget_set_hexpand(win->window_opacity_scale, TRUE);
     gtk_grid_attach(GTK_GRID(grid), win->window_opacity_scale, 1, row++, 1, 1);
+
+    /* Separator */
+    gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
+
+    /* Display features section */
+    label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(label), "<b>Display Features</b>");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+
+    /* Activity bars */
+    win->show_activity_bars_check = gtk_check_button_new_with_label("Show Activity Bars");
+    gtk_grid_attach(GTK_GRID(grid), win->show_activity_bars_check, 0, row++, 2, 1);
 
     return grid;
 }
@@ -618,6 +632,7 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->window_height_spin), prefs->window_height);
     gtk_range_set_value(GTK_RANGE(win->window_opacity_scale), prefs->window_opacity);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->window_always_on_top_check), prefs->window_always_on_top);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->show_activity_bars_check), prefs->show_activity_bars);
 
     /* CPU module tab */
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->cpu_enabled_check), prefs->show_cpu);
@@ -704,6 +719,7 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     prefs->window_height = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->window_height_spin));
     prefs->window_opacity = gtk_range_get_value(GTK_RANGE(win->window_opacity_scale));
     prefs->window_always_on_top = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->window_always_on_top_check));
+    prefs->show_activity_bars = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->show_activity_bars_check));
 
     /* CPU module tab */
     prefs->show_cpu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->cpu_enabled_check));

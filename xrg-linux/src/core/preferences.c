@@ -94,6 +94,9 @@ void xrg_preferences_set_defaults(XRGPreferences *prefs) {
     prefs->show_weather = FALSE;  /* Disabled by default (needs API key) */
     prefs->show_stock = FALSE;    /* Disabled by default (needs API key) */
 
+    /* Activity bars */
+    prefs->show_activity_bars = TRUE;  /* Enabled by default */
+
     /* Update intervals (milliseconds) */
     prefs->fast_update_interval = 100;      /* 0.1 second */
     prefs->normal_update_interval = 1000;   /* 1 second */
@@ -205,6 +208,9 @@ gboolean xrg_preferences_load(XRGPreferences *prefs) {
     prefs->show_battery = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_battery", NULL);
     prefs->show_aitoken = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_aitoken", NULL);
 
+    /* Load activity bars setting */
+    prefs->show_activity_bars = g_key_file_get_boolean(prefs->keyfile, "Display", "show_activity_bars", NULL);
+
     /* Load colors */
     gchar *color_str;
     color_str = g_key_file_get_string(prefs->keyfile, "Colors", "background", NULL);
@@ -309,6 +315,9 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
     g_key_file_set_boolean(prefs->keyfile, "Modules", "show_temperature", prefs->show_temperature);
     g_key_file_set_boolean(prefs->keyfile, "Modules", "show_battery", prefs->show_battery);
     g_key_file_set_boolean(prefs->keyfile, "Modules", "show_aitoken", prefs->show_aitoken);
+
+    /* Save activity bars setting */
+    g_key_file_set_boolean(prefs->keyfile, "Display", "show_activity_bars", prefs->show_activity_bars);
 
     /* Save colors */
     gchar *color_str;

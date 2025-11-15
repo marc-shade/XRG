@@ -48,6 +48,9 @@ struct _XRGPreferences {
     gboolean show_weather;
     gboolean show_stock;
 
+    /* Activity bars */
+    gboolean show_activity_bars;
+
     /* Update intervals (milliseconds) */
     guint fast_update_interval;     /* 100ms for CPU, Network */
     guint normal_update_interval;   /* 1000ms for Memory, Disk, GPU */

@@ -1250,6 +1250,33 @@ static gboolean on_draw_disk(GtkWidget *widget, cairo_t *cr, gpointer user_data)
     cairo_show_text(cr, line3);
     g_free(line3);
 
+    /* Draw activity bar on the right (if enabled) */
+    if (state->prefs->show_activity_bars) {
+        gint bar_x = width - 20;  /* 20px from right edge */
+        gint bar_width = 20;
+
+        /* Draw bar background */
+        cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
+        cairo_rectangle(cr, bar_x, 0, bar_width, height);
+        cairo_fill(cr);
+
+        /* Draw bar border */
+        cairo_set_source_rgba(cr, border_color->red, border_color->green, border_color->blue, border_color->alpha);
+        cairo_set_line_width(cr, 1.0);
+        cairo_rectangle(cr, bar_x + 0.5, 0.5, bar_width - 1, height - 1);
+        cairo_stroke(cr);
+
+        /* Draw filled bar representing current read rate */
+        gdouble current_value = read_rate / max_rate;
+        if (current_value > 1.0) current_value = 1.0;  /* Cap at 100% */
+        gdouble fill_height = current_value * height;
+        gdouble bar_y = height - fill_height;
+
+        cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha * 0.8);
+        cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
+        cairo_fill(cr);
+    }
+
     return FALSE;
 }
 
@@ -1521,6 +1548,32 @@ static gboolean on_draw_gpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
     cairo_move_to(cr, 5, 48);
     cairo_show_text(cr, temp_text);
     g_free(temp_text);
+
+    /* Draw activity bar on the right (if enabled) */
+    if (state->prefs->show_activity_bars) {
+        gint bar_x = width - 20;  /* 20px from right edge */
+        gint bar_width = 20;
+
+        /* Draw bar background */
+        cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
+        cairo_rectangle(cr, bar_x, 0, bar_width, height);
+        cairo_fill(cr);
+
+        /* Draw bar border */
+        cairo_set_source_rgba(cr, border_color->red, border_color->green, border_color->blue, border_color->alpha);
+        cairo_set_line_width(cr, 1.0);
+        cairo_rectangle(cr, bar_x + 0.5, 0.5, bar_width - 1, height - 1);
+        cairo_stroke(cr);
+
+        /* Draw filled bar representing current GPU utilization */
+        gdouble current_value = utilization / 100.0;
+        gdouble fill_height = current_value * height;
+        gdouble bar_y = height - fill_height;
+
+        cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha * 0.8);
+        cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
+        cairo_fill(cr);
+    }
 
     return FALSE;
 }
@@ -1799,6 +1852,44 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
     cairo_show_text(cr, line3);
     g_free(line3);
 
+    /* Draw activity bar on the right (if enabled) */
+    if (state->prefs->show_activity_bars) {
+        gint bar_x = width - 20;  /* 20px from right edge */
+        gint bar_width = 20;
+
+        /* Draw bar background */
+        cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
+        cairo_rectangle(cr, bar_x, 0, bar_width, height);
+        cairo_fill(cr);
+
+        /* Draw bar border */
+        cairo_set_source_rgba(cr, border_color->red, border_color->green, border_color->blue, border_color->alpha);
+        cairo_set_line_width(cr, 1.0);
+        cairo_rectangle(cr, bar_x + 0.5, 0.5, bar_width - 1, height - 1);
+        cairo_stroke(cr);
+
+        /* Find max token rate in dataset to scale the bar */
+        gdouble max_rate = 1.0;  /* Minimum to avoid division by zero */
+        for (gint i = 0; i < count; i++) {
+            gdouble input_val = xrg_dataset_get_value(input_dataset, i);
+            gdouble output_val = xrg_dataset_get_value(output_dataset, i);
+            gdouble total_val = input_val + output_val;
+            if (total_val > max_rate) {
+                max_rate = total_val;
+            }
+        }
+
+        /* Draw filled bar representing current token rate */
+        gdouble current_value = token_rate / max_rate;
+        if (current_value > 1.0) current_value = 1.0;  /* Cap at 100% */
+        gdouble fill_height = current_value * height;
+        gdouble bar_y = height - fill_height;
+
+        cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha * 0.8);
+        cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
+        cairo_fill(cr);
+    }
+
     return FALSE;
 }
 
@@ -2070,6 +2161,32 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
     cairo_show_text(cr, line3);
     g_free(line3);
 
+    /* Draw activity bar on the right (if enabled) */
+    if (state->prefs->show_activity_bars) {
+        gint bar_x = width - 20;  /* 20px from right edge */
+        gint bar_width = 20;
+
+        /* Draw bar background */
+        cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
+        cairo_rectangle(cr, bar_x, 0, bar_width, height);
+        cairo_fill(cr);
+
+        /* Draw bar border */
+        cairo_set_source_rgba(cr, border_color->red, border_color->green, border_color->blue, border_color->alpha);
+        cairo_set_line_width(cr, 1.0);
+        cairo_rectangle(cr, bar_x + 0.5, 0.5, bar_width - 1, height - 1);
+        cairo_stroke(cr);
+
+        /* Draw filled bar representing current CPU usage */
+        gdouble current_value = total_usage / 100.0;
+        gdouble fill_height = current_value * height;
+        gdouble bar_y = height - fill_height;
+
+        cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha * 0.8);
+        cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
+        cairo_fill(cr);
+    }
+
     return FALSE;
 }
 
@@ -2337,6 +2454,35 @@ static gboolean on_draw_memory(GtkWidget *widget, cairo_t *cr, gpointer user_dat
     cairo_show_text(cr, line3);
     g_free(line3);
 
+    /* Draw activity bar on the right (if enabled) */
+    if (state->prefs->show_activity_bars) {
+        gint bar_x = width - 20;  /* 20px from right edge */
+        gint bar_width = 20;
+
+        /* Draw bar background */
+        cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
+        cairo_rectangle(cr, bar_x, 0, bar_width, height);
+        cairo_fill(cr);
+
+        /* Draw bar border */
+        cairo_set_source_rgba(cr, border_color->red, border_color->green, border_color->blue, border_color->alpha);
+        cairo_set_line_width(cr, 1.0);
+        cairo_rectangle(cr, bar_x + 0.5, 0.5, bar_width - 1, height - 1);
+        cairo_stroke(cr);
+
+        /* Draw filled bar representing current memory usage (used + wired + cached) */
+        gdouble used_val = xrg_dataset_get_latest(used_dataset);
+        gdouble wired_val = xrg_dataset_get_latest(wired_dataset);
+        gdouble cached_val = xrg_dataset_get_latest(cached_dataset);
+        gdouble current_value = (used_val + wired_val + cached_val) / 100.0;
+        gdouble fill_height = current_value * height;
+        gdouble bar_y = height - fill_height;
+
+        cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha * 0.8);
+        cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
+        cairo_fill(cr);
+    }
+
     return FALSE;
 }
 
@@ -2521,6 +2667,42 @@ static gboolean on_draw_network(GtkWidget *widget, cairo_t *cr, gpointer user_da
     cairo_move_to(cr, 5, 39);
     cairo_show_text(cr, line3);
     g_free(line3);
+
+    /* Draw activity bar on the right (if enabled) */
+    if (state->prefs->show_activity_bars) {
+        gint bar_x = width - 20;  /* 20px from right edge */
+        gint bar_width = 20;
+
+        /* Draw bar background */
+        cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
+        cairo_rectangle(cr, bar_x, 0, bar_width, height);
+        cairo_fill(cr);
+
+        /* Draw bar border */
+        cairo_set_source_rgba(cr, border_color->red, border_color->green, border_color->blue, border_color->alpha);
+        cairo_set_line_width(cr, 1.0);
+        cairo_rectangle(cr, bar_x + 0.5, 0.5, bar_width - 1, height - 1);
+        cairo_stroke(cr);
+
+        /* Find max download rate in dataset to scale the bar */
+        gdouble max_rate = 0.1;  /* Minimum to avoid division by zero */
+        for (gint i = 0; i < count; i++) {
+            gdouble rate = xrg_dataset_get_value(download_dataset, i);
+            if (rate > max_rate) {
+                max_rate = rate;
+            }
+        }
+
+        /* Draw filled bar representing current download rate */
+        gdouble current_value = download_rate / max_rate;
+        if (current_value > 1.0) current_value = 1.0;  /* Cap at 100% */
+        gdouble fill_height = current_value * height;
+        gdouble bar_y = height - fill_height;
+
+        cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha * 0.8);
+        cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
+        cairo_fill(cr);
+    }
 
     return FALSE;
 }

@@ -1,0 +1,28 @@
+# Build directories
+build/
+xrg-linux/build/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Compiled binaries
+xrg-linux
+*.o
+*.so
+*.a
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# User config (keep local preferences private)
+*.ini
