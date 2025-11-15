@@ -15,6 +15,14 @@ typedef enum {
 } XRGGraphStyle;
 
 /**
+ * Window layout orientation
+ */
+typedef enum {
+    XRG_LAYOUT_VERTICAL   = 0,  /* Graphs stacked vertically (default) */
+    XRG_LAYOUT_HORIZONTAL = 1   /* Graphs arranged horizontally */
+} XRGLayoutOrientation;
+
+/**
  * XRGPreferences - Application settings and preferences
  *
  * Manages all user preferences including window position, module visibility,
@@ -50,6 +58,10 @@ struct _XRGPreferences {
 
     /* Activity bars */
     gboolean show_activity_bars;
+    XRGGraphStyle activity_bar_style;
+
+    /* Layout orientation */
+    XRGLayoutOrientation layout_orientation;
 
     /* Update intervals (milliseconds) */
     guint fast_update_interval;     /* 100ms for CPU, Network */
@@ -65,6 +77,7 @@ struct _XRGPreferences {
     GdkRGBA graph_fg3_color;  /* Tertiary data series (amber) */
     GdkRGBA text_color;
     GdkRGBA border_color;
+    GdkRGBA activity_bar_color;
 
     /* Module-specific colors */
     GdkRGBA memory_bg_color;

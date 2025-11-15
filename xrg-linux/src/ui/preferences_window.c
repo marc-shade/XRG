@@ -14,6 +14,7 @@ struct _XRGPreferencesWindow {
     GtkWidget *window_opacity_scale;
     GtkWidget *window_always_on_top_check;
     GtkWidget *show_activity_bars_check;
+    GtkWidget *layout_orientation_combo;
 
     /* CPU module tab widgets */
     GtkWidget *cpu_enabled_check;
@@ -222,6 +223,16 @@ static GtkWidget* create_window_tab(XRGPreferencesWindow *win) {
     /* Activity bars */
     win->show_activity_bars_check = gtk_check_button_new_with_label("Show Activity Bars");
     gtk_grid_attach(GTK_GRID(grid), win->show_activity_bars_check, 0, row++, 2, 1);
+
+    /* Layout orientation */
+    label = gtk_label_new("Layout Orientation:");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+
+    win->layout_orientation_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->layout_orientation_combo), "Vertical (Stacked)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->layout_orientation_combo), "Horizontal (Side-by-Side)");
+    gtk_grid_attach(GTK_GRID(grid), win->layout_orientation_combo, 1, row++, 1, 1);
 
     return grid;
 }
@@ -633,6 +644,7 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     gtk_range_set_value(GTK_RANGE(win->window_opacity_scale), prefs->window_opacity);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->window_always_on_top_check), prefs->window_always_on_top);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->show_activity_bars_check), prefs->show_activity_bars);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->layout_orientation_combo), prefs->layout_orientation);
 
     /* CPU module tab */
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->cpu_enabled_check), prefs->show_cpu);
@@ -720,6 +732,7 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     prefs->window_opacity = gtk_range_get_value(GTK_RANGE(win->window_opacity_scale));
     prefs->window_always_on_top = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->window_always_on_top_check));
     prefs->show_activity_bars = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->show_activity_bars_check));
+    prefs->layout_orientation = gtk_combo_box_get_active(GTK_COMBO_BOX(win->layout_orientation_combo));
 
     /* CPU module tab */
     prefs->show_cpu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->cpu_enabled_check));

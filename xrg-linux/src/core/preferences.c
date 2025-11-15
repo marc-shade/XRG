@@ -96,6 +96,10 @@ void xrg_preferences_set_defaults(XRGPreferences *prefs) {
 
     /* Activity bars */
     prefs->show_activity_bars = TRUE;  /* Enabled by default */
+    prefs->activity_bar_style = XRG_GRAPH_STYLE_SOLID;  /* Solid fill by default */
+
+    /* Layout orientation */
+    prefs->layout_orientation = XRG_LAYOUT_VERTICAL;  /* Vertical (stacked) by default */
 
     /* Update intervals (milliseconds) */
     prefs->fast_update_interval = 100;      /* 0.1 second */
@@ -124,6 +128,9 @@ void xrg_preferences_set_defaults(XRGPreferences *prefs) {
 
     prefs->border_color.red = 0.0; prefs->border_color.green = 0.7;
     prefs->border_color.blue = 0.9; prefs->border_color.alpha = 0.5;  /* Cyan border */
+
+    prefs->activity_bar_color.red = 0.2; prefs->activity_bar_color.green = 1.0;
+    prefs->activity_bar_color.blue = 0.3; prefs->activity_bar_color.alpha = 1.0;  /* Electric Green */
 
     /* Module-specific colors (default to global colors) */
     /* Memory */
@@ -211,6 +218,9 @@ gboolean xrg_preferences_load(XRGPreferences *prefs) {
     /* Load activity bars setting */
     prefs->show_activity_bars = g_key_file_get_boolean(prefs->keyfile, "Display", "show_activity_bars", NULL);
 
+    /* Load layout orientation */
+    prefs->layout_orientation = g_key_file_get_integer(prefs->keyfile, "Display", "layout_orientation", NULL);
+
     /* Load colors */
     gchar *color_str;
     color_str = g_key_file_get_string(prefs->keyfile, "Colors", "background", NULL);
@@ -233,6 +243,12 @@ gboolean xrg_preferences_load(XRGPreferences *prefs) {
 
     color_str = g_key_file_get_string(prefs->keyfile, "Colors", "border", NULL);
     if (color_str) { parse_color(color_str, &prefs->border_color); g_free(color_str); }
+
+    color_str = g_key_file_get_string(prefs->keyfile, "Colors", "activity_bar", NULL);
+    if (color_str) { parse_color(color_str, &prefs->activity_bar_color); g_free(color_str); }
+
+    /* Load activity bar style */
+    prefs->activity_bar_style = g_key_file_get_integer(prefs->keyfile, "Display", "activity_bar_style", NULL);
 
     /* Load module-specific colors */
     color_str = g_key_file_get_string(prefs->keyfile, "Colors", "memory_bg", NULL);
@@ -319,6 +335,9 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
     /* Save activity bars setting */
     g_key_file_set_boolean(prefs->keyfile, "Display", "show_activity_bars", prefs->show_activity_bars);
 
+    /* Save layout orientation */
+    g_key_file_set_integer(prefs->keyfile, "Display", "layout_orientation", prefs->layout_orientation);
+
     /* Save colors */
     gchar *color_str;
     color_str = format_color(&prefs->background_color);
@@ -348,6 +367,13 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
     color_str = format_color(&prefs->border_color);
     g_key_file_set_string(prefs->keyfile, "Colors", "border", color_str);
     g_free(color_str);
+
+    color_str = format_color(&prefs->activity_bar_color);
+    g_key_file_set_string(prefs->keyfile, "Colors", "activity_bar", color_str);
+    g_free(color_str);
+
+    /* Save activity bar style */
+    g_key_file_set_integer(prefs->keyfile, "Display", "activity_bar_style", prefs->activity_bar_style);
 
     /* Save module-specific colors */
     color_str = format_color(&prefs->memory_bg_color);

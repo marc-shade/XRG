@@ -554,8 +554,11 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     GtkWidget *overlay = gtk_overlay_new();
     gtk_container_add(GTK_CONTAINER(state->window), overlay);
 
-    /* Create vertical box container */
-    state->vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    /* Create box container with orientation from preferences */
+    GtkOrientation gtk_orientation = (state->prefs->layout_orientation == XRG_LAYOUT_VERTICAL)
+        ? GTK_ORIENTATION_VERTICAL
+        : GTK_ORIENTATION_HORIZONTAL;
+    state->vbox = gtk_box_new(gtk_orientation, 0);
     gtk_container_add(GTK_CONTAINER(overlay), state->vbox);
 
     /* Add title bar */
