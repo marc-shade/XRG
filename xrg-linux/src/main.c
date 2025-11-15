@@ -1130,22 +1130,32 @@ static gboolean on_draw_disk(GtkWidget *widget, cairo_t *cr, gpointer user_data)
         cairo_close_path(cr);
         cairo_fill(cr);
     } else if (style == XRG_GRAPH_STYLE_PIXEL) {
-        /* Chunky pixels */
+        /* Chunky pixels - fill area with dots */
+        gint dot_spacing = 4;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(read_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / max_rate * height);
-            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / max_rate * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     } else if (style == XRG_GRAPH_STYLE_DOT) {
-        /* Fine dots */
+        /* Fine dots - fill area with small dots */
+        gint dot_spacing = 2;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(read_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / max_rate * height);
-            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / max_rate * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     }
 
@@ -1166,22 +1176,32 @@ static gboolean on_draw_disk(GtkWidget *widget, cairo_t *cr, gpointer user_data)
         cairo_close_path(cr);
         cairo_fill(cr);
     } else if (style == XRG_GRAPH_STYLE_PIXEL) {
-        /* Chunky pixels */
+        /* Chunky pixels - fill area with dots */
+        gint dot_spacing = 4;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(write_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / max_rate * height);
-            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / max_rate * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     } else if (style == XRG_GRAPH_STYLE_DOT) {
-        /* Fine dots */
+        /* Fine dots - fill area with small dots */
+        gint dot_spacing = 2;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(write_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / max_rate * height);
-            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / max_rate * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     }
 
@@ -1357,22 +1377,32 @@ static gboolean on_draw_gpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
         cairo_close_path(cr);
         cairo_fill(cr);
     } else if (style == XRG_GRAPH_STYLE_PIXEL) {
-        /* Chunky pixels */
+        /* Chunky pixels - fill area with dots */
+        gint dot_spacing = 4;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(util_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / 100.0 * height);
-            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / 100.0 * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     } else if (style == XRG_GRAPH_STYLE_DOT) {
-        /* Fine dots */
+        /* Fine dots - fill area with small dots */
+        gint dot_spacing = 2;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(util_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / 100.0 * height);
-            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / 100.0 * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     }
 
@@ -1393,22 +1423,32 @@ static gboolean on_draw_gpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
         cairo_close_path(cr);
         cairo_fill(cr);
     } else if (style == XRG_GRAPH_STYLE_PIXEL) {
-        /* Chunky pixels */
+        /* Chunky pixels - fill area with dots */
+        gint dot_spacing = 4;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(mem_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / 100.0 * height);
-            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / 100.0 * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     } else if (style == XRG_GRAPH_STYLE_DOT) {
-        /* Fine dots */
+        /* Fine dots - fill area with small dots */
+        gint dot_spacing = 2;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(mem_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / 100.0 * height);
-            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / 100.0 * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     }
 
@@ -1600,22 +1640,32 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
         cairo_close_path(cr);
         cairo_fill(cr);
     } else if (style == XRG_GRAPH_STYLE_PIXEL) {
-        /* Chunky pixels */
+        /* Chunky pixels - fill area with dots */
+        gint dot_spacing = 4;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(input_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / max_rate * height);
-            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / max_rate * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     } else if (style == XRG_GRAPH_STYLE_DOT) {
-        /* Fine dots */
+        /* Fine dots - fill area with small dots */
+        gint dot_spacing = 2;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(input_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / max_rate * height);
-            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / max_rate * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     }
 
@@ -1636,22 +1686,32 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
         cairo_close_path(cr);
         cairo_fill(cr);
     } else if (style == XRG_GRAPH_STYLE_PIXEL) {
-        /* Chunky pixels */
+        /* Chunky pixels - fill area with dots */
+        gint dot_spacing = 4;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(output_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / max_rate * height);
-            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / max_rate * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     } else if (style == XRG_GRAPH_STYLE_DOT) {
-        /* Fine dots */
+        /* Fine dots - fill area with small dots */
+        gint dot_spacing = 2;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(output_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / max_rate * height);
-            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / max_rate * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     }
 
@@ -1822,22 +1882,32 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
         cairo_close_path(cr);
         cairo_fill(cr);
     } else if (style == XRG_GRAPH_STYLE_PIXEL) {
-        /* Chunky pixels */
+        /* Chunky pixels - fill area with dots */
+        gint dot_spacing = 4;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(user_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / 100.0 * height);
-            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / 100.0 * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     } else if (style == XRG_GRAPH_STYLE_DOT) {
-        /* Fine dots */
+        /* Fine dots - fill area with small dots */
+        gint dot_spacing = 2;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(user_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / 100.0 * height);
-            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / 100.0 * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     }
 
@@ -1860,26 +1930,38 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
         cairo_close_path(cr);
         cairo_fill(cr);
     } else if (style == XRG_GRAPH_STYLE_PIXEL) {
-        /* Chunky pixels */
+        /* Chunky pixels - fill area with dots (stacked on top of user) */
+        gint dot_spacing = 4;
         for (gint i = 0; i < count; i++) {
             gdouble user_val = xrg_dataset_get_value(user_dataset, i);
             gdouble system_val = xrg_dataset_get_value(system_dataset, i);
             gdouble total_val = user_val + system_val;
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (total_val / 100.0 * height);
-            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_bottom = height - (user_val / 100.0 * height);
+            gdouble y_top = height - (total_val / 100.0 * height);
+
+            /* Fill from user level to total level with dots */
+            for (gdouble y = y_bottom; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     } else if (style == XRG_GRAPH_STYLE_DOT) {
-        /* Fine dots */
+        /* Fine dots - fill area with small dots (stacked on top of user) */
+        gint dot_spacing = 2;
         for (gint i = 0; i < count; i++) {
             gdouble user_val = xrg_dataset_get_value(user_dataset, i);
             gdouble system_val = xrg_dataset_get_value(system_dataset, i);
             gdouble total_val = user_val + system_val;
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (total_val / 100.0 * height);
-            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_bottom = height - (user_val / 100.0 * height);
+            gdouble y_top = height - (total_val / 100.0 * height);
+
+            /* Fill from user level to total level with dots */
+            for (gdouble y = y_bottom; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     }
 
@@ -1971,22 +2053,32 @@ static gboolean on_draw_memory(GtkWidget *widget, cairo_t *cr, gpointer user_dat
         cairo_close_path(cr);
         cairo_fill(cr);
     } else if (style == XRG_GRAPH_STYLE_PIXEL) {
-        /* Chunky pixels */
+        /* Chunky pixels - fill area with dots */
+        gint dot_spacing = 4;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(used_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / 100.0 * height);
-            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / 100.0 * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     } else if (style == XRG_GRAPH_STYLE_DOT) {
-        /* Fine dots */
+        /* Fine dots - fill area with small dots */
+        gint dot_spacing = 2;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(used_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / 100.0 * height);
-            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / 100.0 * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     }
 
@@ -2009,26 +2101,38 @@ static gboolean on_draw_memory(GtkWidget *widget, cairo_t *cr, gpointer user_dat
         cairo_close_path(cr);
         cairo_fill(cr);
     } else if (style == XRG_GRAPH_STYLE_PIXEL) {
-        /* Chunky pixels */
+        /* Chunky pixels - fill area with dots (stacked on top of used) */
+        gint dot_spacing = 4;
         for (gint i = 0; i < count; i++) {
             gdouble used_val = xrg_dataset_get_value(used_dataset, i);
             gdouble wired_val = xrg_dataset_get_value(wired_dataset, i);
             gdouble total_val = used_val + wired_val;
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (total_val / 100.0 * height);
-            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_bottom = height - (used_val / 100.0 * height);
+            gdouble y_top = height - (total_val / 100.0 * height);
+
+            /* Fill from used level to total level with dots */
+            for (gdouble y = y_bottom; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     } else if (style == XRG_GRAPH_STYLE_DOT) {
-        /* Fine dots */
+        /* Fine dots - fill area with small dots (stacked on top of used) */
+        gint dot_spacing = 2;
         for (gint i = 0; i < count; i++) {
             gdouble used_val = xrg_dataset_get_value(used_dataset, i);
             gdouble wired_val = xrg_dataset_get_value(wired_dataset, i);
             gdouble total_val = used_val + wired_val;
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (total_val / 100.0 * height);
-            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_bottom = height - (used_val / 100.0 * height);
+            gdouble y_top = height - (total_val / 100.0 * height);
+
+            /* Fill from used level to total level with dots */
+            for (gdouble y = y_bottom; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     }
 
@@ -2052,28 +2156,40 @@ static gboolean on_draw_memory(GtkWidget *widget, cairo_t *cr, gpointer user_dat
         cairo_close_path(cr);
         cairo_fill(cr);
     } else if (style == XRG_GRAPH_STYLE_PIXEL) {
-        /* Chunky pixels */
+        /* Chunky pixels - fill area with dots (stacked on top of used+wired) */
+        gint dot_spacing = 4;
         for (gint i = 0; i < count; i++) {
             gdouble used_val = xrg_dataset_get_value(used_dataset, i);
             gdouble wired_val = xrg_dataset_get_value(wired_dataset, i);
             gdouble cached_val = xrg_dataset_get_value(cached_dataset, i);
             gdouble total_val = used_val + wired_val + cached_val;
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (total_val / 100.0 * height);
-            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_bottom = height - ((used_val + wired_val) / 100.0 * height);
+            gdouble y_top = height - (total_val / 100.0 * height);
+
+            /* Fill from used+wired level to total level with dots */
+            for (gdouble y = y_bottom; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     } else if (style == XRG_GRAPH_STYLE_DOT) {
-        /* Fine dots */
+        /* Fine dots - fill area with small dots (stacked on top of used+wired) */
+        gint dot_spacing = 2;
         for (gint i = 0; i < count; i++) {
             gdouble used_val = xrg_dataset_get_value(used_dataset, i);
             gdouble wired_val = xrg_dataset_get_value(wired_dataset, i);
             gdouble cached_val = xrg_dataset_get_value(cached_dataset, i);
             gdouble total_val = used_val + wired_val + cached_val;
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (total_val / 100.0 * height);
-            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_bottom = height - ((used_val + wired_val) / 100.0 * height);
+            gdouble y_top = height - (total_val / 100.0 * height);
+
+            /* Fill from used+wired level to total level with dots */
+            for (gdouble y = y_bottom; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     }
 
@@ -2180,22 +2296,32 @@ static gboolean on_draw_network(GtkWidget *widget, cairo_t *cr, gpointer user_da
         cairo_close_path(cr);
         cairo_fill(cr);
     } else if (style == XRG_GRAPH_STYLE_PIXEL) {
-        /* Chunky pixels */
+        /* Chunky pixels - fill area with dots */
+        gint dot_spacing = 4;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(download_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / max_rate * height);
-            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / max_rate * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     } else if (style == XRG_GRAPH_STYLE_DOT) {
-        /* Fine dots */
+        /* Fine dots - fill area with small dots */
+        gint dot_spacing = 2;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(download_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / max_rate * height);
-            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / max_rate * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     }
 
@@ -2216,22 +2342,32 @@ static gboolean on_draw_network(GtkWidget *widget, cairo_t *cr, gpointer user_da
         cairo_close_path(cr);
         cairo_fill(cr);
     } else if (style == XRG_GRAPH_STYLE_PIXEL) {
-        /* Chunky pixels */
+        /* Chunky pixels - fill area with dots */
+        gint dot_spacing = 4;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(upload_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / max_rate * height);
-            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / max_rate * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     } else if (style == XRG_GRAPH_STYLE_DOT) {
-        /* Fine dots */
+        /* Fine dots - fill area with small dots */
+        gint dot_spacing = 2;
         for (gint i = 0; i < count; i++) {
             gdouble value = xrg_dataset_get_value(upload_dataset, i);
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / max_rate * height);
-            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
-            cairo_fill(cr);
+            gdouble y_top = height - (value / max_rate * height);
+
+            /* Fill from bottom to the data line with dots */
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
         }
     }
 
