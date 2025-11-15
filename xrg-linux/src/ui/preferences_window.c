@@ -14,6 +14,7 @@ struct _XRGPreferencesWindow {
     GtkWidget *window_opacity_scale;
     GtkWidget *window_always_on_top_check;
     GtkWidget *show_activity_bars_check;
+    GtkWidget *activity_bar_style_combo;
     GtkWidget *layout_orientation_combo;
 
     /* CPU module tab widgets */
@@ -56,6 +57,7 @@ struct _XRGPreferencesWindow {
     GtkWidget *graph_fg3_color_button;
     GtkWidget *text_color_button;
     GtkWidget *border_color_button;
+    GtkWidget *activity_bar_color_button;
 
     /* Callback for when preferences are applied */
     XRGPreferencesAppliedCallback applied_callback;
@@ -223,6 +225,18 @@ static GtkWidget* create_window_tab(XRGPreferencesWindow *win) {
     /* Activity bars */
     win->show_activity_bars_check = gtk_check_button_new_with_label("Show Activity Bars");
     gtk_grid_attach(GTK_GRID(grid), win->show_activity_bars_check, 0, row++, 2, 1);
+
+    /* Activity bar style */
+    label = gtk_label_new("Activity Bar Style:");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+
+    win->activity_bar_style_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->activity_bar_style_combo), "Solid (Filled)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->activity_bar_style_combo), "Pixel (Chunky)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->activity_bar_style_combo), "Dot (Fine)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->activity_bar_style_combo), "Hollow (Outline)");
+    gtk_grid_attach(GTK_GRID(grid), win->activity_bar_style_combo, 1, row++, 1, 1);
 
     /* Layout orientation */
     label = gtk_label_new("Layout Orientation:");
@@ -627,6 +641,14 @@ static GtkWidget* create_colors_tab(XRGPreferencesWindow *win) {
     gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->border_color_button), TRUE);
     gtk_grid_attach(GTK_GRID(grid), win->border_color_button, 1, row++, 1, 1);
 
+    /* Activity bar color */
+    label = gtk_label_new("Activity Bar Color:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->activity_bar_color_button = gtk_color_button_new();
+    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->activity_bar_color_button), TRUE);
+    gtk_grid_attach(GTK_GRID(grid), win->activity_bar_color_button, 1, row++, 1, 1);
+
     return grid;
 }
 
@@ -644,6 +666,7 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     gtk_range_set_value(GTK_RANGE(win->window_opacity_scale), prefs->window_opacity);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->window_always_on_top_check), prefs->window_always_on_top);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->show_activity_bars_check), prefs->show_activity_bars);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->activity_bar_style_combo), prefs->activity_bar_style);
     gtk_combo_box_set_active(GTK_COMBO_BOX(win->layout_orientation_combo), prefs->layout_orientation);
 
     /* CPU module tab */
@@ -699,6 +722,7 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->graph_fg3_color_button), &prefs->graph_fg3_color);
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->text_color_button), &prefs->text_color);
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->border_color_button), &prefs->border_color);
+    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->activity_bar_color_button), &prefs->activity_bar_color);
 
     /* Set current theme in dropdown (block signal to avoid overwriting colors) */
     const gchar *current_theme = xrg_preferences_get_current_theme(prefs);
@@ -732,6 +756,7 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     prefs->window_opacity = gtk_range_get_value(GTK_RANGE(win->window_opacity_scale));
     prefs->window_always_on_top = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->window_always_on_top_check));
     prefs->show_activity_bars = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->show_activity_bars_check));
+    prefs->activity_bar_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->activity_bar_style_combo));
     prefs->layout_orientation = gtk_combo_box_get_active(GTK_COMBO_BOX(win->layout_orientation_combo));
 
     /* CPU module tab */
@@ -779,6 +804,7 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->graph_fg3_color_button), &prefs->graph_fg3_color);
     gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->text_color_button), &prefs->text_color);
     gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->border_color_button), &prefs->border_color);
+    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->activity_bar_color_button), &prefs->activity_bar_color);
 
     g_message("Saving colors from UI - BG: (%.3f, %.3f, %.3f, %.3f)",
               prefs->background_color.red, prefs->background_color.green,
@@ -813,6 +839,7 @@ static void on_theme_changed(GtkComboBox *combo, gpointer user_data) {
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->graph_fg3_color_button), &win->prefs->graph_fg3_color);
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->text_color_button), &win->prefs->text_color);
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->border_color_button), &win->prefs->border_color);
+    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->activity_bar_color_button), &win->prefs->activity_bar_color);
 
     g_message("Applied theme: %s", theme_name);
     g_free(theme_name);

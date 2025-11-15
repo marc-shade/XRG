@@ -1275,9 +1275,39 @@ static gboolean on_draw_disk(GtkWidget *widget, cairo_t *cr, gpointer user_data)
         gdouble fill_height = current_value * height;
         gdouble bar_y = height - fill_height;
 
-        cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha * 0.8);
-        cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
-        cairo_fill(cr);
+        GdkRGBA *bar_color = &state->prefs->activity_bar_color;
+        XRGGraphStyle bar_style = state->prefs->activity_bar_style;
+
+        if (bar_style == XRG_GRAPH_STYLE_SOLID) {
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
+            cairo_fill(cr);
+        } else if (bar_style == XRG_GRAPH_STYLE_PIXEL) {
+            /* Chunky pixels */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            for (gdouble y = height; y >= bar_y; y -= 4) {
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 4) {
+                    cairo_arc(cr, x + 2, y, 1.5, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_DOT) {
+            /* Fine dots */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            for (gdouble y = height; y >= bar_y; y -= 2) {
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                    cairo_arc(cr, x + 1, y, 0.6, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_HOLLOW) {
+            /* Outline only - draw dots at top of fill level */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha);
+            for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                cairo_arc(cr, x, bar_y, 1.0, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
+        }
     }
 
     return FALSE;
@@ -1573,9 +1603,41 @@ static gboolean on_draw_gpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
         gdouble fill_height = current_value * height;
         gdouble bar_y = height - fill_height;
 
-        cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha * 0.8);
-        cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
-        cairo_fill(cr);
+        /* Use activity bar color and style from preferences */
+        GdkRGBA *bar_color = &state->prefs->activity_bar_color;
+        XRGGraphStyle bar_style = state->prefs->activity_bar_style;
+
+        if (bar_style == XRG_GRAPH_STYLE_SOLID) {
+            /* Solid fill */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
+            cairo_fill(cr);
+        } else if (bar_style == XRG_GRAPH_STYLE_PIXEL) {
+            /* Chunky pixels - dithered with 4px spacing */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            for (gdouble y = height; y >= bar_y; y -= 4) {
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 4) {
+                    cairo_arc(cr, x + 2, y, 1.5, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_DOT) {
+            /* Fine dots - dithered with 2px spacing */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            for (gdouble y = height; y >= bar_y; y -= 2) {
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                    cairo_arc(cr, x + 1, y, 0.6, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_HOLLOW) {
+            /* Outline only - draw dots at top of fill level */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha);
+            for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                cairo_arc(cr, x, bar_y, 1.0, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
+        }
     }
 
     return FALSE;
@@ -1888,9 +1950,41 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
         gdouble fill_height = current_value * height;
         gdouble bar_y = height - fill_height;
 
-        cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha * 0.8);
-        cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
-        cairo_fill(cr);
+        /* Use activity bar color and style from preferences */
+        GdkRGBA *bar_color = &state->prefs->activity_bar_color;
+        XRGGraphStyle bar_style = state->prefs->activity_bar_style;
+
+        if (bar_style == XRG_GRAPH_STYLE_SOLID) {
+            /* Solid fill */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
+            cairo_fill(cr);
+        } else if (bar_style == XRG_GRAPH_STYLE_PIXEL) {
+            /* Chunky pixels - dithered with 4px spacing */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            for (gdouble y = height; y >= bar_y; y -= 4) {
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 4) {
+                    cairo_arc(cr, x + 2, y, 1.5, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_DOT) {
+            /* Fine dots - dithered with 2px spacing */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            for (gdouble y = height; y >= bar_y; y -= 2) {
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                    cairo_arc(cr, x + 1, y, 0.6, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_HOLLOW) {
+            /* Outline only - draw dots at top of fill level */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha);
+            for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                cairo_arc(cr, x, bar_y, 1.0, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
+        }
     }
 
     return FALSE;
@@ -2185,9 +2279,41 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
         gdouble fill_height = current_value * height;
         gdouble bar_y = height - fill_height;
 
-        cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha * 0.8);
-        cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
-        cairo_fill(cr);
+        /* Use activity bar color and style from preferences */
+        GdkRGBA *bar_color = &state->prefs->activity_bar_color;
+        XRGGraphStyle bar_style = state->prefs->activity_bar_style;
+
+        if (bar_style == XRG_GRAPH_STYLE_SOLID) {
+            /* Solid fill */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
+            cairo_fill(cr);
+        } else if (bar_style == XRG_GRAPH_STYLE_PIXEL) {
+            /* Chunky pixels - dithered with 4px spacing */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            for (gdouble y = height; y >= bar_y; y -= 4) {
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 4) {
+                    cairo_arc(cr, x + 2, y, 1.5, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_DOT) {
+            /* Fine dots - dithered with 2px spacing */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            for (gdouble y = height; y >= bar_y; y -= 2) {
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                    cairo_arc(cr, x + 1, y, 0.6, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_HOLLOW) {
+            /* Outline only - draw dots at top of fill level */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha);
+            for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                cairo_arc(cr, x, bar_y, 1.0, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
+        }
     }
 
     return FALSE;
@@ -2481,9 +2607,41 @@ static gboolean on_draw_memory(GtkWidget *widget, cairo_t *cr, gpointer user_dat
         gdouble fill_height = current_value * height;
         gdouble bar_y = height - fill_height;
 
-        cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha * 0.8);
-        cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
-        cairo_fill(cr);
+        /* Use activity bar color and style from preferences */
+        GdkRGBA *bar_color = &state->prefs->activity_bar_color;
+        XRGGraphStyle bar_style = state->prefs->activity_bar_style;
+
+        if (bar_style == XRG_GRAPH_STYLE_SOLID) {
+            /* Solid fill */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
+            cairo_fill(cr);
+        } else if (bar_style == XRG_GRAPH_STYLE_PIXEL) {
+            /* Chunky pixels - dithered with 4px spacing */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            for (gdouble y = height; y >= bar_y; y -= 4) {
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 4) {
+                    cairo_arc(cr, x + 2, y, 1.5, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_DOT) {
+            /* Fine dots - dithered with 2px spacing */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            for (gdouble y = height; y >= bar_y; y -= 2) {
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                    cairo_arc(cr, x + 1, y, 0.6, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_HOLLOW) {
+            /* Outline only - draw dots at top of fill level */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha);
+            for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                cairo_arc(cr, x, bar_y, 1.0, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
+        }
     }
 
     return FALSE;
@@ -2702,9 +2860,41 @@ static gboolean on_draw_network(GtkWidget *widget, cairo_t *cr, gpointer user_da
         gdouble fill_height = current_value * height;
         gdouble bar_y = height - fill_height;
 
-        cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha * 0.8);
-        cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
-        cairo_fill(cr);
+        /* Use activity bar color and style from preferences */
+        GdkRGBA *bar_color = &state->prefs->activity_bar_color;
+        XRGGraphStyle bar_style = state->prefs->activity_bar_style;
+
+        if (bar_style == XRG_GRAPH_STYLE_SOLID) {
+            /* Solid fill */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
+            cairo_fill(cr);
+        } else if (bar_style == XRG_GRAPH_STYLE_PIXEL) {
+            /* Chunky pixels - dithered with 4px spacing */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            for (gdouble y = height; y >= bar_y; y -= 4) {
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 4) {
+                    cairo_arc(cr, x + 2, y, 1.5, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_DOT) {
+            /* Fine dots - dithered with 2px spacing */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            for (gdouble y = height; y >= bar_y; y -= 2) {
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                    cairo_arc(cr, x + 1, y, 0.6, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_HOLLOW) {
+            /* Outline only - draw dots at top of fill level */
+            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha);
+            for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                cairo_arc(cr, x, bar_y, 1.0, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
+        }
     }
 
     return FALSE;
