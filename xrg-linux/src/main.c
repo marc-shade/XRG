@@ -1157,6 +1157,15 @@ static gboolean on_draw_disk(GtkWidget *widget, cairo_t *cr, gpointer user_data)
                 cairo_fill(cr);
             }
         }
+    } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+        /* Hollow - outline only with dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(read_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
 
     /* Draw write rate (purple - FG2) */
@@ -1202,6 +1211,15 @@ static gboolean on_draw_disk(GtkWidget *widget, cairo_t *cr, gpointer user_data)
                 cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
                 cairo_fill(cr);
             }
+        }
+    } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+        /* Hollow - outline only with dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(write_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+            cairo_fill(cr);
         }
     }
 
@@ -1404,6 +1422,15 @@ static gboolean on_draw_gpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
                 cairo_fill(cr);
             }
         }
+    } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+        /* Hollow - outline only with dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(util_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
 
     /* Draw GPU memory usage on top (purple - FG2) */
@@ -1449,6 +1476,15 @@ static gboolean on_draw_gpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
                 cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
                 cairo_fill(cr);
             }
+        }
+    } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+        /* Hollow - outline only with dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(mem_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+            cairo_fill(cr);
         }
     }
 
@@ -1667,6 +1703,15 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
                 cairo_fill(cr);
             }
         }
+    } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+        /* Hollow - outline only with dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(input_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
 
     /* Draw output tokens (purple - FG2) */
@@ -1712,6 +1757,15 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
                 cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
                 cairo_fill(cr);
             }
+        }
+    } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+        /* Hollow - outline only with dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(output_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+            cairo_fill(cr);
         }
     }
 
@@ -1909,6 +1963,15 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
                 cairo_fill(cr);
             }
         }
+    } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+        /* Hollow - outline only with dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(user_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
 
     /* Draw system CPU usage on top (purple - FG2) */
@@ -1962,6 +2025,17 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
                 cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
                 cairo_fill(cr);
             }
+        }
+    } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+        /* Hollow - outline only with dots (stacked on top of user) */
+        for (gint i = 0; i < count; i++) {
+            gdouble user_val = xrg_dataset_get_value(user_dataset, i);
+            gdouble system_val = xrg_dataset_get_value(system_dataset, i);
+            gdouble total_val = user_val + system_val;
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (total_val / 100.0 * height);
+            cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+            cairo_fill(cr);
         }
     }
 
@@ -2080,6 +2154,15 @@ static gboolean on_draw_memory(GtkWidget *widget, cairo_t *cr, gpointer user_dat
                 cairo_fill(cr);
             }
         }
+    } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+        /* Hollow - outline only with dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(used_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
 
     /* Draw wired memory on top (purple - FG2) */
@@ -2133,6 +2216,17 @@ static gboolean on_draw_memory(GtkWidget *widget, cairo_t *cr, gpointer user_dat
                 cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
                 cairo_fill(cr);
             }
+        }
+    } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+        /* Hollow - outline only with dots (stacked on top of used) */
+        for (gint i = 0; i < count; i++) {
+            gdouble used_val = xrg_dataset_get_value(used_dataset, i);
+            gdouble wired_val = xrg_dataset_get_value(wired_dataset, i);
+            gdouble total_val = used_val + wired_val;
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (total_val / 100.0 * height);
+            cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+            cairo_fill(cr);
         }
     }
 
@@ -2190,6 +2284,18 @@ static gboolean on_draw_memory(GtkWidget *widget, cairo_t *cr, gpointer user_dat
                 cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
                 cairo_fill(cr);
             }
+        }
+    } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+        /* Hollow - outline only with dots (stacked on top of used+wired) */
+        for (gint i = 0; i < count; i++) {
+            gdouble used_val = xrg_dataset_get_value(used_dataset, i);
+            gdouble wired_val = xrg_dataset_get_value(wired_dataset, i);
+            gdouble cached_val = xrg_dataset_get_value(cached_dataset, i);
+            gdouble total_val = used_val + wired_val + cached_val;
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (total_val / 100.0 * height);
+            cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+            cairo_fill(cr);
         }
     }
 
@@ -2323,6 +2429,15 @@ static gboolean on_draw_network(GtkWidget *widget, cairo_t *cr, gpointer user_da
                 cairo_fill(cr);
             }
         }
+    } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+        /* Hollow - outline only with dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(download_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
 
     /* Draw upload rate (purple - FG2) */
@@ -2368,6 +2483,15 @@ static gboolean on_draw_network(GtkWidget *widget, cairo_t *cr, gpointer user_da
                 cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
                 cairo_fill(cr);
             }
+        }
+    } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+        /* Hollow - outline only with dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(upload_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+            cairo_fill(cr);
         }
     }
 

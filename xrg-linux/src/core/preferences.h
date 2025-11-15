@@ -8,9 +8,10 @@
  * Graph visual styles
  */
 typedef enum {
-    XRG_GRAPH_STYLE_SOLID = 0,  /* Filled area (default) */
-    XRG_GRAPH_STYLE_PIXEL = 1,  /* Chunky pixels */
-    XRG_GRAPH_STYLE_DOT   = 2   /* Fine dots */
+    XRG_GRAPH_STYLE_SOLID  = 0,  /* Filled area (default) */
+    XRG_GRAPH_STYLE_PIXEL  = 1,  /* Chunky dithered fill */
+    XRG_GRAPH_STYLE_DOT    = 2,  /* Fine dithered fill */
+    XRG_GRAPH_STYLE_HOLLOW = 3   /* Outline only (no fill) */
 } XRGGraphStyle;
 
 /**

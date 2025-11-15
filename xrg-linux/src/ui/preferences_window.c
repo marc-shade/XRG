@@ -258,6 +258,7 @@ static GtkWidget* create_cpu_tab(XRGPreferencesWindow *win) {
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->cpu_style_combo), "Solid (Filled)");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->cpu_style_combo), "Pixel (Chunky)");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->cpu_style_combo), "Dot (Fine)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->cpu_style_combo), "Hollow (Outline)");
     gtk_grid_attach(GTK_GRID(grid), win->cpu_style_combo, 1, row++, 1, 1);
 
     /* Note: Colors are managed in the Colors tab */
@@ -304,6 +305,7 @@ static GtkWidget* create_memory_tab(XRGPreferencesWindow *win) {
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->memory_style_combo), "Solid (Filled)");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->memory_style_combo), "Pixel (Chunky)");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->memory_style_combo), "Dot (Fine)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->memory_style_combo), "Hollow (Outline)");
     gtk_grid_attach(GTK_GRID(grid), win->memory_style_combo, 1, row++, 1, 1);
 
     /* Note: Colors are managed in the Colors tab */
@@ -350,6 +352,7 @@ static GtkWidget* create_network_tab(XRGPreferencesWindow *win) {
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->network_style_combo), "Solid (Filled)");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->network_style_combo), "Pixel (Chunky)");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->network_style_combo), "Dot (Fine)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->network_style_combo), "Hollow (Outline)");
     gtk_grid_attach(GTK_GRID(grid), win->network_style_combo, 1, row++, 1, 1);
 
     /* Note: Colors are managed in the Colors tab */
@@ -396,6 +399,7 @@ static GtkWidget* create_disk_tab(XRGPreferencesWindow *win) {
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->disk_style_combo), "Solid (Filled)");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->disk_style_combo), "Pixel (Chunky)");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->disk_style_combo), "Dot (Fine)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->disk_style_combo), "Hollow (Outline)");
     gtk_grid_attach(GTK_GRID(grid), win->disk_style_combo, 1, row++, 1, 1);
 
     /* Note: Colors are managed in the Colors tab */
@@ -442,6 +446,7 @@ static GtkWidget* create_gpu_tab(XRGPreferencesWindow *win) {
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->gpu_style_combo), "Solid (Filled)");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->gpu_style_combo), "Pixel (Chunky)");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->gpu_style_combo), "Dot (Fine)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->gpu_style_combo), "Hollow (Outline)");
     gtk_grid_attach(GTK_GRID(grid), win->gpu_style_combo, 1, row++, 1, 1);
 
     /* Note: Colors are managed in the Colors tab */
@@ -488,6 +493,7 @@ static GtkWidget* create_aitoken_tab(XRGPreferencesWindow *win) {
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_style_combo), "Solid (Filled)");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_style_combo), "Pixel (Chunky)");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_style_combo), "Dot (Fine)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_style_combo), "Hollow (Outline)");
     gtk_grid_attach(GTK_GRID(grid), win->aitoken_style_combo, 1, row++, 1, 1);
 
     /* Note: Colors are managed in the Colors tab */
