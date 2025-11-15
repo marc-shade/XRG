@@ -155,6 +155,14 @@ void xrg_preferences_set_defaults(XRGPreferences *prefs) {
     prefs->graph_height_battery = 40;
     prefs->graph_height_aitoken = 60;
 
+    /* Graph visual styles (default to SOLID) */
+    prefs->cpu_graph_style = XRG_GRAPH_STYLE_SOLID;
+    prefs->memory_graph_style = XRG_GRAPH_STYLE_SOLID;
+    prefs->network_graph_style = XRG_GRAPH_STYLE_SOLID;
+    prefs->disk_graph_style = XRG_GRAPH_STYLE_SOLID;
+    prefs->gpu_graph_style = XRG_GRAPH_STYLE_SOLID;
+    prefs->aitoken_graph_style = XRG_GRAPH_STYLE_SOLID;
+
     /* AI Token settings */
     gchar *home = g_strdup(g_get_home_dir());
     prefs->aitoken_jsonl_path = g_build_filename(home, ".claude", "projects", NULL);
@@ -266,6 +274,14 @@ gboolean xrg_preferences_load(XRGPreferences *prefs) {
         g_free(prefs->current_theme);
         prefs->current_theme = theme_name;
     }
+
+    /* Load graph styles */
+    prefs->cpu_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "cpu_style", NULL);
+    prefs->memory_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "memory_style", NULL);
+    prefs->network_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "network_style", NULL);
+    prefs->disk_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "disk_style", NULL);
+    prefs->gpu_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "gpu_style", NULL);
+    prefs->aitoken_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "aitoken_style", NULL);
 
     return TRUE;
 }
@@ -381,6 +397,14 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
     if (prefs->current_theme) {
         g_key_file_set_string(prefs->keyfile, "Appearance", "theme", prefs->current_theme);
     }
+
+    /* Save graph styles */
+    g_key_file_set_integer(prefs->keyfile, "GraphStyles", "cpu_style", prefs->cpu_graph_style);
+    g_key_file_set_integer(prefs->keyfile, "GraphStyles", "memory_style", prefs->memory_graph_style);
+    g_key_file_set_integer(prefs->keyfile, "GraphStyles", "network_style", prefs->network_graph_style);
+    g_key_file_set_integer(prefs->keyfile, "GraphStyles", "disk_style", prefs->disk_graph_style);
+    g_key_file_set_integer(prefs->keyfile, "GraphStyles", "gpu_style", prefs->gpu_graph_style);
+    g_key_file_set_integer(prefs->keyfile, "GraphStyles", "aitoken_style", prefs->aitoken_graph_style);
 
     /* Write to file */
     GError *error = NULL;

@@ -18,26 +18,32 @@ struct _XRGPreferencesWindow {
     GtkWidget *cpu_enabled_check;
     GtkWidget *cpu_height_spin;
     GtkWidget *cpu_update_interval_spin;
+    GtkWidget *cpu_style_combo;
 
     /* Memory module tab widgets */
     GtkWidget *memory_enabled_check;
     GtkWidget *memory_height_spin;
+    GtkWidget *memory_style_combo;
 
     /* Network module tab widgets */
     GtkWidget *network_enabled_check;
     GtkWidget *network_height_spin;
+    GtkWidget *network_style_combo;
 
     /* Disk module tab widgets */
     GtkWidget *disk_enabled_check;
     GtkWidget *disk_height_spin;
+    GtkWidget *disk_style_combo;
 
     /* GPU module tab widgets */
     GtkWidget *gpu_enabled_check;
     GtkWidget *gpu_height_spin;
+    GtkWidget *gpu_style_combo;
 
     /* AI Token module tab widgets */
     GtkWidget *aitoken_enabled_check;
     GtkWidget *aitoken_height_spin;
+    GtkWidget *aitoken_style_combo;
 
     /* Colors tab widgets */
     GtkWidget *theme_combo;
@@ -244,6 +250,16 @@ static GtkWidget* create_cpu_tab(XRGPreferencesWindow *win) {
     win->cpu_update_interval_spin = gtk_spin_button_new_with_range(100, 5000, 100);
     gtk_grid_attach(GTK_GRID(grid), win->cpu_update_interval_spin, 1, row++, 1, 1);
 
+    /* Visual Style */
+    label = gtk_label_new("Visual Style:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->cpu_style_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->cpu_style_combo), "Solid (Filled)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->cpu_style_combo), "Pixel (Chunky)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->cpu_style_combo), "Dot (Fine)");
+    gtk_grid_attach(GTK_GRID(grid), win->cpu_style_combo, 1, row++, 1, 1);
+
     /* Note: Colors are managed in the Colors tab */
 
     return grid;
@@ -279,6 +295,16 @@ static GtkWidget* create_memory_tab(XRGPreferencesWindow *win) {
     gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
     win->memory_height_spin = gtk_spin_button_new_with_range(40, 300, 10);
     gtk_grid_attach(GTK_GRID(grid), win->memory_height_spin, 1, row++, 1, 1);
+
+    /* Visual Style */
+    label = gtk_label_new("Visual Style:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->memory_style_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->memory_style_combo), "Solid (Filled)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->memory_style_combo), "Pixel (Chunky)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->memory_style_combo), "Dot (Fine)");
+    gtk_grid_attach(GTK_GRID(grid), win->memory_style_combo, 1, row++, 1, 1);
 
     /* Note: Colors are managed in the Colors tab */
 
@@ -316,6 +342,16 @@ static GtkWidget* create_network_tab(XRGPreferencesWindow *win) {
     win->network_height_spin = gtk_spin_button_new_with_range(40, 300, 10);
     gtk_grid_attach(GTK_GRID(grid), win->network_height_spin, 1, row++, 1, 1);
 
+    /* Visual Style */
+    label = gtk_label_new("Visual Style:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->network_style_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->network_style_combo), "Solid (Filled)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->network_style_combo), "Pixel (Chunky)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->network_style_combo), "Dot (Fine)");
+    gtk_grid_attach(GTK_GRID(grid), win->network_style_combo, 1, row++, 1, 1);
+
     /* Note: Colors are managed in the Colors tab */
 
     return grid;
@@ -351,6 +387,16 @@ static GtkWidget* create_disk_tab(XRGPreferencesWindow *win) {
     gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
     win->disk_height_spin = gtk_spin_button_new_with_range(40, 300, 10);
     gtk_grid_attach(GTK_GRID(grid), win->disk_height_spin, 1, row++, 1, 1);
+
+    /* Visual Style */
+    label = gtk_label_new("Visual Style:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->disk_style_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->disk_style_combo), "Solid (Filled)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->disk_style_combo), "Pixel (Chunky)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->disk_style_combo), "Dot (Fine)");
+    gtk_grid_attach(GTK_GRID(grid), win->disk_style_combo, 1, row++, 1, 1);
 
     /* Note: Colors are managed in the Colors tab */
 
@@ -388,6 +434,16 @@ static GtkWidget* create_gpu_tab(XRGPreferencesWindow *win) {
     win->gpu_height_spin = gtk_spin_button_new_with_range(40, 300, 10);
     gtk_grid_attach(GTK_GRID(grid), win->gpu_height_spin, 1, row++, 1, 1);
 
+    /* Visual Style */
+    label = gtk_label_new("Visual Style:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->gpu_style_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->gpu_style_combo), "Solid (Filled)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->gpu_style_combo), "Pixel (Chunky)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->gpu_style_combo), "Dot (Fine)");
+    gtk_grid_attach(GTK_GRID(grid), win->gpu_style_combo, 1, row++, 1, 1);
+
     /* Note: Colors are managed in the Colors tab */
 
     return grid;
@@ -423,6 +479,16 @@ static GtkWidget* create_aitoken_tab(XRGPreferencesWindow *win) {
     gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
     win->aitoken_height_spin = gtk_spin_button_new_with_range(40, 300, 10);
     gtk_grid_attach(GTK_GRID(grid), win->aitoken_height_spin, 1, row++, 1, 1);
+
+    /* Visual Style */
+    label = gtk_label_new("Visual Style:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->aitoken_style_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_style_combo), "Solid (Filled)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_style_combo), "Pixel (Chunky)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_style_combo), "Dot (Fine)");
+    gtk_grid_attach(GTK_GRID(grid), win->aitoken_style_combo, 1, row++, 1, 1);
 
     /* Note: Colors are managed in the Colors tab */
 
@@ -551,31 +617,37 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->cpu_enabled_check), prefs->show_cpu);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->cpu_height_spin), prefs->graph_height_cpu);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->cpu_update_interval_spin), prefs->normal_update_interval);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->cpu_style_combo), prefs->cpu_graph_style);
     /* Note: CPU colors removed - use Colors tab instead */
 
     /* Memory module tab */
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->memory_enabled_check), prefs->show_memory);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->memory_height_spin), prefs->graph_height_memory);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->memory_style_combo), prefs->memory_graph_style);
     /* Note: Memory colors removed - use Colors tab instead */
 
     /* Network module tab */
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->network_enabled_check), prefs->show_network);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->network_height_spin), prefs->graph_height_network);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->network_style_combo), prefs->network_graph_style);
     /* Note: Network colors removed - use Colors tab instead */
 
     /* Disk module tab */
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->disk_enabled_check), prefs->show_disk);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->disk_height_spin), prefs->graph_height_disk);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->disk_style_combo), prefs->disk_graph_style);
     /* Note: Disk colors removed - use Colors tab instead */
 
     /* GPU module tab */
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->gpu_enabled_check), prefs->show_gpu);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->gpu_height_spin), prefs->graph_height_gpu);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->gpu_style_combo), prefs->gpu_graph_style);
     /* Note: GPU colors removed - use Colors tab instead */
 
     /* AI Token module tab */
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->aitoken_enabled_check), prefs->show_aitoken);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->aitoken_height_spin), prefs->graph_height_aitoken);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->aitoken_style_combo), prefs->aitoken_graph_style);
     /* Note: AIToken colors removed - use Colors tab instead */
 
     /* Colors tab */
@@ -631,31 +703,37 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     prefs->show_cpu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->cpu_enabled_check));
     prefs->graph_height_cpu = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->cpu_height_spin));
     prefs->normal_update_interval = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->cpu_update_interval_spin));
+    prefs->cpu_graph_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->cpu_style_combo));
     /* Note: CPU colors removed - use Colors tab instead */
 
     /* Memory module tab */
     prefs->show_memory = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->memory_enabled_check));
     prefs->graph_height_memory = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->memory_height_spin));
+    prefs->memory_graph_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->memory_style_combo));
     /* Note: Memory colors removed - use Colors tab instead */
 
     /* Network module tab */
     prefs->show_network = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->network_enabled_check));
     prefs->graph_height_network = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->network_height_spin));
+    prefs->network_graph_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->network_style_combo));
     /* Note: Network colors removed - use Colors tab instead */
 
     /* Disk module tab */
     prefs->show_disk = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->disk_enabled_check));
     prefs->graph_height_disk = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->disk_height_spin));
+    prefs->disk_graph_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->disk_style_combo));
     /* Note: Disk colors removed - use Colors tab instead */
 
     /* GPU module tab */
     prefs->show_gpu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->gpu_enabled_check));
     prefs->graph_height_gpu = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->gpu_height_spin));
+    prefs->gpu_graph_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->gpu_style_combo));
     /* Note: GPU colors removed - use Colors tab instead */
 
     /* AI Token module tab */
     prefs->show_aitoken = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->aitoken_enabled_check));
     prefs->graph_height_aitoken = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->aitoken_height_spin));
+    prefs->aitoken_graph_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->aitoken_style_combo));
     /* Note: AIToken colors removed - use Colors tab instead */
 
     /* Colors tab */

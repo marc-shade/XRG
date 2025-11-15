@@ -1115,31 +1115,75 @@ static gboolean on_draw_disk(GtkWidget *widget, cairo_t *cr, gpointer user_data)
     GdkRGBA *fg1_color = &state->prefs->disk_fg1_color;
     cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha);
 
-    cairo_move_to(cr, 0, height);
-    for (gint i = 0; i < count; i++) {
-        gdouble value = xrg_dataset_get_value(read_dataset, i);
-        gdouble x = (gdouble)i / count * width;
-        gdouble y = height - (value / max_rate * height);
-        cairo_line_to(cr, x, y);
+    XRGGraphStyle style = state->prefs->disk_graph_style;
+
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        /* Solid filled area (original behavior) */
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(read_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    } else if (style == XRG_GRAPH_STYLE_PIXEL) {
+        /* Chunky pixels */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(read_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
+    } else if (style == XRG_GRAPH_STYLE_DOT) {
+        /* Fine dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(read_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
-    cairo_line_to(cr, width, height);
-    cairo_close_path(cr);
-    cairo_fill(cr);
 
     /* Draw write rate (purple - FG2) */
     GdkRGBA *fg2_color = &state->prefs->disk_fg2_color;
     cairo_set_source_rgba(cr, fg2_color->red, fg2_color->green, fg2_color->blue, fg2_color->alpha);
 
-    cairo_move_to(cr, 0, height);
-    for (gint i = 0; i < count; i++) {
-        gdouble value = xrg_dataset_get_value(write_dataset, i);
-        gdouble x = (gdouble)i / count * width;
-        gdouble y = height - (value / max_rate * height);
-        cairo_line_to(cr, x, y);
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        /* Solid filled area (original behavior) */
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(write_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    } else if (style == XRG_GRAPH_STYLE_PIXEL) {
+        /* Chunky pixels */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(write_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
+    } else if (style == XRG_GRAPH_STYLE_DOT) {
+        /* Fine dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(write_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
-    cairo_line_to(cr, width, height);
-    cairo_close_path(cr);
-    cairo_fill(cr);
 
     /* Overlay text labels */
     GdkRGBA *text_color = &state->prefs->text_color;
@@ -1298,31 +1342,75 @@ static gboolean on_draw_gpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
     GdkRGBA *fg1_color = &state->prefs->graph_fg1_color;
     cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha);
 
-    cairo_move_to(cr, 0, height);
-    for (gint i = 0; i < count; i++) {
-        gdouble value = xrg_dataset_get_value(util_dataset, i);
-        gdouble x = (gdouble)i / count * width;
-        gdouble y = height - (value / 100.0 * height);
-        cairo_line_to(cr, x, y);
+    XRGGraphStyle style = state->prefs->gpu_graph_style;
+
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        /* Solid filled area (original behavior) */
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(util_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    } else if (style == XRG_GRAPH_STYLE_PIXEL) {
+        /* Chunky pixels */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(util_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
+    } else if (style == XRG_GRAPH_STYLE_DOT) {
+        /* Fine dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(util_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
-    cairo_line_to(cr, width, height);
-    cairo_close_path(cr);
-    cairo_fill(cr);
 
     /* Draw GPU memory usage on top (purple - FG2) */
     GdkRGBA *fg2_color = &state->prefs->graph_fg2_color;
     cairo_set_source_rgba(cr, fg2_color->red, fg2_color->green, fg2_color->blue, fg2_color->alpha * 0.7);
 
-    cairo_move_to(cr, 0, height);
-    for (gint i = 0; i < count; i++) {
-        gdouble value = xrg_dataset_get_value(mem_dataset, i);
-        gdouble x = (gdouble)i / count * width;
-        gdouble y = height - (value / 100.0 * height);
-        cairo_line_to(cr, x, y);
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        /* Solid filled area (original behavior) */
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(mem_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    } else if (style == XRG_GRAPH_STYLE_PIXEL) {
+        /* Chunky pixels */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(mem_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
+    } else if (style == XRG_GRAPH_STYLE_DOT) {
+        /* Fine dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(mem_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
-    cairo_line_to(cr, width, height);
-    cairo_close_path(cr);
-    cairo_fill(cr);
 
     /* Overlay text labels */
     GdkRGBA *text_color = &state->prefs->text_color;
@@ -1497,31 +1585,75 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
     GdkRGBA *fg1_color = &state->prefs->graph_fg1_color;
     cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha);
 
-    cairo_move_to(cr, 0, height);
-    for (gint i = 0; i < count; i++) {
-        gdouble value = xrg_dataset_get_value(input_dataset, i);
-        gdouble x = (gdouble)i / count * width;
-        gdouble y = height - (value / max_rate * height);
-        cairo_line_to(cr, x, y);
+    XRGGraphStyle style = state->prefs->aitoken_graph_style;
+
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        /* Solid filled area (original behavior) */
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(input_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    } else if (style == XRG_GRAPH_STYLE_PIXEL) {
+        /* Chunky pixels */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(input_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
+    } else if (style == XRG_GRAPH_STYLE_DOT) {
+        /* Fine dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(input_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
-    cairo_line_to(cr, width, height);
-    cairo_close_path(cr);
-    cairo_fill(cr);
 
     /* Draw output tokens (purple - FG2) */
     GdkRGBA *fg2_color = &state->prefs->graph_fg2_color;
     cairo_set_source_rgba(cr, fg2_color->red, fg2_color->green, fg2_color->blue, fg2_color->alpha * 0.7);
 
-    cairo_move_to(cr, 0, height);
-    for (gint i = 0; i < count; i++) {
-        gdouble value = xrg_dataset_get_value(output_dataset, i);
-        gdouble x = (gdouble)i / count * width;
-        gdouble y = height - (value / max_rate * height);
-        cairo_line_to(cr, x, y);
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        /* Solid filled area (original behavior) */
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(output_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    } else if (style == XRG_GRAPH_STYLE_PIXEL) {
+        /* Chunky pixels */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(output_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
+    } else if (style == XRG_GRAPH_STYLE_DOT) {
+        /* Fine dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(output_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
-    cairo_line_to(cr, width, height);
-    cairo_close_path(cr);
-    cairo_fill(cr);
 
     /* Overlay text labels */
     GdkRGBA *text_color = &state->prefs->text_color;
@@ -1675,33 +1807,81 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
     GdkRGBA *fg1_color = &state->prefs->graph_fg1_color;
     cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha);
 
-    cairo_move_to(cr, 0, height);
-    for (gint i = 0; i < count; i++) {
-        gdouble value = xrg_dataset_get_value(user_dataset, i);
-        gdouble x = (gdouble)i / count * width;
-        gdouble y = height - (value / 100.0 * height);
-        cairo_line_to(cr, x, y);
+    XRGGraphStyle style = state->prefs->cpu_graph_style;
+
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        /* Solid filled area (original behavior) */
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(user_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    } else if (style == XRG_GRAPH_STYLE_PIXEL) {
+        /* Chunky pixels */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(user_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
+    } else if (style == XRG_GRAPH_STYLE_DOT) {
+        /* Fine dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(user_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
-    cairo_line_to(cr, width, height);
-    cairo_close_path(cr);
-    cairo_fill(cr);
 
     /* Draw system CPU usage on top (purple - FG2) */
     GdkRGBA *fg2_color = &state->prefs->graph_fg2_color;
     cairo_set_source_rgba(cr, fg2_color->red, fg2_color->green, fg2_color->blue, fg2_color->alpha * 0.7);
 
-    cairo_move_to(cr, 0, height);
-    for (gint i = 0; i < count; i++) {
-        gdouble user_val = xrg_dataset_get_value(user_dataset, i);
-        gdouble system_val = xrg_dataset_get_value(system_dataset, i);
-        gdouble total_val = user_val + system_val;
-        gdouble x = (gdouble)i / count * width;
-        gdouble y = height - (total_val / 100.0 * height);
-        cairo_line_to(cr, x, y);
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        /* Solid filled area (original behavior) */
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble user_val = xrg_dataset_get_value(user_dataset, i);
+            gdouble system_val = xrg_dataset_get_value(system_dataset, i);
+            gdouble total_val = user_val + system_val;
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (total_val / 100.0 * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    } else if (style == XRG_GRAPH_STYLE_PIXEL) {
+        /* Chunky pixels */
+        for (gint i = 0; i < count; i++) {
+            gdouble user_val = xrg_dataset_get_value(user_dataset, i);
+            gdouble system_val = xrg_dataset_get_value(system_dataset, i);
+            gdouble total_val = user_val + system_val;
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (total_val / 100.0 * height);
+            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
+    } else if (style == XRG_GRAPH_STYLE_DOT) {
+        /* Fine dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble user_val = xrg_dataset_get_value(user_dataset, i);
+            gdouble system_val = xrg_dataset_get_value(system_dataset, i);
+            gdouble total_val = user_val + system_val;
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (total_val / 100.0 * height);
+            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
-    cairo_line_to(cr, width, height);
-    cairo_close_path(cr);
-    cairo_fill(cr);
 
     /* Overlay text labels */
     GdkRGBA *text_color = &state->prefs->text_color;
@@ -1776,51 +1956,126 @@ static gboolean on_draw_memory(GtkWidget *widget, cairo_t *cr, gpointer user_dat
     GdkRGBA *fg1_color = &state->prefs->graph_fg1_color;
     cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha);
 
-    cairo_move_to(cr, 0, height);
-    for (gint i = 0; i < count; i++) {
-        gdouble value = xrg_dataset_get_value(used_dataset, i);
-        gdouble x = (gdouble)i / count * width;
-        gdouble y = height - (value / 100.0 * height);
-        cairo_line_to(cr, x, y);
+    XRGGraphStyle style = state->prefs->memory_graph_style;
+
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        /* Solid filled area (original behavior) */
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(used_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    } else if (style == XRG_GRAPH_STYLE_PIXEL) {
+        /* Chunky pixels */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(used_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
+    } else if (style == XRG_GRAPH_STYLE_DOT) {
+        /* Fine dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(used_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / 100.0 * height);
+            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
-    cairo_line_to(cr, width, height);
-    cairo_close_path(cr);
-    cairo_fill(cr);
 
     /* Draw wired memory on top (purple - FG2) */
     GdkRGBA *fg2_color = &state->prefs->graph_fg2_color;
     cairo_set_source_rgba(cr, fg2_color->red, fg2_color->green, fg2_color->blue, fg2_color->alpha * 0.7);
 
-    cairo_move_to(cr, 0, height);
-    for (gint i = 0; i < count; i++) {
-        gdouble used_val = xrg_dataset_get_value(used_dataset, i);
-        gdouble wired_val = xrg_dataset_get_value(wired_dataset, i);
-        gdouble total_val = used_val + wired_val;
-        gdouble x = (gdouble)i / count * width;
-        gdouble y = height - (total_val / 100.0 * height);
-        cairo_line_to(cr, x, y);
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        /* Solid filled area (original behavior) */
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble used_val = xrg_dataset_get_value(used_dataset, i);
+            gdouble wired_val = xrg_dataset_get_value(wired_dataset, i);
+            gdouble total_val = used_val + wired_val;
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (total_val / 100.0 * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    } else if (style == XRG_GRAPH_STYLE_PIXEL) {
+        /* Chunky pixels */
+        for (gint i = 0; i < count; i++) {
+            gdouble used_val = xrg_dataset_get_value(used_dataset, i);
+            gdouble wired_val = xrg_dataset_get_value(wired_dataset, i);
+            gdouble total_val = used_val + wired_val;
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (total_val / 100.0 * height);
+            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
+    } else if (style == XRG_GRAPH_STYLE_DOT) {
+        /* Fine dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble used_val = xrg_dataset_get_value(used_dataset, i);
+            gdouble wired_val = xrg_dataset_get_value(wired_dataset, i);
+            gdouble total_val = used_val + wired_val;
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (total_val / 100.0 * height);
+            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
-    cairo_line_to(cr, width, height);
-    cairo_close_path(cr);
-    cairo_fill(cr);
 
     /* Draw cached memory on top (amber - FG3) */
     GdkRGBA *fg3_color = &state->prefs->graph_fg3_color;
     cairo_set_source_rgba(cr, fg3_color->red, fg3_color->green, fg3_color->blue, fg3_color->alpha * 0.5);
 
-    cairo_move_to(cr, 0, height);
-    for (gint i = 0; i < count; i++) {
-        gdouble used_val = xrg_dataset_get_value(used_dataset, i);
-        gdouble wired_val = xrg_dataset_get_value(wired_dataset, i);
-        gdouble cached_val = xrg_dataset_get_value(cached_dataset, i);
-        gdouble total_val = used_val + wired_val + cached_val;
-        gdouble x = (gdouble)i / count * width;
-        gdouble y = height - (total_val / 100.0 * height);
-        cairo_line_to(cr, x, y);
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        /* Solid filled area (original behavior) */
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble used_val = xrg_dataset_get_value(used_dataset, i);
+            gdouble wired_val = xrg_dataset_get_value(wired_dataset, i);
+            gdouble cached_val = xrg_dataset_get_value(cached_dataset, i);
+            gdouble total_val = used_val + wired_val + cached_val;
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (total_val / 100.0 * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    } else if (style == XRG_GRAPH_STYLE_PIXEL) {
+        /* Chunky pixels */
+        for (gint i = 0; i < count; i++) {
+            gdouble used_val = xrg_dataset_get_value(used_dataset, i);
+            gdouble wired_val = xrg_dataset_get_value(wired_dataset, i);
+            gdouble cached_val = xrg_dataset_get_value(cached_dataset, i);
+            gdouble total_val = used_val + wired_val + cached_val;
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (total_val / 100.0 * height);
+            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
+    } else if (style == XRG_GRAPH_STYLE_DOT) {
+        /* Fine dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble used_val = xrg_dataset_get_value(used_dataset, i);
+            gdouble wired_val = xrg_dataset_get_value(wired_dataset, i);
+            gdouble cached_val = xrg_dataset_get_value(cached_dataset, i);
+            gdouble total_val = used_val + wired_val + cached_val;
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (total_val / 100.0 * height);
+            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
-    cairo_line_to(cr, width, height);
-    cairo_close_path(cr);
-    cairo_fill(cr);
 
     /* Overlay text labels */
     GdkRGBA *text_color = &state->prefs->text_color;
@@ -1910,31 +2165,75 @@ static gboolean on_draw_network(GtkWidget *widget, cairo_t *cr, gpointer user_da
     GdkRGBA *fg1_color = &state->prefs->graph_fg1_color;
     cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha);
 
-    cairo_move_to(cr, 0, height);
-    for (gint i = 0; i < count; i++) {
-        gdouble value = xrg_dataset_get_value(download_dataset, i);
-        gdouble x = (gdouble)i / count * width;
-        gdouble y = height - (value / max_rate * height);
-        cairo_line_to(cr, x, y);
+    XRGGraphStyle style = state->prefs->network_graph_style;
+
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        /* Solid filled area (original behavior) */
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(download_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    } else if (style == XRG_GRAPH_STYLE_PIXEL) {
+        /* Chunky pixels */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(download_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
+    } else if (style == XRG_GRAPH_STYLE_DOT) {
+        /* Fine dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(download_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
-    cairo_line_to(cr, width, height);
-    cairo_close_path(cr);
-    cairo_fill(cr);
 
     /* Draw upload rate (purple - FG2) */
     GdkRGBA *fg2_color = &state->prefs->graph_fg2_color;
     cairo_set_source_rgba(cr, fg2_color->red, fg2_color->green, fg2_color->blue, fg2_color->alpha * 0.7);
 
-    cairo_move_to(cr, 0, height);
-    for (gint i = 0; i < count; i++) {
-        gdouble value = xrg_dataset_get_value(upload_dataset, i);
-        gdouble x = (gdouble)i / count * width;
-        gdouble y = height - (value / max_rate * height);
-        cairo_line_to(cr, x, y);
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        /* Solid filled area (original behavior) */
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(upload_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    } else if (style == XRG_GRAPH_STYLE_PIXEL) {
+        /* Chunky pixels */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(upload_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 2.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
+    } else if (style == XRG_GRAPH_STYLE_DOT) {
+        /* Fine dots */
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(upload_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 0.8, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
     }
-    cairo_line_to(cr, width, height);
-    cairo_close_path(cr);
-    cairo_fill(cr);
 
     /* Overlay text labels */
     GdkRGBA *text_color = &state->prefs->text_color;

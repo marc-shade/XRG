@@ -5,6 +5,15 @@
 #include <gtk/gtk.h>
 
 /**
+ * Graph visual styles
+ */
+typedef enum {
+    XRG_GRAPH_STYLE_SOLID = 0,  /* Filled area (default) */
+    XRG_GRAPH_STYLE_PIXEL = 1,  /* Chunky pixels */
+    XRG_GRAPH_STYLE_DOT   = 2   /* Fine dots */
+} XRGGraphStyle;
+
+/**
  * XRGPreferences - Application settings and preferences
  *
  * Manages all user preferences including window position, module visibility,
@@ -78,6 +87,14 @@ struct _XRGPreferences {
     gint graph_height_temperature;
     gint graph_height_battery;
     gint graph_height_aitoken;
+
+    /* Graph visual styles per module */
+    XRGGraphStyle cpu_graph_style;
+    XRGGraphStyle memory_graph_style;
+    XRGGraphStyle network_graph_style;
+    XRGGraphStyle disk_graph_style;
+    XRGGraphStyle gpu_graph_style;
+    XRGGraphStyle aitoken_graph_style;
 
     /* AI Token settings */
     gchar *aitoken_jsonl_path;
