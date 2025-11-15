@@ -6,7 +6,14 @@
 
 /* Helper function to parse RGBA color from string */
 static gboolean parse_color(const gchar *str, GdkRGBA *color) {
-    return gdk_rgba_parse(color, str);
+    gboolean result = gdk_rgba_parse(color, str);
+    if (!result) {
+        g_warning("Failed to parse color string: '%s'", str);
+    } else {
+        g_message("Parsed color '%s' -> (%.3f, %.3f, %.3f, %.3f)",
+                  str, color->red, color->green, color->blue, color->alpha);
+    }
+    return result;
 }
 
 /* Helper function to format RGBA color to string */
@@ -36,6 +43,9 @@ XRGPreferences* xrg_preferences_new(void) {
     /* Set defaults */
     xrg_preferences_set_defaults(prefs);
 
+    /* Set default theme */
+    prefs->current_theme = g_strdup("Cyberpunk");
+
     return prefs;
 }
 
@@ -53,6 +63,7 @@ void xrg_preferences_free(XRGPreferences *prefs) {
     g_free(prefs->aitoken_jsonl_path);
     g_free(prefs->aitoken_db_path);
     g_free(prefs->aitoken_otel_endpoint);
+    g_free(prefs->current_theme);
     g_free(prefs);
 }
 
@@ -249,6 +260,13 @@ gboolean xrg_preferences_load(XRGPreferences *prefs) {
     color_str = g_key_file_get_string(prefs->keyfile, "Colors", "aitoken_fg2", NULL);
     if (color_str) { parse_color(color_str, &prefs->aitoken_fg2_color); g_free(color_str); }
 
+    /* Load theme */
+    gchar *theme_name = g_key_file_get_string(prefs->keyfile, "Appearance", "theme", NULL);
+    if (theme_name) {
+        g_free(prefs->current_theme);
+        prefs->current_theme = theme_name;
+    }
+
     return TRUE;
 }
 
@@ -359,6 +377,11 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
     g_key_file_set_string(prefs->keyfile, "Colors", "aitoken_fg2", color_str);
     g_free(color_str);
 
+    /* Save theme */
+    if (prefs->current_theme) {
+        g_key_file_set_string(prefs->keyfile, "Appearance", "theme", prefs->current_theme);
+    }
+
     /* Write to file */
     GError *error = NULL;
     if (!g_key_file_save_to_file(prefs->keyfile, prefs->config_path, &error)) {
@@ -392,4 +415,96 @@ void xrg_preferences_set_graph_fg1_color(XRGPreferences *prefs, GdkRGBA *color) 
     g_return_if_fail(prefs != NULL);
     g_return_if_fail(color != NULL);
     prefs->graph_fg1_color = *color;
+}
+
+/* ============================================================================
+ * Theme Management Functions
+ * ============================================================================ */
+
+#include "themes.h"
+
+/**
+ * Apply a theme by name
+ */
+void xrg_preferences_apply_theme(XRGPreferences *prefs, const gchar *theme_name) {
+    g_return_if_fail(prefs != NULL);
+    g_return_if_fail(theme_name != NULL);
+
+    /* Find the theme by name */
+    const XRGTheme *theme = NULL;
+    for (gsize i = 0; i < XRG_THEME_COUNT; i++) {
+        if (g_strcmp0(XRG_THEMES[i].name, theme_name) == 0) {
+            theme = &XRG_THEMES[i];
+            break;
+        }
+    }
+
+    if (theme == NULL) {
+        g_warning("Theme '%s' not found, using default (Cyberpunk)", theme_name);
+        theme = &XRG_THEMES[0];  /* Fallback to Cyberpunk */
+    }
+
+    /* Apply theme colors */
+    prefs->background_color = theme->background_color;
+    prefs->graph_bg_color = theme->graph_bg_color;
+    prefs->graph_fg1_color = theme->graph_fg1_color;
+    prefs->graph_fg2_color = theme->graph_fg2_color;
+    prefs->graph_fg3_color = theme->graph_fg3_color;
+    prefs->text_color = theme->text_color;
+    prefs->border_color = theme->border_color;
+
+    /* Apply to module-specific colors */
+    prefs->memory_bg_color = theme->graph_bg_color;
+    prefs->memory_fg1_color = theme->graph_fg1_color;
+    prefs->memory_fg2_color = theme->graph_fg2_color;
+    prefs->memory_fg3_color = theme->graph_fg3_color;
+
+    prefs->network_bg_color = theme->graph_bg_color;
+    prefs->network_fg1_color = theme->graph_fg1_color;
+    prefs->network_fg2_color = theme->graph_fg2_color;
+
+    prefs->disk_bg_color = theme->graph_bg_color;
+    prefs->disk_fg1_color = theme->graph_fg1_color;
+    prefs->disk_fg2_color = theme->graph_fg2_color;
+
+    prefs->aitoken_bg_color = theme->graph_bg_color;
+    prefs->aitoken_fg1_color = theme->graph_fg1_color;
+    prefs->aitoken_fg2_color = theme->graph_fg2_color;
+
+    /* Update current theme name */
+    g_free(prefs->current_theme);
+    prefs->current_theme = g_strdup(theme->name);
+
+    g_message("Applied theme: %s", theme->name);
+}
+
+/**
+ * Get current theme name
+ */
+const gchar* xrg_preferences_get_current_theme(XRGPreferences *prefs) {
+    g_return_val_if_fail(prefs != NULL, "Cyberpunk");
+    
+    if (prefs->current_theme == NULL) {
+        return "Cyberpunk";  /* Default */
+    }
+    
+    return prefs->current_theme;
+}
+
+/**
+ * Get number of available themes
+ */
+gint xrg_preferences_get_theme_count(void) {
+    return (gint)XRG_THEME_COUNT;
+}
+
+/**
+ * Get theme name by index
+ */
+const gchar* xrg_preferences_get_theme_name(gint index) {
+    if (index < 0 || index >= (gint)XRG_THEME_COUNT) {
+        return NULL;
+    }
+    
+    return XRG_THEMES[index].name;
 }

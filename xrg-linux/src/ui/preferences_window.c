@@ -18,40 +18,29 @@ struct _XRGPreferencesWindow {
     GtkWidget *cpu_enabled_check;
     GtkWidget *cpu_height_spin;
     GtkWidget *cpu_update_interval_spin;
-    GtkWidget *cpu_fg1_color_button;
-    GtkWidget *cpu_fg2_color_button;
-    GtkWidget *cpu_bg_color_button;
 
     /* Memory module tab widgets */
     GtkWidget *memory_enabled_check;
     GtkWidget *memory_height_spin;
-    GtkWidget *memory_fg1_color_button;
-    GtkWidget *memory_fg2_color_button;
-    GtkWidget *memory_fg3_color_button;
-    GtkWidget *memory_bg_color_button;
 
     /* Network module tab widgets */
     GtkWidget *network_enabled_check;
     GtkWidget *network_height_spin;
-    GtkWidget *network_fg1_color_button;
-    GtkWidget *network_fg2_color_button;
-    GtkWidget *network_bg_color_button;
 
     /* Disk module tab widgets */
     GtkWidget *disk_enabled_check;
     GtkWidget *disk_height_spin;
-    GtkWidget *disk_fg1_color_button;
-    GtkWidget *disk_fg2_color_button;
-    GtkWidget *disk_bg_color_button;
+
+    /* GPU module tab widgets */
+    GtkWidget *gpu_enabled_check;
+    GtkWidget *gpu_height_spin;
 
     /* AI Token module tab widgets */
     GtkWidget *aitoken_enabled_check;
     GtkWidget *aitoken_height_spin;
-    GtkWidget *aitoken_fg1_color_button;
-    GtkWidget *aitoken_fg2_color_button;
-    GtkWidget *aitoken_bg_color_button;
 
     /* Colors tab widgets */
+    GtkWidget *theme_combo;
     GtkWidget *bg_color_button;
     GtkWidget *graph_bg_color_button;
     GtkWidget *graph_fg1_color_button;
@@ -59,15 +48,21 @@ struct _XRGPreferencesWindow {
     GtkWidget *graph_fg3_color_button;
     GtkWidget *text_color_button;
     GtkWidget *border_color_button;
+
+    /* Callback for when preferences are applied */
+    XRGPreferencesAppliedCallback applied_callback;
+    gpointer callback_user_data;
 };
 
 /* Forward declarations */
 static void on_response(GtkDialog *dialog, gint response_id, gpointer user_data);
+static void on_theme_changed(GtkComboBox *combo, gpointer user_data);
 static GtkWidget* create_window_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_cpu_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_memory_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_network_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_disk_tab(XRGPreferencesWindow *win);
+static GtkWidget* create_gpu_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_aitoken_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_colors_tab(XRGPreferencesWindow *win);
 static void load_preferences_to_ui(XRGPreferencesWindow *win);
@@ -115,6 +110,10 @@ XRGPreferencesWindow* xrg_preferences_window_new(GtkWindow *parent, XRGPreferenc
     gtk_notebook_append_page(GTK_NOTEBOOK(win->notebook),
                             create_disk_tab(win),
                             gtk_label_new("Disk Module"));
+
+    gtk_notebook_append_page(GTK_NOTEBOOK(win->notebook),
+                            create_gpu_tab(win),
+                            gtk_label_new("GPU Module"));
 
     gtk_notebook_append_page(GTK_NOTEBOOK(win->notebook),
                             create_aitoken_tab(win),
@@ -245,45 +244,7 @@ static GtkWidget* create_cpu_tab(XRGPreferencesWindow *win) {
     win->cpu_update_interval_spin = gtk_spin_button_new_with_range(100, 5000, 100);
     gtk_grid_attach(GTK_GRID(grid), win->cpu_update_interval_spin, 1, row++, 1, 1);
 
-    /* Separator */
-    gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
-
-    /* Colors */
-    label = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(label), "<b>Module Colors</b>");
-    gtk_widget_set_halign(label, GTK_ALIGN_START);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
-
-    /* Background color */
-    label = gtk_label_new("Graph Background:");
-    gtk_widget_set_halign(label, GTK_ALIGN_END);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->cpu_bg_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->cpu_bg_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->cpu_bg_color_button, 1, row++, 1, 1);
-
-    /* User CPU color (FG1) */
-    label = gtk_label_new("User CPU Color:");
-    gtk_widget_set_halign(label, GTK_ALIGN_END);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->cpu_fg1_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->cpu_fg1_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->cpu_fg1_color_button, 1, row++, 1, 1);
-
-    /* System CPU color (FG2) */
-    label = gtk_label_new("System CPU Color:");
-    gtk_widget_set_halign(label, GTK_ALIGN_END);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->cpu_fg2_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->cpu_fg2_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->cpu_fg2_color_button, 1, row++, 1, 1);
-
-    /* Info label */
-    label = gtk_label_new("Note: Module-specific colors override global colors when set.");
-    gtk_widget_set_halign(label, GTK_ALIGN_START);
-    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
-    gtk_widget_set_opacity(label, 0.7);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+    /* Note: Colors are managed in the Colors tab */
 
     return grid;
 }
@@ -319,53 +280,7 @@ static GtkWidget* create_memory_tab(XRGPreferencesWindow *win) {
     win->memory_height_spin = gtk_spin_button_new_with_range(40, 300, 10);
     gtk_grid_attach(GTK_GRID(grid), win->memory_height_spin, 1, row++, 1, 1);
 
-    /* Separator */
-    gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
-
-    /* Colors */
-    label = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(label), "<b>Module Colors</b>");
-    gtk_widget_set_halign(label, GTK_ALIGN_START);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
-
-    /* Background color */
-    label = gtk_label_new("Graph Background:");
-    gtk_widget_set_halign(label, GTK_ALIGN_END);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->memory_bg_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->memory_bg_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->memory_bg_color_button, 1, row++, 1, 1);
-
-    /* Used memory color (FG1) */
-    label = gtk_label_new("Used Memory Color:");
-    gtk_widget_set_halign(label, GTK_ALIGN_END);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->memory_fg1_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->memory_fg1_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->memory_fg1_color_button, 1, row++, 1, 1);
-
-    /* Wired memory color (FG2) */
-    label = gtk_label_new("Wired Memory Color:");
-    gtk_widget_set_halign(label, GTK_ALIGN_END);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->memory_fg2_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->memory_fg2_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->memory_fg2_color_button, 1, row++, 1, 1);
-
-    /* Cached memory color (FG3) */
-    label = gtk_label_new("Cached Memory Color:");
-    gtk_widget_set_halign(label, GTK_ALIGN_END);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->memory_fg3_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->memory_fg3_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->memory_fg3_color_button, 1, row++, 1, 1);
-
-    /* Info label */
-    label = gtk_label_new("Note: Module-specific colors override global colors when set.");
-    gtk_widget_set_halign(label, GTK_ALIGN_START);
-    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
-    gtk_widget_set_opacity(label, 0.7);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+    /* Note: Colors are managed in the Colors tab */
 
     return grid;
 }
@@ -401,45 +316,7 @@ static GtkWidget* create_network_tab(XRGPreferencesWindow *win) {
     win->network_height_spin = gtk_spin_button_new_with_range(40, 300, 10);
     gtk_grid_attach(GTK_GRID(grid), win->network_height_spin, 1, row++, 1, 1);
 
-    /* Separator */
-    gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
-
-    /* Colors */
-    label = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(label), "<b>Module Colors</b>");
-    gtk_widget_set_halign(label, GTK_ALIGN_START);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
-
-    /* Background color */
-    label = gtk_label_new("Graph Background:");
-    gtk_widget_set_halign(label, GTK_ALIGN_END);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->network_bg_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->network_bg_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->network_bg_color_button, 1, row++, 1, 1);
-
-    /* Download color (FG1) */
-    label = gtk_label_new("Download Color:");
-    gtk_widget_set_halign(label, GTK_ALIGN_END);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->network_fg1_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->network_fg1_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->network_fg1_color_button, 1, row++, 1, 1);
-
-    /* Upload color (FG2) */
-    label = gtk_label_new("Upload Color:");
-    gtk_widget_set_halign(label, GTK_ALIGN_END);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->network_fg2_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->network_fg2_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->network_fg2_color_button, 1, row++, 1, 1);
-
-    /* Info label */
-    label = gtk_label_new("Note: Module-specific colors override global colors when set.");
-    gtk_widget_set_halign(label, GTK_ALIGN_START);
-    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
-    gtk_widget_set_opacity(label, 0.7);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+    /* Note: Colors are managed in the Colors tab */
 
     return grid;
 }
@@ -475,45 +352,43 @@ static GtkWidget* create_disk_tab(XRGPreferencesWindow *win) {
     win->disk_height_spin = gtk_spin_button_new_with_range(40, 300, 10);
     gtk_grid_attach(GTK_GRID(grid), win->disk_height_spin, 1, row++, 1, 1);
 
+    /* Note: Colors are managed in the Colors tab */
+
+    return grid;
+}
+
+/**
+ * Create GPU module settings tab
+ */
+static GtkWidget* create_gpu_tab(XRGPreferencesWindow *win) {
+    GtkWidget *grid = gtk_grid_new();
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
+    gtk_container_set_border_width(GTK_CONTAINER(grid), 15);
+
+    gint row = 0;
+
+    /* Module enabled */
+    win->gpu_enabled_check = gtk_check_button_new_with_label("Show GPU Module");
+    gtk_grid_attach(GTK_GRID(grid), win->gpu_enabled_check, 0, row++, 2, 1);
+
     /* Separator */
     gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
 
-    /* Colors */
-    label = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(label), "<b>Module Colors</b>");
+    /* Display settings */
+    GtkWidget *label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(label), "<b>Display Settings</b>");
     gtk_widget_set_halign(label, GTK_ALIGN_START);
     gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
 
-    /* Background color */
-    label = gtk_label_new("Graph Background:");
+    /* Graph height */
+    label = gtk_label_new("Graph Height:");
     gtk_widget_set_halign(label, GTK_ALIGN_END);
     gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->disk_bg_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->disk_bg_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->disk_bg_color_button, 1, row++, 1, 1);
+    win->gpu_height_spin = gtk_spin_button_new_with_range(40, 300, 10);
+    gtk_grid_attach(GTK_GRID(grid), win->gpu_height_spin, 1, row++, 1, 1);
 
-    /* Read color (FG1) */
-    label = gtk_label_new("Read Color:");
-    gtk_widget_set_halign(label, GTK_ALIGN_END);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->disk_fg1_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->disk_fg1_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->disk_fg1_color_button, 1, row++, 1, 1);
-
-    /* Write color (FG2) */
-    label = gtk_label_new("Write Color:");
-    gtk_widget_set_halign(label, GTK_ALIGN_END);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->disk_fg2_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->disk_fg2_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->disk_fg2_color_button, 1, row++, 1, 1);
-
-    /* Info label */
-    label = gtk_label_new("Note: Module-specific colors override global colors when set.");
-    gtk_widget_set_halign(label, GTK_ALIGN_START);
-    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
-    gtk_widget_set_opacity(label, 0.7);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+    /* Note: Colors are managed in the Colors tab */
 
     return grid;
 }
@@ -549,45 +424,7 @@ static GtkWidget* create_aitoken_tab(XRGPreferencesWindow *win) {
     win->aitoken_height_spin = gtk_spin_button_new_with_range(40, 300, 10);
     gtk_grid_attach(GTK_GRID(grid), win->aitoken_height_spin, 1, row++, 1, 1);
 
-    /* Separator */
-    gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
-
-    /* Colors */
-    label = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(label), "<b>Module Colors</b>");
-    gtk_widget_set_halign(label, GTK_ALIGN_START);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
-
-    /* Background color */
-    label = gtk_label_new("Graph Background:");
-    gtk_widget_set_halign(label, GTK_ALIGN_END);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->aitoken_bg_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->aitoken_bg_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->aitoken_bg_color_button, 1, row++, 1, 1);
-
-    /* Input tokens color (FG1) */
-    label = gtk_label_new("Input Tokens Color:");
-    gtk_widget_set_halign(label, GTK_ALIGN_END);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->aitoken_fg1_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->aitoken_fg1_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->aitoken_fg1_color_button, 1, row++, 1, 1);
-
-    /* Output tokens color (FG2) */
-    label = gtk_label_new("Output Tokens Color:");
-    gtk_widget_set_halign(label, GTK_ALIGN_END);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-    win->aitoken_fg2_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->aitoken_fg2_color_button), TRUE);
-    gtk_grid_attach(GTK_GRID(grid), win->aitoken_fg2_color_button, 1, row++, 1, 1);
-
-    /* Info label */
-    label = gtk_label_new("Note: Module-specific colors override global colors when set.");
-    gtk_widget_set_halign(label, GTK_ALIGN_START);
-    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
-    gtk_widget_set_opacity(label, 0.7);
-    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+    /* Note: Colors are managed in the Colors tab */
 
     return grid;
 }
@@ -604,7 +441,36 @@ static GtkWidget* create_colors_tab(XRGPreferencesWindow *win) {
     gint row = 0;
 
     GtkWidget *label = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(label), "<b>Global Colors</b>");
+    gtk_label_set_markup(GTK_LABEL(label), "<b>Color Theme</b>");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+
+    /* Theme selector */
+    label = gtk_label_new("Theme Preset:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+
+    win->theme_combo = gtk_combo_box_text_new();
+    for (gint i = 0; i < xrg_preferences_get_theme_count(); i++) {
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->theme_combo),
+                                        xrg_preferences_get_theme_name(i));
+    }
+    g_signal_connect(win->theme_combo, "changed", G_CALLBACK(on_theme_changed), win);
+    gtk_grid_attach(GTK_GRID(grid), win->theme_combo, 1, row++, 1, 1);
+
+    /* Info label */
+    label = gtk_label_new("Select a theme preset or customize individual colors below.");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+    gtk_widget_set_opacity(label, 0.7);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+
+    /* Separator */
+    gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
+
+    /* Global Colors header */
+    label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(label), "<b>Custom Colors</b>");
     gtk_widget_set_halign(label, GTK_ALIGN_START);
     gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
 
@@ -685,40 +551,42 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->cpu_enabled_check), prefs->show_cpu);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->cpu_height_spin), prefs->graph_height_cpu);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->cpu_update_interval_spin), prefs->normal_update_interval);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->cpu_bg_color_button), &prefs->graph_bg_color);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->cpu_fg1_color_button), &prefs->graph_fg1_color);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->cpu_fg2_color_button), &prefs->graph_fg2_color);
+    /* Note: CPU colors removed - use Colors tab instead */
 
     /* Memory module tab */
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->memory_enabled_check), prefs->show_memory);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->memory_height_spin), prefs->graph_height_memory);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->memory_bg_color_button), &prefs->memory_bg_color);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->memory_fg1_color_button), &prefs->memory_fg1_color);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->memory_fg2_color_button), &prefs->memory_fg2_color);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->memory_fg3_color_button), &prefs->memory_fg3_color);
+    /* Note: Memory colors removed - use Colors tab instead */
 
     /* Network module tab */
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->network_enabled_check), prefs->show_network);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->network_height_spin), prefs->graph_height_network);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->network_bg_color_button), &prefs->network_bg_color);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->network_fg1_color_button), &prefs->network_fg1_color);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->network_fg2_color_button), &prefs->network_fg2_color);
+    /* Note: Network colors removed - use Colors tab instead */
 
     /* Disk module tab */
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->disk_enabled_check), prefs->show_disk);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->disk_height_spin), prefs->graph_height_disk);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->disk_bg_color_button), &prefs->disk_bg_color);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->disk_fg1_color_button), &prefs->disk_fg1_color);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->disk_fg2_color_button), &prefs->disk_fg2_color);
+    /* Note: Disk colors removed - use Colors tab instead */
+
+    /* GPU module tab */
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->gpu_enabled_check), prefs->show_gpu);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->gpu_height_spin), prefs->graph_height_gpu);
+    /* Note: GPU colors removed - use Colors tab instead */
 
     /* AI Token module tab */
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->aitoken_enabled_check), prefs->show_aitoken);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->aitoken_height_spin), prefs->graph_height_aitoken);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->aitoken_bg_color_button), &prefs->aitoken_bg_color);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->aitoken_fg1_color_button), &prefs->aitoken_fg1_color);
-    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->aitoken_fg2_color_button), &prefs->aitoken_fg2_color);
+    /* Note: AIToken colors removed - use Colors tab instead */
 
     /* Colors tab */
+    /* Load color buttons FIRST (before setting theme combo, to avoid triggering callback) */
+    g_message("Loading colors to UI - BG: (%.3f, %.3f, %.3f, %.3f)",
+              prefs->background_color.red, prefs->background_color.green,
+              prefs->background_color.blue, prefs->background_color.alpha);
+    g_message("Loading colors to UI - Graph FG1: (%.3f, %.3f, %.3f, %.3f)",
+              prefs->graph_fg1_color.red, prefs->graph_fg1_color.green,
+              prefs->graph_fg1_color.blue, prefs->graph_fg1_color.alpha);
+
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->bg_color_button), &prefs->background_color);
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->graph_bg_color_button), &prefs->graph_bg_color);
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->graph_fg1_color_button), &prefs->graph_fg1_color);
@@ -726,6 +594,23 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->graph_fg3_color_button), &prefs->graph_fg3_color);
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->text_color_button), &prefs->text_color);
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->border_color_button), &prefs->border_color);
+
+    /* Set current theme in dropdown (block signal to avoid overwriting colors) */
+    const gchar *current_theme = xrg_preferences_get_current_theme(prefs);
+    if (current_theme != NULL) {
+        /* Block the "changed" signal while we set the active item */
+        g_signal_handlers_block_by_func(win->theme_combo, G_CALLBACK(on_theme_changed), win);
+
+        for (gint i = 0; i < xrg_preferences_get_theme_count(); i++) {
+            if (g_strcmp0(xrg_preferences_get_theme_name(i), current_theme) == 0) {
+                gtk_combo_box_set_active(GTK_COMBO_BOX(win->theme_combo), i);
+                break;
+            }
+        }
+
+        /* Unblock the signal */
+        g_signal_handlers_unblock_by_func(win->theme_combo, G_CALLBACK(on_theme_changed), win);
+    }
 }
 
 /**
@@ -746,38 +631,32 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     prefs->show_cpu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->cpu_enabled_check));
     prefs->graph_height_cpu = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->cpu_height_spin));
     prefs->normal_update_interval = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->cpu_update_interval_spin));
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->cpu_bg_color_button), &prefs->graph_bg_color);
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->cpu_fg1_color_button), &prefs->graph_fg1_color);
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->cpu_fg2_color_button), &prefs->graph_fg2_color);
+    /* Note: CPU colors removed - use Colors tab instead */
 
     /* Memory module tab */
     prefs->show_memory = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->memory_enabled_check));
     prefs->graph_height_memory = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->memory_height_spin));
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->memory_bg_color_button), &prefs->memory_bg_color);
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->memory_fg1_color_button), &prefs->memory_fg1_color);
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->memory_fg2_color_button), &prefs->memory_fg2_color);
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->memory_fg3_color_button), &prefs->memory_fg3_color);
+    /* Note: Memory colors removed - use Colors tab instead */
 
     /* Network module tab */
     prefs->show_network = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->network_enabled_check));
     prefs->graph_height_network = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->network_height_spin));
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->network_bg_color_button), &prefs->network_bg_color);
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->network_fg1_color_button), &prefs->network_fg1_color);
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->network_fg2_color_button), &prefs->network_fg2_color);
+    /* Note: Network colors removed - use Colors tab instead */
 
     /* Disk module tab */
     prefs->show_disk = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->disk_enabled_check));
     prefs->graph_height_disk = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->disk_height_spin));
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->disk_bg_color_button), &prefs->disk_bg_color);
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->disk_fg1_color_button), &prefs->disk_fg1_color);
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->disk_fg2_color_button), &prefs->disk_fg2_color);
+    /* Note: Disk colors removed - use Colors tab instead */
+
+    /* GPU module tab */
+    prefs->show_gpu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->gpu_enabled_check));
+    prefs->graph_height_gpu = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->gpu_height_spin));
+    /* Note: GPU colors removed - use Colors tab instead */
 
     /* AI Token module tab */
     prefs->show_aitoken = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->aitoken_enabled_check));
     prefs->graph_height_aitoken = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->aitoken_height_spin));
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->aitoken_bg_color_button), &prefs->aitoken_bg_color);
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->aitoken_fg1_color_button), &prefs->aitoken_fg1_color);
-    gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->aitoken_fg2_color_button), &prefs->aitoken_fg2_color);
+    /* Note: AIToken colors removed - use Colors tab instead */
 
     /* Colors tab */
     gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->bg_color_button), &prefs->background_color);
@@ -788,8 +667,42 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->text_color_button), &prefs->text_color);
     gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->border_color_button), &prefs->border_color);
 
+    g_message("Saving colors from UI - BG: (%.3f, %.3f, %.3f, %.3f)",
+              prefs->background_color.red, prefs->background_color.green,
+              prefs->background_color.blue, prefs->background_color.alpha);
+    g_message("Saving colors from UI - Graph FG1: (%.3f, %.3f, %.3f, %.3f)",
+              prefs->graph_fg1_color.red, prefs->graph_fg1_color.green,
+              prefs->graph_fg1_color.blue, prefs->graph_fg1_color.alpha);
+
     /* Save to file */
     xrg_preferences_save(prefs);
+}
+
+/**
+ * Theme selection callback - applies theme and updates color buttons
+ */
+static void on_theme_changed(GtkComboBox *combo, gpointer user_data) {
+    XRGPreferencesWindow *win = (XRGPreferencesWindow *)user_data;
+    gchar *theme_name = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo));
+
+    if (theme_name == NULL) {
+        return;  /* No selection */
+    }
+
+    /* Apply the theme to preferences */
+    xrg_preferences_apply_theme(win->prefs, theme_name);
+
+    /* Update all color buttons to reflect the new theme */
+    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->bg_color_button), &win->prefs->background_color);
+    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->graph_bg_color_button), &win->prefs->graph_bg_color);
+    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->graph_fg1_color_button), &win->prefs->graph_fg1_color);
+    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->graph_fg2_color_button), &win->prefs->graph_fg2_color);
+    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->graph_fg3_color_button), &win->prefs->graph_fg3_color);
+    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->text_color_button), &win->prefs->text_color);
+    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->border_color_button), &win->prefs->border_color);
+
+    g_message("Applied theme: %s", theme_name);
+    g_free(theme_name);
 }
 
 /**
@@ -801,6 +714,11 @@ static void on_response(GtkDialog *dialog, gint response_id, gpointer user_data)
     if (response_id == GTK_RESPONSE_OK || response_id == GTK_RESPONSE_APPLY) {
         save_ui_to_preferences(win);
         g_message("Preferences saved");
+
+        /* Call the applied callback if set */
+        if (win->applied_callback) {
+            win->applied_callback(win->callback_user_data);
+        }
     }
 
     if (response_id == GTK_RESPONSE_OK || response_id == GTK_RESPONSE_CANCEL) {
@@ -823,6 +741,17 @@ void xrg_preferences_window_show(XRGPreferencesWindow *win) {
 void xrg_preferences_window_hide(XRGPreferencesWindow *win) {
     g_return_if_fail(win != NULL);
     gtk_widget_hide(win->window);
+}
+
+/**
+ * Set callback to be called when preferences are applied
+ */
+void xrg_preferences_window_set_applied_callback(XRGPreferencesWindow *win,
+                                                   XRGPreferencesAppliedCallback callback,
+                                                   gpointer user_data) {
+    g_return_if_fail(win != NULL);
+    win->applied_callback = callback;
+    win->callback_user_data = user_data;
 }
 
 /**

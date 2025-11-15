@@ -84,6 +84,9 @@ struct _XRGPreferences {
     gchar *aitoken_db_path;
     gchar *aitoken_otel_endpoint;
     gboolean aitoken_auto_detect;
+
+    /* Theme settings */
+    gchar *current_theme;  /* Name of current theme */
 };
 
 /* Constructor and destructor */
@@ -101,5 +104,11 @@ void xrg_preferences_set_show_cpu(XRGPreferences *prefs, gboolean show);
 
 GdkRGBA xrg_preferences_get_graph_fg1_color(XRGPreferences *prefs);
 void xrg_preferences_set_graph_fg1_color(XRGPreferences *prefs, GdkRGBA *color);
+
+/* Theme functions */
+void xrg_preferences_apply_theme(XRGPreferences *prefs, const gchar *theme_name);
+const gchar* xrg_preferences_get_current_theme(XRGPreferences *prefs);
+gint xrg_preferences_get_theme_count(void);
+const gchar* xrg_preferences_get_theme_name(gint index);
 
 #endif /* XRG_PREFERENCES_H */

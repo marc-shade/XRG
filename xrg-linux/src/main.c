@@ -9,6 +9,7 @@
 #include "collectors/memory_collector.h"
 #include "collectors/network_collector.h"
 #include "collectors/disk_collector.h"
+#include "collectors/gpu_collector.h"
 #include "collectors/aitoken_collector.h"
 #include "ui/preferences_window.h"
 
@@ -21,21 +22,24 @@ typedef struct {
     GtkWidget *vbox;
     GtkWidget *title_bar;
     GtkWidget *resize_grip;
+    GtkWidget *cpu_box;
     GtkWidget *cpu_drawing_area;
-    GtkWidget *cpu_activity_bar;
+    GtkWidget *memory_box;
     GtkWidget *memory_drawing_area;
-    GtkWidget *memory_activity_bar;
+    GtkWidget *network_box;
     GtkWidget *network_drawing_area;
-    GtkWidget *network_activity_bar;
+    GtkWidget *disk_box;
     GtkWidget *disk_drawing_area;
-    GtkWidget *disk_activity_bar;
+    GtkWidget *gpu_box;
+    GtkWidget *gpu_drawing_area;
+    GtkWidget *aitoken_box;
     GtkWidget *aitoken_drawing_area;
-    GtkWidget *aitoken_activity_bar;
     XRGPreferences *prefs;
     XRGCPUCollector *cpu_collector;
     XRGMemoryCollector *memory_collector;
     XRGNetworkCollector *network_collector;
     XRGDiskCollector *disk_collector;
+    XRGGPUCollector *gpu_collector;
     XRGAITokenCollector *aitoken_collector;
     XRGPreferencesWindow *prefs_window;
     guint update_timer_id;
@@ -61,29 +65,34 @@ static GtkWidget* create_title_bar(AppState *state);
 static GtkWidget* create_resize_grip(AppState *state);
 static void on_title_bar_realize(GtkWidget *widget, gpointer user_data);
 static void on_resize_grip_realize(GtkWidget *widget, gpointer user_data);
+static gboolean on_window_configure(GtkWidget *widget, GdkEventConfigure *event, gpointer user_data);
 static gboolean on_title_bar_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
 static gboolean on_title_bar_button_release(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
 static gboolean on_title_bar_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
 static gboolean on_draw_title_bar(GtkWidget *widget, cairo_t *cr, gpointer user_data);
-static gboolean on_draw_cpu_activity(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_cpu_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
+static gboolean on_cpu_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
 static void show_cpu_context_menu(AppState *state, GdkEventButton *event);
-static gboolean on_draw_memory_activity(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_draw_memory(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_memory_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
+static gboolean on_memory_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
 static void show_memory_context_menu(AppState *state, GdkEventButton *event);
-static gboolean on_draw_network_activity(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_draw_network(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_network_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
+static gboolean on_network_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
 static void show_network_context_menu(AppState *state, GdkEventButton *event);
-static gboolean on_draw_disk_activity(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_draw_disk(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_disk_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
+static gboolean on_disk_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
 static void show_disk_context_menu(AppState *state, GdkEventButton *event);
-static gboolean on_draw_aitoken_activity(GtkWidget *widget, cairo_t *cr, gpointer user_data);
+static gboolean on_draw_gpu(GtkWidget *widget, cairo_t *cr, gpointer user_data);
+static gboolean on_gpu_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
+static gboolean on_gpu_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
+static void show_gpu_context_menu(AppState *state, GdkEventButton *event);
 static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_aitoken_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
+static gboolean on_aitoken_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
 static void show_aitoken_context_menu(AppState *state, GdkEventButton *event);
 static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
 static gboolean on_resize_grip_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
@@ -92,6 +101,7 @@ static gboolean on_resize_grip_motion_notify(GtkWidget *widget, GdkEventMotion *
 static gboolean on_draw_resize_grip(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_update_timer(gpointer user_data);
 static void on_window_destroy(GtkWidget *widget, gpointer user_data);
+static void on_preferences_applied(gpointer user_data);
 static void snap_to_edge(GtkWindow *window, gint *x, gint *y);
 
 /**
@@ -233,6 +243,32 @@ static gboolean on_draw_title_bar(GtkWidget *widget, cairo_t *cr, gpointer user_
 }
 
 /**
+ * Window configure event - fired when window is moved or resized
+ */
+static gboolean on_window_configure(GtkWidget *widget, GdkEventConfigure *event, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+
+    /* Get actual window position (event->x/y don't work on Wayland) */
+    gint x, y, width, height;
+    gtk_window_get_position(GTK_WINDOW(widget), &x, &y);
+    gtk_window_get_size(GTK_WINDOW(widget), &width, &height);
+
+    /* Save new position and size */
+    state->prefs->window_x = x;
+    state->prefs->window_y = y;
+    state->prefs->window_width = width;
+    state->prefs->window_height = height - TITLE_BAR_HEIGHT;
+
+    g_message("Window configured: x=%d, y=%d, width=%d, height=%d",
+              x, y, width, height - TITLE_BAR_HEIGHT);
+
+    /* Save immediately so position is always current */
+    xrg_preferences_save(state->prefs);
+
+    return FALSE;  /* Let other handlers process this event too */
+}
+
+/**
  * Title bar button press (start dragging)
  */
 static gboolean on_title_bar_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
@@ -242,12 +278,16 @@ static gboolean on_title_bar_button_press(GtkWidget *widget, GdkEventButton *eve
         state->is_dragging = TRUE;
         state->drag_start_x = event->x_root;
         state->drag_start_y = event->y_root;
-        
+
         /* Get current window position */
-        gtk_window_get_position(GTK_WINDOW(state->window), 
-                               &state->window_start_x, 
+        gtk_window_get_position(GTK_WINDOW(state->window),
+                               &state->window_start_x,
                                &state->window_start_y);
-        
+
+        g_message("Drag started at (%.0f, %.0f), window at (%d, %d)",
+                  event->x_root, event->y_root,
+                  state->window_start_x, state->window_start_y);
+
         return TRUE;
     }
     
@@ -259,24 +299,25 @@ static gboolean on_title_bar_button_press(GtkWidget *widget, GdkEventButton *eve
  */
 static gboolean on_title_bar_button_release(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
     AppState *state = (AppState *)user_data;
-    
+
     if (event->button == 1 && state->is_dragging) {
         state->is_dragging = FALSE;
-        
+
         /* Get current position and snap to edge */
         gint x, y;
         gtk_window_get_position(GTK_WINDOW(state->window), &x, &y);
         snap_to_edge(GTK_WINDOW(state->window), &x, &y);
         gtk_window_move(GTK_WINDOW(state->window), x, y);
-        
+
         /* Save new position */
         state->prefs->window_x = x;
         state->prefs->window_y = y;
+        g_message("Saving window position: x=%d, y=%d", x, y);
         xrg_preferences_save(state->prefs);
-        
+
         return TRUE;
     }
-    
+
     return FALSE;
 }
 
@@ -451,11 +492,38 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
         g_message("Using default preferences (first run)");
     }
 
+    /* Sanity check: prevent loading black colors (corrupted config) */
+    if (state->prefs->graph_fg1_color.red < 0.01 &&
+        state->prefs->graph_fg1_color.green < 0.01 &&
+        state->prefs->graph_fg1_color.blue < 0.01) {
+        g_warning("Config file has corrupted black colors! Restoring Cyberpunk theme defaults...");
+        xrg_preferences_apply_theme(state->prefs, "Cyberpunk");
+        xrg_preferences_save(state->prefs);  /* Save immediately to fix config file */
+    }
+
+    /* Debug: Print loaded colors */
+    g_message("Loaded colors - BG: (%.3f, %.3f, %.3f, %.3f)",
+              state->prefs->background_color.red,
+              state->prefs->background_color.green,
+              state->prefs->background_color.blue,
+              state->prefs->background_color.alpha);
+    g_message("Loaded colors - Graph FG1: (%.3f, %.3f, %.3f, %.3f)",
+              state->prefs->graph_fg1_color.red,
+              state->prefs->graph_fg1_color.green,
+              state->prefs->graph_fg1_color.blue,
+              state->prefs->graph_fg1_color.alpha);
+    g_message("Loaded colors - Graph FG2: (%.3f, %.3f, %.3f, %.3f)",
+              state->prefs->graph_fg2_color.red,
+              state->prefs->graph_fg2_color.green,
+              state->prefs->graph_fg2_color.blue,
+              state->prefs->graph_fg2_color.alpha);
+
     /* Initialize collectors */
     state->cpu_collector = xrg_cpu_collector_new(200);  /* 200 data points */
     state->memory_collector = xrg_memory_collector_new(200);
     state->network_collector = xrg_network_collector_new(200);
     state->disk_collector = xrg_disk_collector_new(200);
+    state->gpu_collector = xrg_gpu_collector_new(200);
     state->aitoken_collector = xrg_aitoken_collector_new(200);
 
     /* Create main window */
@@ -499,13 +567,7 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     gtk_overlay_add_overlay(GTK_OVERLAY(overlay), state->resize_grip);
 
     /* Create CPU module container */
-    GtkWidget *cpu_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-
-    /* Create CPU activity bar */
-    state->cpu_activity_bar = gtk_drawing_area_new();
-    gtk_widget_set_size_request(state->cpu_activity_bar, state->prefs->graph_width, 20);
-    g_signal_connect(state->cpu_activity_bar, "draw", G_CALLBACK(on_draw_cpu_activity), state);
-    gtk_box_pack_start(GTK_BOX(cpu_box), state->cpu_activity_bar, FALSE, FALSE, 0);
+    state->cpu_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
     /* Create CPU graph */
     state->cpu_drawing_area = gtk_drawing_area_new();
@@ -513,22 +575,21 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
                                 state->prefs->graph_width,
                                 state->prefs->graph_height_cpu);
 
-    /* Enable button press events for context menu */
-    gtk_widget_add_events(state->cpu_drawing_area, GDK_BUTTON_PRESS_MASK);
+    /* Enable tooltips */
+    gtk_widget_set_has_tooltip(state->cpu_drawing_area, TRUE);
+
+    /* Enable button press and motion events */
+    gtk_widget_add_events(state->cpu_drawing_area,
+                         GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK);
     g_signal_connect(state->cpu_drawing_area, "draw", G_CALLBACK(on_draw_cpu), state);
     g_signal_connect(state->cpu_drawing_area, "button-press-event", G_CALLBACK(on_cpu_button_press), state);
-    gtk_box_pack_start(GTK_BOX(cpu_box), state->cpu_drawing_area, TRUE, TRUE, 0);
+    g_signal_connect(state->cpu_drawing_area, "motion-notify-event", G_CALLBACK(on_cpu_motion_notify), state);
+    gtk_box_pack_start(GTK_BOX(state->cpu_box), state->cpu_drawing_area, TRUE, TRUE, 0);
 
-    gtk_box_pack_start(GTK_BOX(state->vbox), cpu_box, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(state->vbox), state->cpu_box, TRUE, TRUE, 0);
 
     /* Create Memory module container */
-    GtkWidget *memory_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-
-    /* Create Memory activity bar */
-    state->memory_activity_bar = gtk_drawing_area_new();
-    gtk_widget_set_size_request(state->memory_activity_bar, state->prefs->graph_width, 20);
-    g_signal_connect(state->memory_activity_bar, "draw", G_CALLBACK(on_draw_memory_activity), state);
-    gtk_box_pack_start(GTK_BOX(memory_box), state->memory_activity_bar, FALSE, FALSE, 0);
+    state->memory_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
     /* Create Memory graph */
     state->memory_drawing_area = gtk_drawing_area_new();
@@ -536,22 +597,21 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
                                 state->prefs->graph_width,
                                 state->prefs->graph_height_memory);
 
-    /* Enable button press events for context menu */
-    gtk_widget_add_events(state->memory_drawing_area, GDK_BUTTON_PRESS_MASK);
+    /* Enable tooltips */
+    gtk_widget_set_has_tooltip(state->memory_drawing_area, TRUE);
+
+    /* Enable button press and motion events */
+    gtk_widget_add_events(state->memory_drawing_area,
+                         GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK);
     g_signal_connect(state->memory_drawing_area, "draw", G_CALLBACK(on_draw_memory), state);
     g_signal_connect(state->memory_drawing_area, "button-press-event", G_CALLBACK(on_memory_button_press), state);
-    gtk_box_pack_start(GTK_BOX(memory_box), state->memory_drawing_area, TRUE, TRUE, 0);
+    g_signal_connect(state->memory_drawing_area, "motion-notify-event", G_CALLBACK(on_memory_motion_notify), state);
+    gtk_box_pack_start(GTK_BOX(state->memory_box), state->memory_drawing_area, TRUE, TRUE, 0);
 
-    gtk_box_pack_start(GTK_BOX(state->vbox), memory_box, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(state->vbox), state->memory_box, TRUE, TRUE, 0);
 
     /* Create Network module container */
-    GtkWidget *network_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-
-    /* Create Network activity bar */
-    state->network_activity_bar = gtk_drawing_area_new();
-    gtk_widget_set_size_request(state->network_activity_bar, state->prefs->graph_width, 20);
-    g_signal_connect(state->network_activity_bar, "draw", G_CALLBACK(on_draw_network_activity), state);
-    gtk_box_pack_start(GTK_BOX(network_box), state->network_activity_bar, FALSE, FALSE, 0);
+    state->network_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
     /* Create Network graph */
     state->network_drawing_area = gtk_drawing_area_new();
@@ -559,22 +619,21 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
                                 state->prefs->graph_width,
                                 state->prefs->graph_height_network);
 
-    /* Enable button press events for context menu */
-    gtk_widget_add_events(state->network_drawing_area, GDK_BUTTON_PRESS_MASK);
+    /* Enable tooltips */
+    gtk_widget_set_has_tooltip(state->network_drawing_area, TRUE);
+
+    /* Enable button press and motion events */
+    gtk_widget_add_events(state->network_drawing_area,
+                         GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK);
     g_signal_connect(state->network_drawing_area, "draw", G_CALLBACK(on_draw_network), state);
     g_signal_connect(state->network_drawing_area, "button-press-event", G_CALLBACK(on_network_button_press), state);
-    gtk_box_pack_start(GTK_BOX(network_box), state->network_drawing_area, TRUE, TRUE, 0);
+    g_signal_connect(state->network_drawing_area, "motion-notify-event", G_CALLBACK(on_network_motion_notify), state);
+    gtk_box_pack_start(GTK_BOX(state->network_box), state->network_drawing_area, TRUE, TRUE, 0);
 
-    gtk_box_pack_start(GTK_BOX(state->vbox), network_box, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(state->vbox), state->network_box, TRUE, TRUE, 0);
 
     /* Create Disk module container */
-    GtkWidget *disk_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-
-    /* Create Disk activity bar */
-    state->disk_activity_bar = gtk_drawing_area_new();
-    gtk_widget_set_size_request(state->disk_activity_bar, state->prefs->graph_width, 20);
-    g_signal_connect(state->disk_activity_bar, "draw", G_CALLBACK(on_draw_disk_activity), state);
-    gtk_box_pack_start(GTK_BOX(disk_box), state->disk_activity_bar, FALSE, FALSE, 0);
+    state->disk_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
     /* Create Disk graph */
     state->disk_drawing_area = gtk_drawing_area_new();
@@ -582,22 +641,43 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
                                 state->prefs->graph_width,
                                 state->prefs->graph_height_disk);
 
-    /* Enable button press events for context menu */
-    gtk_widget_add_events(state->disk_drawing_area, GDK_BUTTON_PRESS_MASK);
+    /* Enable tooltips */
+    gtk_widget_set_has_tooltip(state->disk_drawing_area, TRUE);
+
+    /* Enable button press and motion events */
+    gtk_widget_add_events(state->disk_drawing_area,
+                         GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK);
     g_signal_connect(state->disk_drawing_area, "draw", G_CALLBACK(on_draw_disk), state);
     g_signal_connect(state->disk_drawing_area, "button-press-event", G_CALLBACK(on_disk_button_press), state);
-    gtk_box_pack_start(GTK_BOX(disk_box), state->disk_drawing_area, TRUE, TRUE, 0);
+    g_signal_connect(state->disk_drawing_area, "motion-notify-event", G_CALLBACK(on_disk_motion_notify), state);
+    gtk_box_pack_start(GTK_BOX(state->disk_box), state->disk_drawing_area, TRUE, TRUE, 0);
 
-    gtk_box_pack_start(GTK_BOX(state->vbox), disk_box, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(state->vbox), state->disk_box, TRUE, TRUE, 0);
+
+    /* Create GPU module container */
+    state->gpu_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+
+    /* Create GPU graph */
+    state->gpu_drawing_area = gtk_drawing_area_new();
+    gtk_widget_set_size_request(state->gpu_drawing_area,
+                                state->prefs->graph_width,
+                                state->prefs->graph_height_gpu);
+
+    /* Enable tooltips */
+    gtk_widget_set_has_tooltip(state->gpu_drawing_area, TRUE);
+
+    /* Enable button press and motion events */
+    gtk_widget_add_events(state->gpu_drawing_area,
+                         GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK);
+    g_signal_connect(state->gpu_drawing_area, "draw", G_CALLBACK(on_draw_gpu), state);
+    g_signal_connect(state->gpu_drawing_area, "button-press-event", G_CALLBACK(on_gpu_button_press), state);
+    g_signal_connect(state->gpu_drawing_area, "motion-notify-event", G_CALLBACK(on_gpu_motion_notify), state);
+    gtk_box_pack_start(GTK_BOX(state->gpu_box), state->gpu_drawing_area, TRUE, TRUE, 0);
+
+    gtk_box_pack_start(GTK_BOX(state->vbox), state->gpu_box, TRUE, TRUE, 0);
 
     /* Create AI Token module container */
-    GtkWidget *aitoken_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-
-    /* Create AI Token activity bar */
-    state->aitoken_activity_bar = gtk_drawing_area_new();
-    gtk_widget_set_size_request(state->aitoken_activity_bar, state->prefs->graph_width, 20);
-    g_signal_connect(state->aitoken_activity_bar, "draw", G_CALLBACK(on_draw_aitoken_activity), state);
-    gtk_box_pack_start(GTK_BOX(aitoken_box), state->aitoken_activity_bar, FALSE, FALSE, 0);
+    state->aitoken_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
     /* Create AI Token graph */
     state->aitoken_drawing_area = gtk_drawing_area_new();
@@ -605,22 +685,39 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
                                 state->prefs->graph_width,
                                 state->prefs->graph_height_aitoken);
 
-    /* Enable button press events for context menu */
-    gtk_widget_add_events(state->aitoken_drawing_area, GDK_BUTTON_PRESS_MASK);
+    /* Enable tooltips */
+    gtk_widget_set_has_tooltip(state->aitoken_drawing_area, TRUE);
+
+    /* Enable button press and motion events */
+    gtk_widget_add_events(state->aitoken_drawing_area,
+                         GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK);
     g_signal_connect(state->aitoken_drawing_area, "draw", G_CALLBACK(on_draw_aitoken), state);
     g_signal_connect(state->aitoken_drawing_area, "button-press-event", G_CALLBACK(on_aitoken_button_press), state);
-    gtk_box_pack_start(GTK_BOX(aitoken_box), state->aitoken_drawing_area, TRUE, TRUE, 0);
+    g_signal_connect(state->aitoken_drawing_area, "motion-notify-event", G_CALLBACK(on_aitoken_motion_notify), state);
+    gtk_box_pack_start(GTK_BOX(state->aitoken_box), state->aitoken_drawing_area, TRUE, TRUE, 0);
 
-    gtk_box_pack_start(GTK_BOX(state->vbox), aitoken_box, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(state->vbox), state->aitoken_box, TRUE, TRUE, 0);
+
+    /* Set initial visibility based on preferences */
+    gtk_widget_set_visible(state->cpu_box, state->prefs->show_cpu);
+    gtk_widget_set_visible(state->memory_box, state->prefs->show_memory);
+    gtk_widget_set_visible(state->network_box, state->prefs->show_network);
+    gtk_widget_set_visible(state->disk_box, state->prefs->show_disk);
+    gtk_widget_set_visible(state->gpu_box, state->prefs->show_gpu);
+    gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
 
     /* Connect keyboard events */
     g_signal_connect(state->window, "key-press-event", G_CALLBACK(on_key_press), state);
+
+    /* Connect configure event (window moved or resized) */
+    g_signal_connect(state->window, "configure-event", G_CALLBACK(on_window_configure), state);
 
     /* Connect destroy signal */
     g_signal_connect(state->window, "destroy", G_CALLBACK(on_window_destroy), state);
 
     /* Create preferences window */
     state->prefs_window = xrg_preferences_window_new(GTK_WINDOW(state->window), state->prefs);
+    xrg_preferences_window_set_applied_callback(state->prefs_window, on_preferences_applied, state);
 
     /* Start update timer (1 second) */
     state->update_timer_id = g_timeout_add(state->prefs->normal_update_interval,
@@ -677,6 +774,43 @@ static void show_cpu_context_menu(AppState *state, GdkEventButton *event) {
 }
 
 /**
+ * CPU motion notify (tooltip)
+ */
+static gboolean on_cpu_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(widget, &allocation);
+
+    /* Get datasets */
+    XRGDataset *user_dataset = xrg_cpu_collector_get_user_dataset(state->cpu_collector);
+    XRGDataset *system_dataset = xrg_cpu_collector_get_system_dataset(state->cpu_collector);
+    gint count = xrg_dataset_get_count(user_dataset);
+
+    if (count < 2) {
+        gtk_widget_set_tooltip_text(widget, "CPU: Waiting for data...");
+        return FALSE;
+    }
+
+    /* Calculate which data point the mouse is over */
+    gint index = (gint)((event->x / allocation.width) * count);
+    if (index < 0) index = 0;
+    if (index >= count) index = count - 1;
+
+    /* Get values at this index */
+    gdouble user_val = xrg_dataset_get_value(user_dataset, index);
+    gdouble system_val = xrg_dataset_get_value(system_dataset, index);
+    gdouble total_val = user_val + system_val;
+
+    /* Set tooltip */
+    gchar *tooltip = g_strdup_printf("CPU Usage: %.1f%%\nUser: %.1f%% | System: %.1f%%",
+                                     total_val, user_val, system_val);
+    gtk_widget_set_tooltip_text(widget, tooltip);
+    g_free(tooltip);
+
+    return FALSE;
+}
+
+/**
  * Memory module button press (context menu)
  */
 static gboolean on_memory_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
@@ -726,6 +860,53 @@ static void show_memory_context_menu(AppState *state, GdkEventButton *event) {
 }
 
 /**
+ * Memory motion notify (tooltip)
+ */
+static gboolean on_memory_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(widget, &allocation);
+
+    /* Get datasets */
+    XRGDataset *used_dataset = xrg_memory_collector_get_used_dataset(state->memory_collector);
+    XRGDataset *wired_dataset = xrg_memory_collector_get_wired_dataset(state->memory_collector);
+    XRGDataset *cached_dataset = xrg_memory_collector_get_cached_dataset(state->memory_collector);
+    gint count = xrg_dataset_get_count(used_dataset);
+
+    if (count < 2) {
+        gtk_widget_set_tooltip_text(widget, "Memory: Waiting for data...");
+        return FALSE;
+    }
+
+    /* Calculate which data point the mouse is over */
+    gint index = (gint)((event->x / allocation.width) * count);
+    if (index < 0) index = 0;
+    if (index >= count) index = count - 1;
+
+    /* Get values at this index (percentages) */
+    gdouble used_val = xrg_dataset_get_value(used_dataset, index);
+    gdouble wired_val = xrg_dataset_get_value(wired_dataset, index);
+    gdouble cached_val = xrg_dataset_get_value(cached_dataset, index);
+    gdouble total_pct = used_val + wired_val + cached_val;
+
+    /* Calculate absolute values in GB */
+    guint64 total_mem = xrg_memory_collector_get_total_memory(state->memory_collector);
+    gdouble total_gb = total_mem / (1024.0 * 1024.0 * 1024.0);
+    gdouble used_gb = (used_val / 100.0) * total_gb;
+    gdouble wired_gb = (wired_val / 100.0) * total_gb;
+    gdouble cached_gb = (cached_val / 100.0) * total_gb;
+
+    /* Set tooltip */
+    gchar *tooltip = g_strdup_printf("Memory Usage: %.1f%% (%.1f GB)\nUsed: %.1f GB | Wired: %.1f GB | Cached: %.1f GB",
+                                     total_pct, (total_pct / 100.0) * total_gb,
+                                     used_gb, wired_gb, cached_gb);
+    gtk_widget_set_tooltip_text(widget, tooltip);
+    g_free(tooltip);
+
+    return FALSE;
+}
+
+/**
  * Network module button press (context menu)
  */
 static gboolean on_network_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
@@ -771,6 +952,42 @@ static void show_network_context_menu(AppState *state, GdkEventButton *event) {
 }
 
 /**
+ * Network motion notify (tooltip)
+ */
+static gboolean on_network_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(widget, &allocation);
+
+    /* Get datasets */
+    XRGDataset *download_dataset = xrg_network_collector_get_download_dataset(state->network_collector);
+    XRGDataset *upload_dataset = xrg_network_collector_get_upload_dataset(state->network_collector);
+    gint count = xrg_dataset_get_count(download_dataset);
+
+    if (count < 2) {
+        gtk_widget_set_tooltip_text(widget, "Network: Waiting for data...");
+        return FALSE;
+    }
+
+    /* Calculate which data point the mouse is over */
+    gint index = (gint)((event->x / allocation.width) * count);
+    if (index < 0) index = 0;
+    if (index >= count) index = count - 1;
+
+    /* Get values at this index (MB/s) */
+    gdouble download_val = xrg_dataset_get_value(download_dataset, index);
+    gdouble upload_val = xrg_dataset_get_value(upload_dataset, index);
+
+    /* Set tooltip */
+    gchar *tooltip = g_strdup_printf("Network Traffic\nDownload: %.2f MB/s\nUpload: %.2f MB/s",
+                                     download_val, upload_val);
+    gtk_widget_set_tooltip_text(widget, tooltip);
+    g_free(tooltip);
+
+    return FALSE;
+}
+
+/**
  * Handle button press on Disk drawing area (for context menu)
  */
 static gboolean on_disk_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
@@ -813,6 +1030,42 @@ static void show_disk_context_menu(AppState *state, GdkEventButton *event) {
 
     gtk_widget_show_all(menu);
     gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+}
+
+/**
+ * Disk motion notify (tooltip)
+ */
+static gboolean on_disk_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(widget, &allocation);
+
+    /* Get datasets */
+    XRGDataset *read_dataset = xrg_disk_collector_get_read_dataset(state->disk_collector);
+    XRGDataset *write_dataset = xrg_disk_collector_get_write_dataset(state->disk_collector);
+    gint count = xrg_dataset_get_count(read_dataset);
+
+    if (count < 2) {
+        gtk_widget_set_tooltip_text(widget, "Disk: Waiting for data...");
+        return FALSE;
+    }
+
+    /* Calculate which data point the mouse is over */
+    gint index = (gint)((event->x / allocation.width) * count);
+    if (index < 0) index = 0;
+    if (index >= count) index = count - 1;
+
+    /* Get values at this index (MB/s) */
+    gdouble read_val = xrg_dataset_get_value(read_dataset, index);
+    gdouble write_val = xrg_dataset_get_value(write_dataset, index);
+
+    /* Set tooltip */
+    gchar *tooltip = g_strdup_printf("Disk Activity\nRead: %.2f MB/s\nWrite: %.2f MB/s",
+                                     read_val, write_val);
+    gtk_widget_set_tooltip_text(widget, tooltip);
+    g_free(tooltip);
+
+    return FALSE;
 }
 
 /**
@@ -888,6 +1141,223 @@ static gboolean on_draw_disk(GtkWidget *widget, cairo_t *cr, gpointer user_data)
     cairo_close_path(cr);
     cairo_fill(cr);
 
+    /* Overlay text labels */
+    GdkRGBA *text_color = &state->prefs->text_color;
+    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
+    cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 10.0);
+
+    gdouble read_rate = xrg_disk_collector_get_read_rate(state->disk_collector);
+    gdouble write_rate = xrg_disk_collector_get_write_rate(state->disk_collector);
+
+    /* Line 1: Disk I/O label */
+    gchar *line1 = g_strdup_printf("Disk I/O");
+    cairo_move_to(cr, 5, 15);
+    cairo_show_text(cr, line1);
+    g_free(line1);
+
+    /* Line 2: Read rate */
+    gchar *line2 = g_strdup_printf("Read: %.2f MB/s", read_rate);
+    cairo_move_to(cr, 5, 27);
+    cairo_show_text(cr, line2);
+    g_free(line2);
+
+    /* Line 3: Write rate */
+    gchar *line3 = g_strdup_printf("Write: %.2f MB/s", write_rate);
+    cairo_move_to(cr, 5, 39);
+    cairo_show_text(cr, line3);
+    g_free(line3);
+
+    return FALSE;
+}
+
+/**
+ * Handle button press on GPU drawing area (for context menu)
+ */
+static gboolean on_gpu_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+
+    if (event->button == 3) {  /* Right click */
+        show_gpu_context_menu(state, event);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+/**
+ * Show GPU context menu
+ */
+static void show_gpu_context_menu(AppState *state, GdkEventButton *event) {
+    GtkWidget *menu = gtk_menu_new();
+
+    /* GPU Settings */
+    GtkWidget *settings_item = gtk_menu_item_new_with_label("GPU Settings...");
+    g_signal_connect_swapped(settings_item, "activate",
+                             G_CALLBACK(xrg_preferences_window_show), state->prefs_window);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), settings_item);
+
+    /* Separator */
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+
+    /* Stats */
+    const gchar *gpu_name = xrg_gpu_collector_get_name(state->gpu_collector);
+    gdouble utilization = xrg_gpu_collector_get_utilization(state->gpu_collector);
+    gdouble mem_used = xrg_gpu_collector_get_memory_used_mb(state->gpu_collector);
+    gdouble mem_total = xrg_gpu_collector_get_memory_total_mb(state->gpu_collector);
+    gdouble temp = xrg_gpu_collector_get_temperature(state->gpu_collector);
+
+    gchar *stats_text = g_strdup_printf("%s | %.0f%% | %.0f/%.0f MB | %.0f°C",
+                                       gpu_name, utilization, mem_used, mem_total, temp);
+    GtkWidget *stats_item = gtk_menu_item_new_with_label(stats_text);
+    gtk_widget_set_sensitive(stats_item, FALSE);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), stats_item);
+    g_free(stats_text);
+
+    gtk_widget_show_all(menu);
+    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+}
+
+/**
+ * GPU motion notify (tooltip)
+ */
+static gboolean on_gpu_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(widget, &allocation);
+
+    /* Get datasets */
+    XRGDataset *util_dataset = xrg_gpu_collector_get_utilization_dataset(state->gpu_collector);
+    XRGDataset *mem_dataset = xrg_gpu_collector_get_memory_dataset(state->gpu_collector);
+    gint count = xrg_dataset_get_count(util_dataset);
+
+    if (count < 2) {
+        gtk_widget_set_tooltip_text(widget, "GPU: Waiting for data...");
+        return FALSE;
+    }
+
+    /* Calculate which data point the mouse is over */
+    gint index = (gint)((event->x / allocation.width) * count);
+    if (index < 0) index = 0;
+    if (index >= count) index = count - 1;
+
+    /* Get values at this index */
+    gdouble util_val = xrg_dataset_get_value(util_dataset, index);
+    gdouble mem_val = xrg_dataset_get_value(mem_dataset, index);
+
+    /* Set tooltip */
+    gchar *tooltip = g_strdup_printf("GPU Usage\nUtilization: %.0f%%\nMemory: %.0f%%",
+                                     util_val, mem_val);
+    gtk_widget_set_tooltip_text(widget, tooltip);
+    g_free(tooltip);
+
+    return FALSE;
+}
+
+/**
+ * Draw GPU graph
+ */
+static gboolean on_draw_gpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(widget, &allocation);
+
+    gint width = allocation.width;
+    gint height = allocation.height;
+
+    /* Draw background */
+    GdkRGBA *bg_color = &state->prefs->graph_bg_color;
+    cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
+    cairo_rectangle(cr, 0, 0, width, height);
+    cairo_fill(cr);
+
+    /* Draw border */
+    GdkRGBA *border_color = &state->prefs->border_color;
+    cairo_set_source_rgba(cr, border_color->red, border_color->green, border_color->blue, border_color->alpha);
+    cairo_set_line_width(cr, 1.0);
+    cairo_rectangle(cr, 0.5, 0.5, width - 1, height - 1);
+    cairo_stroke(cr);
+
+    /* Get GPU datasets */
+    XRGDataset *util_dataset = xrg_gpu_collector_get_utilization_dataset(state->gpu_collector);
+    XRGDataset *mem_dataset = xrg_gpu_collector_get_memory_dataset(state->gpu_collector);
+
+    gint count = xrg_dataset_get_count(util_dataset);
+    if (count < 2) {
+        /* Not enough data yet - draw label */
+        GdkRGBA *text_color = &state->prefs->text_color;
+        cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha * 0.5);
+        cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+        cairo_set_font_size(cr, 10);
+        cairo_move_to(cr, 5, 12);
+        cairo_show_text(cr, "GPU: Waiting for data...");
+        return FALSE;
+    }
+
+    /* Draw GPU utilization (cyan - FG1) - bottom layer */
+    GdkRGBA *fg1_color = &state->prefs->graph_fg1_color;
+    cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha);
+
+    cairo_move_to(cr, 0, height);
+    for (gint i = 0; i < count; i++) {
+        gdouble value = xrg_dataset_get_value(util_dataset, i);
+        gdouble x = (gdouble)i / count * width;
+        gdouble y = height - (value / 100.0 * height);
+        cairo_line_to(cr, x, y);
+    }
+    cairo_line_to(cr, width, height);
+    cairo_close_path(cr);
+    cairo_fill(cr);
+
+    /* Draw GPU memory usage on top (purple - FG2) */
+    GdkRGBA *fg2_color = &state->prefs->graph_fg2_color;
+    cairo_set_source_rgba(cr, fg2_color->red, fg2_color->green, fg2_color->blue, fg2_color->alpha * 0.7);
+
+    cairo_move_to(cr, 0, height);
+    for (gint i = 0; i < count; i++) {
+        gdouble value = xrg_dataset_get_value(mem_dataset, i);
+        gdouble x = (gdouble)i / count * width;
+        gdouble y = height - (value / 100.0 * height);
+        cairo_line_to(cr, x, y);
+    }
+    cairo_line_to(cr, width, height);
+    cairo_close_path(cr);
+    cairo_fill(cr);
+
+    /* Overlay text labels */
+    GdkRGBA *text_color = &state->prefs->text_color;
+    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
+    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 10);
+
+    const gchar *gpu_name = xrg_gpu_collector_get_name(state->gpu_collector);
+    gdouble utilization = xrg_gpu_collector_get_utilization(state->gpu_collector);
+    gdouble mem_used = xrg_gpu_collector_get_memory_used_mb(state->gpu_collector);
+    gdouble mem_total = xrg_gpu_collector_get_memory_total_mb(state->gpu_collector);
+    gdouble temp = xrg_gpu_collector_get_temperature(state->gpu_collector);
+
+    /* Line 1: GPU name */
+    cairo_move_to(cr, 5, 12);
+    cairo_show_text(cr, gpu_name);
+
+    /* Line 2: Utilization */
+    gchar *util_text = g_strdup_printf("Util: %.0f%%", utilization);
+    cairo_move_to(cr, 5, 24);
+    cairo_show_text(cr, util_text);
+    g_free(util_text);
+
+    /* Line 3: Memory */
+    gchar *mem_text = g_strdup_printf("Mem: %.0f/%.0f MB", mem_used, mem_total);
+    cairo_move_to(cr, 5, 36);
+    cairo_show_text(cr, mem_text);
+    g_free(mem_text);
+
+    /* Line 4: Temperature */
+    gchar *temp_text = g_strdup_printf("Temp: %.0f°C", temp);
+    cairo_move_to(cr, 5, 48);
+    cairo_show_text(cr, temp_text);
+    g_free(temp_text);
+
     return FALSE;
 }
 
@@ -934,6 +1404,43 @@ static void show_aitoken_context_menu(AppState *state, GdkEventButton *event) {
 
     gtk_widget_show_all(menu);
     gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+}
+
+/**
+ * AI Token motion notify (tooltip)
+ */
+static gboolean on_aitoken_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(widget, &allocation);
+
+    /* Get datasets */
+    XRGDataset *input_dataset = xrg_aitoken_collector_get_input_dataset(state->aitoken_collector);
+    XRGDataset *output_dataset = xrg_aitoken_collector_get_output_dataset(state->aitoken_collector);
+    gint count = xrg_dataset_get_count(input_dataset);
+
+    if (count < 2) {
+        gtk_widget_set_tooltip_text(widget, "AI Tokens: Waiting for data...");
+        return FALSE;
+    }
+
+    /* Calculate which data point the mouse is over */
+    gint index = (gint)((event->x / allocation.width) * count);
+    if (index < 0) index = 0;
+    if (index >= count) index = count - 1;
+
+    /* Get values at this index (tokens/min) */
+    gdouble input_val = xrg_dataset_get_value(input_dataset, index);
+    gdouble output_val = xrg_dataset_get_value(output_dataset, index);
+    gdouble total_val = input_val + output_val;
+
+    /* Set tooltip */
+    gchar *tooltip = g_strdup_printf("AI Token Usage: %.0f tokens/min\nInput: %.0f | Output: %.0f",
+                                     total_val, input_val, output_val);
+    gtk_widget_set_tooltip_text(widget, tooltip);
+    g_free(tooltip);
+
+    return FALSE;
 }
 
 /**
@@ -1016,6 +1523,36 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
     cairo_close_path(cr);
     cairo_fill(cr);
 
+    /* Overlay text labels */
+    GdkRGBA *text_color = &state->prefs->text_color;
+    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
+    cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 10.0);
+
+    gdouble tokens_per_min = xrg_aitoken_collector_get_tokens_per_minute(state->aitoken_collector);
+    guint64 total_tokens = xrg_aitoken_collector_get_total_tokens(state->aitoken_collector);
+
+    /* Convert tokens per minute to tokens per second */
+    gdouble token_rate = tokens_per_min / 60.0;
+
+    /* Line 1: AI Tokens label */
+    gchar *line1 = g_strdup_printf("AI Tokens");
+    cairo_move_to(cr, 5, 15);
+    cairo_show_text(cr, line1);
+    g_free(line1);
+
+    /* Line 2: Token rate */
+    gchar *line2 = g_strdup_printf("Rate: %.0f/s", token_rate);
+    cairo_move_to(cr, 5, 27);
+    cairo_show_text(cr, line2);
+    g_free(line2);
+
+    /* Line 3: Total tokens */
+    gchar *line3 = g_strdup_printf("Total: %lu", (unsigned long)total_tokens);
+    cairo_move_to(cr, 5, 39);
+    cairo_show_text(cr, line3);
+    g_free(line3);
+
     return FALSE;
 }
 
@@ -1024,203 +1561,81 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
  */
 static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
     AppState *state = (AppState *)user_data;
-    
+
     /* Ctrl+, = Preferences */
     if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_comma) {
         xrg_preferences_window_show(state->prefs_window);
         return TRUE;
     }
-    
+
     /* Ctrl+Q = Quit */
     if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_q) {
         gtk_widget_destroy(state->window);
         return TRUE;
     }
-    
-    return FALSE;
-}
 
-/**
- * Draw CPU activity bar
- */
-static gboolean on_draw_cpu_activity(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
-    AppState *state = (AppState *)user_data;
-    GtkAllocation allocation;
-    gtk_widget_get_allocation(widget, &allocation);
+    /* Ctrl+1 = Toggle CPU */
+    if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_1) {
+        state->prefs->show_cpu = !state->prefs->show_cpu;
+        gtk_widget_set_visible(state->cpu_box, state->prefs->show_cpu);
+        xrg_preferences_save(state->prefs);
+        g_message("CPU module %s", state->prefs->show_cpu ? "shown" : "hidden");
+        return TRUE;
+    }
 
-    gint width = allocation.width;
-    gint height = allocation.height;
+    /* Ctrl+2 = Toggle Memory */
+    if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_2) {
+        state->prefs->show_memory = !state->prefs->show_memory;
+        gtk_widget_set_visible(state->memory_box, state->prefs->show_memory);
+        xrg_preferences_save(state->prefs);
+        g_message("Memory module %s", state->prefs->show_memory ? "shown" : "hidden");
+        return TRUE;
+    }
 
-    /* Draw background */
-    GdkRGBA *bg_color = &state->prefs->background_color;
-    cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
-    cairo_rectangle(cr, 0, 0, width, height);
-    cairo_fill(cr);
+    /* Ctrl+3 = Toggle Network */
+    if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_3) {
+        state->prefs->show_network = !state->prefs->show_network;
+        gtk_widget_set_visible(state->network_box, state->prefs->show_network);
+        xrg_preferences_save(state->prefs);
+        g_message("Network module %s", state->prefs->show_network ? "shown" : "hidden");
+        return TRUE;
+    }
 
-    /* Draw text */
-    GdkRGBA *text_color = &state->prefs->text_color;
-    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
-    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, 10);
+    /* Ctrl+4 = Toggle Disk */
+    if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_4) {
+        state->prefs->show_disk = !state->prefs->show_disk;
+        gtk_widget_set_visible(state->disk_box, state->prefs->show_disk);
+        xrg_preferences_save(state->prefs);
+        g_message("Disk module %s", state->prefs->show_disk ? "shown" : "hidden");
+        return TRUE;
+    }
 
-    /* CPU usage and load */
-    gdouble current_usage = xrg_cpu_collector_get_total_usage(state->cpu_collector);
-    gdouble load_avg = xrg_cpu_collector_get_load_average_1min(state->cpu_collector);
-    gint num_cores = xrg_cpu_collector_get_num_cpus(state->cpu_collector);
+    /* Ctrl+5 = Toggle AI Tokens */
+    if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_5) {
+        state->prefs->show_aitoken = !state->prefs->show_aitoken;
+        gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
+        xrg_preferences_save(state->prefs);
+        g_message("AI Token module %s", state->prefs->show_aitoken ? "shown" : "hidden");
+        return TRUE;
+    }
 
-    gchar *label = g_strdup_printf("CPU: %.1f%% | Load: %.2f | %d cores", current_usage, load_avg, num_cores);
-    cairo_move_to(cr, 5, 14);
-    cairo_show_text(cr, label);
-    g_free(label);
-
-    return FALSE;
-}
-
-/**
- * Draw Memory activity bar
- */
-static gboolean on_draw_memory_activity(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
-    AppState *state = (AppState *)user_data;
-    GtkAllocation allocation;
-    gtk_widget_get_allocation(widget, &allocation);
-
-    gint width = allocation.width;
-    gint height = allocation.height;
-
-    /* Draw background */
-    GdkRGBA *bg_color = &state->prefs->background_color;
-    cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
-    cairo_rectangle(cr, 0, 0, width, height);
-    cairo_fill(cr);
-
-    /* Draw text */
-    GdkRGBA *text_color = &state->prefs->text_color;
-    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
-    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, 10);
-
-    /* Memory usage */
-    guint64 total_mem = xrg_memory_collector_get_total_memory(state->memory_collector);
-    guint64 used_mem = xrg_memory_collector_get_used_memory(state->memory_collector);
-    gdouble total_gb = total_mem / (1024.0 * 1024.0 * 1024.0);
-    gdouble used_gb = used_mem / (1024.0 * 1024.0 * 1024.0);
-    gdouble usage_pct = xrg_memory_collector_get_used_percentage(state->memory_collector);
-
-    gchar *label = g_strdup_printf("Mem: %.1f/%.1f GB | %.1f%%", used_gb, total_gb, usage_pct);
-    cairo_move_to(cr, 5, 14);
-    cairo_show_text(cr, label);
-    g_free(label);
+    /* Ctrl+6 = Toggle GPU */
+    if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_6) {
+        state->prefs->show_gpu = !state->prefs->show_gpu;
+        gtk_widget_set_visible(state->gpu_box, state->prefs->show_gpu);
+        xrg_preferences_save(state->prefs);
+        g_message("GPU module %s", state->prefs->show_gpu ? "shown" : "hidden");
+        return TRUE;
+    }
 
     return FALSE;
 }
 
-/**
- * Draw Network activity bar
- */
-static gboolean on_draw_network_activity(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
-    AppState *state = (AppState *)user_data;
-    GtkAllocation allocation;
-    gtk_widget_get_allocation(widget, &allocation);
 
-    gint width = allocation.width;
-    gint height = allocation.height;
 
-    /* Draw background */
-    GdkRGBA *bg_color = &state->prefs->background_color;
-    cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
-    cairo_rectangle(cr, 0, 0, width, height);
-    cairo_fill(cr);
 
-    /* Draw text */
-    GdkRGBA *text_color = &state->prefs->text_color;
-    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
-    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, 10);
 
-    /* Network rates */
-    const gchar *iface = xrg_network_collector_get_primary_interface(state->network_collector);
-    gdouble download_rate = xrg_network_collector_get_download_rate(state->network_collector);
-    gdouble upload_rate = xrg_network_collector_get_upload_rate(state->network_collector);
 
-    gchar *label = g_strdup_printf("%s | ↓ %.2f MB/s | ↑ %.2f MB/s", iface, download_rate, upload_rate);
-    cairo_move_to(cr, 5, 14);
-    cairo_show_text(cr, label);
-    g_free(label);
-
-    return FALSE;
-}
-
-/**
- * Draw Disk activity bar
- */
-static gboolean on_draw_disk_activity(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
-    AppState *state = (AppState *)user_data;
-    GtkAllocation allocation;
-    gtk_widget_get_allocation(widget, &allocation);
-
-    gint width = allocation.width;
-    gint height = allocation.height;
-
-    /* Draw background */
-    GdkRGBA *bg_color = &state->prefs->background_color;
-    cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
-    cairo_rectangle(cr, 0, 0, width, height);
-    cairo_fill(cr);
-
-    /* Draw text */
-    GdkRGBA *text_color = &state->prefs->text_color;
-    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
-    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, 10);
-
-    /* Disk rates */
-    const gchar *device = xrg_disk_collector_get_primary_device(state->disk_collector);
-    gdouble read_rate = xrg_disk_collector_get_read_rate(state->disk_collector);
-    gdouble write_rate = xrg_disk_collector_get_write_rate(state->disk_collector);
-
-    gchar *label = g_strdup_printf("%s | Read: %.2f MB/s | Write: %.2f MB/s", device, read_rate, write_rate);
-    cairo_move_to(cr, 5, 14);
-    cairo_show_text(cr, label);
-    g_free(label);
-
-    return FALSE;
-}
-
-/**
- * Draw AI Token activity bar
- */
-static gboolean on_draw_aitoken_activity(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
-    AppState *state = (AppState *)user_data;
-    GtkAllocation allocation;
-    gtk_widget_get_allocation(widget, &allocation);
-
-    gint width = allocation.width;
-    gint height = allocation.height;
-
-    /* Draw background */
-    GdkRGBA *bg_color = &state->prefs->background_color;
-    cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
-    cairo_rectangle(cr, 0, 0, width, height);
-    cairo_fill(cr);
-
-    /* Draw text */
-    GdkRGBA *text_color = &state->prefs->text_color;
-    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
-    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, 10);
-
-    /* AI Token stats */
-    const gchar *source = xrg_aitoken_collector_get_source_name(state->aitoken_collector);
-    guint64 total_tokens = xrg_aitoken_collector_get_total_tokens(state->aitoken_collector);
-    guint64 session_tokens = xrg_aitoken_collector_get_session_tokens(state->aitoken_collector);
-
-    gchar *label = g_strdup_printf("%s: %lu | Session: %lu", source, total_tokens, session_tokens);
-    cairo_move_to(cr, 5, 14);
-    cairo_show_text(cr, label);
-    g_free(label);
-
-    return FALSE;
-}
 
 /**
  * Draw CPU graph
@@ -1287,6 +1702,37 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
     cairo_line_to(cr, width, height);
     cairo_close_path(cr);
     cairo_fill(cr);
+
+    /* Overlay text labels */
+    GdkRGBA *text_color = &state->prefs->text_color;
+    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
+    cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 10.0);
+
+    gdouble total_usage = xrg_cpu_collector_get_total_usage(state->cpu_collector);
+    gdouble load_avg = xrg_cpu_collector_get_load_average_1min(state->cpu_collector);
+
+    /* Get user and system from latest values in datasets */
+    gdouble user_usage = xrg_dataset_get_latest(user_dataset);
+    gdouble system_usage = xrg_dataset_get_latest(system_dataset);
+
+    /* Line 1: Total CPU */
+    gchar *line1 = g_strdup_printf("CPU: %.1f%%", total_usage);
+    cairo_move_to(cr, 5, 15);
+    cairo_show_text(cr, line1);
+    g_free(line1);
+
+    /* Line 2: User and System */
+    gchar *line2 = g_strdup_printf("User: %.1f%% | System: %.1f%%", user_usage, system_usage);
+    cairo_move_to(cr, 5, 27);
+    cairo_show_text(cr, line2);
+    g_free(line2);
+
+    /* Line 3: Load average */
+    gchar *line3 = g_strdup_printf("Load: %.2f", load_avg);
+    cairo_move_to(cr, 5, 39);
+    cairo_show_text(cr, line3);
+    g_free(line3);
 
     return FALSE;
 }
@@ -1376,6 +1822,44 @@ static gboolean on_draw_memory(GtkWidget *widget, cairo_t *cr, gpointer user_dat
     cairo_close_path(cr);
     cairo_fill(cr);
 
+    /* Overlay text labels */
+    GdkRGBA *text_color = &state->prefs->text_color;
+    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
+    cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 10.0);
+
+    guint64 total_memory = xrg_memory_collector_get_total_memory(state->memory_collector);
+    guint64 used_memory = xrg_memory_collector_get_used_memory(state->memory_collector);
+    guint64 swap_used = xrg_memory_collector_get_swap_used(state->memory_collector);
+
+    /* Get cached memory from dataset (percentage) and convert to bytes */
+    gdouble cached_percent = xrg_dataset_get_latest(cached_dataset);
+    guint64 cached_memory = (guint64)(total_memory * cached_percent / 100.0);
+
+    /* Convert from bytes to MB */
+    gdouble total_mb = total_memory / (1024.0 * 1024.0);
+    gdouble used_mb = used_memory / (1024.0 * 1024.0);
+    gdouble cached_mb = cached_memory / (1024.0 * 1024.0);
+    gdouble swap_mb = swap_used / (1024.0 * 1024.0);
+
+    /* Line 1: Memory usage */
+    gchar *line1 = g_strdup_printf("Memory: %.0f/%.0f MB", used_mb, total_mb);
+    cairo_move_to(cr, 5, 15);
+    cairo_show_text(cr, line1);
+    g_free(line1);
+
+    /* Line 2: Cached memory */
+    gchar *line2 = g_strdup_printf("Cached: %.0f MB", cached_mb);
+    cairo_move_to(cr, 5, 27);
+    cairo_show_text(cr, line2);
+    g_free(line2);
+
+    /* Line 3: Swap */
+    gchar *line3 = g_strdup_printf("Swap: %.0f MB", swap_mb);
+    cairo_move_to(cr, 5, 39);
+    cairo_show_text(cr, line3);
+    g_free(line3);
+
     return FALSE;
 }
 
@@ -1452,6 +1936,33 @@ static gboolean on_draw_network(GtkWidget *widget, cairo_t *cr, gpointer user_da
     cairo_close_path(cr);
     cairo_fill(cr);
 
+    /* Overlay text labels */
+    GdkRGBA *text_color = &state->prefs->text_color;
+    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
+    cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 10.0);
+
+    gdouble download_rate = xrg_network_collector_get_download_rate(state->network_collector);
+    gdouble upload_rate = xrg_network_collector_get_upload_rate(state->network_collector);
+
+    /* Line 1: Network label */
+    gchar *line1 = g_strdup_printf("Network");
+    cairo_move_to(cr, 5, 15);
+    cairo_show_text(cr, line1);
+    g_free(line1);
+
+    /* Line 2: Download rate */
+    gchar *line2 = g_strdup_printf("↓ %.2f MB/s", download_rate);
+    cairo_move_to(cr, 5, 27);
+    cairo_show_text(cr, line2);
+    g_free(line2);
+
+    /* Line 3: Upload rate */
+    gchar *line3 = g_strdup_printf("↑ %.2f MB/s", upload_rate);
+    cairo_move_to(cr, 5, 39);
+    cairo_show_text(cr, line3);
+    g_free(line3);
+
     return FALSE;
 }
 
@@ -1466,20 +1977,15 @@ static gboolean on_update_timer(gpointer user_data) {
     xrg_memory_collector_update(state->memory_collector);
     xrg_network_collector_update(state->network_collector);
     xrg_disk_collector_update(state->disk_collector);
+    xrg_gpu_collector_update(state->gpu_collector);
     xrg_aitoken_collector_update(state->aitoken_collector);
-
-    /* Redraw activity bars */
-    gtk_widget_queue_draw(state->cpu_activity_bar);
-    gtk_widget_queue_draw(state->memory_activity_bar);
-    gtk_widget_queue_draw(state->network_activity_bar);
-    gtk_widget_queue_draw(state->disk_activity_bar);
-    gtk_widget_queue_draw(state->aitoken_activity_bar);
 
     /* Redraw graphs */
     gtk_widget_queue_draw(state->cpu_drawing_area);
     gtk_widget_queue_draw(state->memory_drawing_area);
     gtk_widget_queue_draw(state->network_drawing_area);
     gtk_widget_queue_draw(state->disk_drawing_area);
+    gtk_widget_queue_draw(state->gpu_drawing_area);
     gtk_widget_queue_draw(state->aitoken_drawing_area);
 
     return G_SOURCE_CONTINUE;  /* Keep timer running */
@@ -1504,8 +2010,20 @@ static void on_window_destroy(GtkWidget *widget, gpointer user_data) {
     state->prefs->window_y = y;
     state->prefs->window_width = width;
     state->prefs->window_height = height - TITLE_BAR_HEIGHT;
+    g_message("On exit - saving position: x=%d, y=%d, width=%d, height=%d", x, y, width, height - TITLE_BAR_HEIGHT);
+
+    /* Sanity check: prevent saving black colors (corrupted) */
+    if (state->prefs->graph_fg1_color.red < 0.01 &&
+        state->prefs->graph_fg1_color.green < 0.01 &&
+        state->prefs->graph_fg1_color.blue < 0.01) {
+        g_warning("Colors corrupted to black! Restoring Cyberpunk theme defaults...");
+        xrg_preferences_apply_theme(state->prefs, "Cyberpunk");
+    }
 
     /* Save preferences */
+    g_message("Saving on exit - Graph FG1: (%.3f, %.3f, %.3f, %.3f)",
+              state->prefs->graph_fg1_color.red, state->prefs->graph_fg1_color.green,
+              state->prefs->graph_fg1_color.blue, state->prefs->graph_fg1_color.alpha);
     xrg_preferences_save(state->prefs);
 
     /* Cleanup */
@@ -1513,10 +2031,28 @@ static void on_window_destroy(GtkWidget *widget, gpointer user_data) {
     xrg_memory_collector_free(state->memory_collector);
     xrg_network_collector_free(state->network_collector);
     xrg_disk_collector_free(state->disk_collector);
+    xrg_gpu_collector_free(state->gpu_collector);
     xrg_aitoken_collector_free(state->aitoken_collector);
     xrg_preferences_window_free(state->prefs_window);
     xrg_preferences_free(state->prefs);
     g_free(state);
 
     g_message("XRG-Linux stopped");
+}
+
+/**
+ * Preferences applied callback - update module visibility
+ */
+static void on_preferences_applied(gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+
+    /* Update visibility of all module boxes based on preferences */
+    gtk_widget_set_visible(state->cpu_box, state->prefs->show_cpu);
+    gtk_widget_set_visible(state->memory_box, state->prefs->show_memory);
+    gtk_widget_set_visible(state->network_box, state->prefs->show_network);
+    gtk_widget_set_visible(state->disk_box, state->prefs->show_disk);
+    gtk_widget_set_visible(state->gpu_box, state->prefs->show_gpu);
+    gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
+
+    g_message("Module visibility updated from preferences");
 }
