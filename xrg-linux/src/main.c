@@ -57,6 +57,10 @@ typedef struct {
     gint resize_start_y;
     gint resize_start_width;
     gint resize_start_height;
+
+    /* Layout state */
+    XRGLayoutOrientation current_layout_orientation;
+    GtkWidget *overlay;  /* Parent of vbox for easy recreation */
 } AppState;
 
 /* Forward declarations */
@@ -551,15 +555,18 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     }
 
     /* Create overlay for resize grip */
-    GtkWidget *overlay = gtk_overlay_new();
-    gtk_container_add(GTK_CONTAINER(state->window), overlay);
+    state->overlay = gtk_overlay_new();
+    gtk_container_add(GTK_CONTAINER(state->window), state->overlay);
+
+    /* Store current orientation */
+    state->current_layout_orientation = state->prefs->layout_orientation;
 
     /* Create box container with orientation from preferences */
     GtkOrientation gtk_orientation = (state->prefs->layout_orientation == XRG_LAYOUT_VERTICAL)
         ? GTK_ORIENTATION_VERTICAL
         : GTK_ORIENTATION_HORIZONTAL;
     state->vbox = gtk_box_new(gtk_orientation, 0);
-    gtk_container_add(GTK_CONTAINER(overlay), state->vbox);
+    gtk_container_add(GTK_CONTAINER(state->overlay), state->vbox);
 
     /* Add title bar */
     state->title_bar = create_title_bar(state);
@@ -567,16 +574,20 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
 
     /* Add resize grip as overlay */
     state->resize_grip = create_resize_grip(state);
-    gtk_overlay_add_overlay(GTK_OVERLAY(overlay), state->resize_grip);
+    gtk_overlay_add_overlay(GTK_OVERLAY(state->overlay), state->resize_grip);
 
     /* Create CPU module container */
     state->cpu_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
     /* Create CPU graph */
     state->cpu_drawing_area = gtk_drawing_area_new();
+    /* In horizontal mode, use square graphs (width = height = graph_width) */
+    gint cpu_height = (state->prefs->layout_orientation == XRG_LAYOUT_HORIZONTAL)
+                      ? state->prefs->graph_width
+                      : state->prefs->graph_height_cpu;
     gtk_widget_set_size_request(state->cpu_drawing_area,
                                 state->prefs->graph_width,
-                                state->prefs->graph_height_cpu);
+                                cpu_height);
 
     /* Enable tooltips */
     gtk_widget_set_has_tooltip(state->cpu_drawing_area, TRUE);
@@ -596,9 +607,12 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
 
     /* Create Memory graph */
     state->memory_drawing_area = gtk_drawing_area_new();
+    gint memory_height = (state->prefs->layout_orientation == XRG_LAYOUT_HORIZONTAL)
+                         ? state->prefs->graph_width
+                         : state->prefs->graph_height_memory;
     gtk_widget_set_size_request(state->memory_drawing_area,
                                 state->prefs->graph_width,
-                                state->prefs->graph_height_memory);
+                                memory_height);
 
     /* Enable tooltips */
     gtk_widget_set_has_tooltip(state->memory_drawing_area, TRUE);
@@ -618,9 +632,12 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
 
     /* Create Network graph */
     state->network_drawing_area = gtk_drawing_area_new();
+    gint network_height = (state->prefs->layout_orientation == XRG_LAYOUT_HORIZONTAL)
+                          ? state->prefs->graph_width
+                          : state->prefs->graph_height_network;
     gtk_widget_set_size_request(state->network_drawing_area,
                                 state->prefs->graph_width,
-                                state->prefs->graph_height_network);
+                                network_height);
 
     /* Enable tooltips */
     gtk_widget_set_has_tooltip(state->network_drawing_area, TRUE);
@@ -640,9 +657,12 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
 
     /* Create Disk graph */
     state->disk_drawing_area = gtk_drawing_area_new();
+    gint disk_height = (state->prefs->layout_orientation == XRG_LAYOUT_HORIZONTAL)
+                       ? state->prefs->graph_width
+                       : state->prefs->graph_height_disk;
     gtk_widget_set_size_request(state->disk_drawing_area,
                                 state->prefs->graph_width,
-                                state->prefs->graph_height_disk);
+                                disk_height);
 
     /* Enable tooltips */
     gtk_widget_set_has_tooltip(state->disk_drawing_area, TRUE);
@@ -662,9 +682,12 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
 
     /* Create GPU graph */
     state->gpu_drawing_area = gtk_drawing_area_new();
+    gint gpu_height = (state->prefs->layout_orientation == XRG_LAYOUT_HORIZONTAL)
+                      ? state->prefs->graph_width
+                      : state->prefs->graph_height_gpu;
     gtk_widget_set_size_request(state->gpu_drawing_area,
                                 state->prefs->graph_width,
-                                state->prefs->graph_height_gpu);
+                                gpu_height);
 
     /* Enable tooltips */
     gtk_widget_set_has_tooltip(state->gpu_drawing_area, TRUE);
@@ -684,9 +707,12 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
 
     /* Create AI Token graph */
     state->aitoken_drawing_area = gtk_drawing_area_new();
+    gint aitoken_height = (state->prefs->layout_orientation == XRG_LAYOUT_HORIZONTAL)
+                          ? state->prefs->graph_width
+                          : state->prefs->graph_height_aitoken;
     gtk_widget_set_size_request(state->aitoken_drawing_area,
                                 state->prefs->graph_width,
-                                state->prefs->graph_height_aitoken);
+                                aitoken_height);
 
     /* Enable tooltips */
     gtk_widget_set_has_tooltip(state->aitoken_drawing_area, TRUE);
@@ -2975,7 +3001,7 @@ static void on_window_destroy(GtkWidget *widget, gpointer user_data) {
 }
 
 /**
- * Preferences applied callback - update module visibility
+ * Preferences applied callback - update module visibility and layout
  */
 static void on_preferences_applied(gpointer user_data) {
     AppState *state = (AppState *)user_data;
@@ -2987,6 +3013,39 @@ static void on_preferences_applied(gpointer user_data) {
     gtk_widget_set_visible(state->disk_box, state->prefs->show_disk);
     gtk_widget_set_visible(state->gpu_box, state->prefs->show_gpu);
     gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
+
+    /* Check if layout orientation changed */
+    if (state->current_layout_orientation != state->prefs->layout_orientation) {
+        /* Show dialog to user that restart is needed */
+        GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(state->window),
+                                                   GTK_DIALOG_MODAL,
+                                                   GTK_MESSAGE_INFO,
+                                                   GTK_BUTTONS_OK_CANCEL,
+                                                   "Layout orientation changed");
+        gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
+                                                 "XRG needs to restart for the layout change to take effect.\nRestart now?");
+
+        gint response = gtk_dialog_run(GTK_DIALOG(dialog));
+        gtk_widget_destroy(dialog);
+
+        if (response == GTK_RESPONSE_OK) {
+            /* Restart the application */
+            const gchar *appimage_path = g_getenv("APPIMAGE");
+            if (appimage_path) {
+                /* Running as AppImage - restart via AppImage */
+                execl(appimage_path, appimage_path, NULL);
+            } else {
+                /* Try to restart using argv[0] or program path */
+                gchar *program_path = g_find_program_in_path("xrg-linux");
+                if (program_path) {
+                    execl(program_path, "xrg-linux", NULL);
+                    g_free(program_path);
+                } else {
+                    g_message("Could not find xrg-linux to restart. Please restart manually.");
+                }
+            }
+        }
+    }
 
     g_message("Module visibility updated from preferences");
 }
