@@ -70,9 +70,19 @@ static gboolean parse_jsonl_tokens(const gchar *line, guint64 *input_tokens, gui
         }
     }
 
-    /* Extract model name if requested */
-    if (model && json_object_has_member(obj, "model")) {
-        const gchar *mdl = json_object_get_string_member(obj, "model");
+    /* Extract model name if requested - can be at root level or inside message */
+    if (model) {
+        const gchar *mdl = NULL;
+
+        if (json_object_has_member(obj, "model")) {
+            mdl = json_object_get_string_member(obj, "model");
+        } else if (json_object_has_member(obj, "message")) {
+            JsonObject *message = json_object_get_object_member(obj, "message");
+            if (message && json_object_has_member(message, "model")) {
+                mdl = json_object_get_string_member(message, "model");
+            }
+        }
+
         if (mdl) {
             g_free(*model);
             *model = g_strdup(mdl);

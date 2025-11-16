@@ -131,6 +131,42 @@ The AI Token monitor automatically detects and uses the best available data sour
 
 No setup or configuration needed - it just works!
 
+### Per-Model Token Breakdown
+
+**New in Nov 2025:** The AI Token module now displays token usage **per AI model**!
+
+**Visual Example:**
+```
+AI Tokens
+Rate: 1234/s
+Total: 4567890
+─ By Model ─
+* claude-sonnet-4-5...: 3456789
+  claude-opus-4...: 1111101
+```
+
+**Features:**
+- ✅ Automatic model detection from JSONL files
+- ✅ Per-model token aggregation
+- ✅ Active model marked with asterisk (*)
+- ✅ Long model names truncated for readability
+- ✅ Toggle model breakdown on/off in preferences
+
+**Configuration:**
+```bash
+# Enable model breakdown (default: true)
+show_model_breakdown=true
+```
+
+Or via Preferences UI: **AI Token → Show Model Breakdown**
+
+**Supported Models:**
+- claude-sonnet-4-5-20250929
+- claude-opus-4-20250514
+- claude-haiku-3-5-20250410
+- gpt-4, gpt-4-turbo
+- And any other model in your JSONL files
+
 ## Configuration
 
 XRG-Linux stores preferences in `~/.config/xrg-linux/settings.conf` (GKeyFile format).

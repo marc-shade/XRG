@@ -854,6 +854,73 @@ The AI Token view provides a right-click context menu with:
 - Budget progress shown as "X/Y (Z%)" when budget configured
 - Mini graph mode for compact display
 
+### AI Token Model Breakdown Feature (Nov 2025)
+
+**Status**: ✅ Fully implemented on Linux | ⏳ Pending macOS port
+
+The AI Token module now displays **per-model token usage breakdown**, allowing you to see which AI models (claude-sonnet-4-5, claude-opus-4, etc.) are consuming the most tokens.
+
+**Visual Example**:
+```
+AI Tokens
+Rate: 1234/s
+Total: 4567890
+─ By Model ─
+* claude-sonnet-4-5...: 3456789
+  claude-opus-4...: 1111101
+```
+
+**Bug Fix (Nov 16, 2025)**:
+
+The JSONL parser was looking for the `model` field at the root level of the JSON object, but Claude Code's JSONL format stores it inside the `message` object:
+
+```json
+{
+  "message": {
+    "model": "claude-sonnet-4-5-20250929",
+    "usage": { "input_tokens": 10, "output_tokens": 791 }
+  }
+}
+```
+
+**Solution**:
+Updated the parser to check **both locations** (root and `message.model`):
+
+- **Linux**: `xrg-linux/src/collectors/aitoken_collector.c:73-90`
+- **macOS**: Needs same fix in `Data Miners/XRGAITokenMiner.m` (see `MACOS_AITOKEN_PORT_GUIDE.md`)
+
+**Linux Implementation**:
+- ✅ Model extraction from JSONL files
+- ✅ Per-model token aggregation in `GHashTable`
+- ✅ Visual breakdown in graph (lines 2842-2891 in `main.c`)
+- ✅ User preference: `aitoken_show_model_breakdown`
+- ✅ Active model marked with asterisk (*)
+- ✅ Long model names truncated to 20 chars
+
+**macOS Implementation**:
+The macOS code already has the display logic (`XRGAITokenView.m:232-271`) but needs:
+1. Model extraction in `XRGAITokenMiner.m`'s `parseJSONLFile:` method
+2. Integration with `XRGAITokensObserver` for aggregation
+3. Enable `aiTokensTrackingEnabled` by default
+
+**See**: `MACOS_AITOKEN_PORT_GUIDE.md` for complete porting instructions.
+
+**Settings**:
+- `aiTokensAggregateByModel` (BOOL): Enable per-model tracking
+- `aiTokensShowBreakdown` (BOOL): Display breakdown in view
+- `aiTokensTrackingEnabled` (BOOL): Master toggle (must be YES)
+
+**Testing**:
+```bash
+# Linux
+grep -A 2 "By Model" ~/.config/xrg-linux/settings.conf
+# Should show: show_model_breakdown=true
+
+# macOS (after port)
+defaults read com.gauchosoft.XRG aiTokensAggregateByModel
+# Should show: 1
+```
+
 ## Code Conventions
 
 - **Language**: Objective-C (modern runtime, ARC enabled where applicable)
