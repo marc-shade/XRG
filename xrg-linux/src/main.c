@@ -81,6 +81,12 @@ static gboolean on_window_configure(GtkWidget *widget, GdkEventConfigure *event,
 static gboolean on_title_bar_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
 static gboolean on_title_bar_button_release(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
 static gboolean on_title_bar_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
+static void show_title_bar_context_menu(AppState *state, GdkEventButton *event);
+static void on_menu_preferences(GtkMenuItem *item, gpointer user_data);
+static void on_menu_always_on_top(GtkCheckMenuItem *item, gpointer user_data);
+static void on_menu_reset_position(GtkMenuItem *item, gpointer user_data);
+static void on_menu_about(GtkMenuItem *item, gpointer user_data);
+static void on_menu_quit(GtkMenuItem *item, gpointer user_data);
 static gboolean on_draw_title_bar(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_cpu_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
@@ -325,7 +331,7 @@ static gboolean on_window_configure(GtkWidget *widget, GdkEventConfigure *event,
  */
 static gboolean on_title_bar_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
     AppState *state = (AppState *)user_data;
-    
+
     if (event->button == 1) {  /* Left click */
         state->is_dragging = TRUE;
         state->drag_start_x = event->x_root;
@@ -341,8 +347,11 @@ static gboolean on_title_bar_button_press(GtkWidget *widget, GdkEventButton *eve
                   state->window_start_x, state->window_start_y);
 
         return TRUE;
+    } else if (event->button == 3) {  /* Right click */
+        show_title_bar_context_menu(state, event);
+        return TRUE;
     }
-    
+
     return FALSE;
 }
 
@@ -378,20 +387,135 @@ static gboolean on_title_bar_button_release(GtkWidget *widget, GdkEventButton *e
  */
 static gboolean on_title_bar_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data) {
     AppState *state = (AppState *)user_data;
-    
+
     if (state->is_dragging) {
         gint delta_x = event->x_root - state->drag_start_x;
         gint delta_y = event->y_root - state->drag_start_y;
-        
+
         gint new_x = state->window_start_x + delta_x;
         gint new_y = state->window_start_y + delta_y;
-        
+
         gtk_window_move(GTK_WINDOW(state->window), new_x, new_y);
-        
+
         return TRUE;
     }
-    
+
     return FALSE;
+}
+
+/**
+ * Menu item callbacks
+ */
+static void on_menu_preferences(GtkMenuItem *item, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    xrg_preferences_window_show(state->prefs_window);
+}
+
+static void on_menu_always_on_top(GtkCheckMenuItem *item, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    gboolean active = gtk_check_menu_item_get_active(item);
+
+    gtk_window_set_keep_above(GTK_WINDOW(state->window), active);
+    state->prefs->window_always_on_top = active;
+    xrg_preferences_save(state->prefs);
+
+    g_message("Always on top: %s", active ? "enabled" : "disabled");
+}
+
+static void on_menu_reset_position(GtkMenuItem *item, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+
+    /* Reset to top-right corner with some padding */
+    GdkScreen *screen = gtk_window_get_screen(GTK_WINDOW(state->window));
+    gint screen_width = gdk_screen_get_width(screen);
+    gint window_width = state->prefs->window_width;
+
+    gint new_x = screen_width - window_width - 20;
+    gint new_y = 20;
+
+    gtk_window_move(GTK_WINDOW(state->window), new_x, new_y);
+
+    state->prefs->window_x = new_x;
+    state->prefs->window_y = new_y;
+    xrg_preferences_save(state->prefs);
+
+    g_message("Window position reset to (%d, %d)", new_x, new_y);
+}
+
+static void on_menu_about(GtkMenuItem *item, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+
+    GtkWidget *dialog = gtk_about_dialog_new();
+    gtk_about_dialog_set_program_name(GTK_ABOUT_DIALOG(dialog), "XRG-Linux");
+    gtk_about_dialog_set_version(GTK_ABOUT_DIALOG(dialog), "1.0.0");
+    gtk_about_dialog_set_comments(GTK_ABOUT_DIALOG(dialog),
+                                  "System Resource Graph Monitor\n\n"
+                                  "Real-time monitoring for CPU, Memory, Network,\n"
+                                  "Disk, GPU, Temperature, Battery, and AI Tokens");
+    gtk_about_dialog_set_website(GTK_ABOUT_DIALOG(dialog), "https://gaucho.software/xrg/");
+    gtk_about_dialog_set_website_label(GTK_ABOUT_DIALOG(dialog), "Visit Website");
+    gtk_about_dialog_set_license_type(GTK_ABOUT_DIALOG(dialog), GTK_LICENSE_GPL_2_0);
+
+    const gchar *authors[] = {"Marc Shade", NULL};
+    gtk_about_dialog_set_authors(GTK_ABOUT_DIALOG(dialog), authors);
+
+    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(state->window));
+    gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+}
+
+static void on_menu_quit(GtkMenuItem *item, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    g_application_quit(G_APPLICATION(gtk_window_get_application(GTK_WINDOW(state->window))));
+}
+
+/**
+ * Show title bar context menu
+ */
+static void show_title_bar_context_menu(AppState *state, GdkEventButton *event) {
+    GtkWidget *menu = gtk_menu_new();
+
+    /* Preferences */
+    GtkWidget *preferences_item = gtk_menu_item_new_with_label("Preferences...");
+    g_signal_connect(preferences_item, "activate", G_CALLBACK(on_menu_preferences), state);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), preferences_item);
+
+    /* Separator */
+    GtkWidget *separator1 = gtk_separator_menu_item_new();
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), separator1);
+
+    /* Always on Top */
+    GtkWidget *always_on_top_item = gtk_check_menu_item_new_with_label("Always on Top");
+    gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(always_on_top_item),
+                                   state->prefs->window_always_on_top);
+    g_signal_connect(always_on_top_item, "toggled", G_CALLBACK(on_menu_always_on_top), state);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), always_on_top_item);
+
+    /* Reset Window Position */
+    GtkWidget *reset_position_item = gtk_menu_item_new_with_label("Reset Window Position");
+    g_signal_connect(reset_position_item, "activate", G_CALLBACK(on_menu_reset_position), state);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), reset_position_item);
+
+    /* Separator */
+    GtkWidget *separator2 = gtk_separator_menu_item_new();
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), separator2);
+
+    /* About */
+    GtkWidget *about_item = gtk_menu_item_new_with_label("About XRG");
+    g_signal_connect(about_item, "activate", G_CALLBACK(on_menu_about), state);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), about_item);
+
+    /* Separator */
+    GtkWidget *separator3 = gtk_separator_menu_item_new();
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), separator3);
+
+    /* Quit */
+    GtkWidget *quit_item = gtk_menu_item_new_with_label("Quit");
+    g_signal_connect(quit_item, "activate", G_CALLBACK(on_menu_quit), state);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), quit_item);
+
+    gtk_widget_show_all(menu);
+    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
 }
 
 /**
