@@ -801,6 +801,8 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     gtk_widget_set_visible(state->network_box, state->prefs->show_network);
     gtk_widget_set_visible(state->disk_box, state->prefs->show_disk);
     gtk_widget_set_visible(state->gpu_box, state->prefs->show_gpu);
+    gtk_widget_set_visible(state->battery_box, state->prefs->show_battery);
+    gtk_widget_set_visible(state->sensors_box, state->prefs->show_temperature);
     gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
 
     /* Connect keyboard events */
@@ -2774,6 +2776,24 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
         return TRUE;
     }
 
+    /* Ctrl+7 = Toggle Battery */
+    if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_7) {
+        state->prefs->show_battery = !state->prefs->show_battery;
+        gtk_widget_set_visible(state->battery_box, state->prefs->show_battery);
+        xrg_preferences_save(state->prefs);
+        g_message("Battery module %s", state->prefs->show_battery ? "shown" : "hidden");
+        return TRUE;
+    }
+
+    /* Ctrl+8 = Toggle Temperature/Sensors */
+    if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_8) {
+        state->prefs->show_temperature = !state->prefs->show_temperature;
+        gtk_widget_set_visible(state->sensors_box, state->prefs->show_temperature);
+        xrg_preferences_save(state->prefs);
+        g_message("Temperature module %s", state->prefs->show_temperature ? "shown" : "hidden");
+        return TRUE;
+    }
+
     return FALSE;
 }
 
@@ -3702,6 +3722,8 @@ static void on_preferences_applied(gpointer user_data) {
     gtk_widget_set_visible(state->network_box, state->prefs->show_network);
     gtk_widget_set_visible(state->disk_box, state->prefs->show_disk);
     gtk_widget_set_visible(state->gpu_box, state->prefs->show_gpu);
+    gtk_widget_set_visible(state->battery_box, state->prefs->show_battery);
+    gtk_widget_set_visible(state->sensors_box, state->prefs->show_temperature);
     gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
 
     /* Check if layout orientation changed */
