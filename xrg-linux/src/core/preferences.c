@@ -179,6 +179,7 @@ void xrg_preferences_set_defaults(XRGPreferences *prefs) {
     prefs->aitoken_db_path = g_build_filename(home, ".claude", "monitoring", "claude_usage.db", NULL);
     prefs->aitoken_otel_endpoint = g_strdup("http://localhost:8889/metrics");
     prefs->aitoken_auto_detect = TRUE;
+    prefs->aitoken_show_model_breakdown = FALSE;  /* Default to grouped total */
     g_free(home);
 }
 
@@ -304,6 +305,9 @@ gboolean xrg_preferences_load(XRGPreferences *prefs) {
     prefs->disk_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "disk_style", NULL);
     prefs->gpu_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "gpu_style", NULL);
     prefs->aitoken_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "aitoken_style", NULL);
+
+    /* Load AI Token settings */
+    prefs->aitoken_show_model_breakdown = g_key_file_get_boolean(prefs->keyfile, "AIToken", "show_model_breakdown", NULL);
 
     return TRUE;
 }
@@ -440,6 +444,9 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
     g_key_file_set_integer(prefs->keyfile, "GraphStyles", "disk_style", prefs->disk_graph_style);
     g_key_file_set_integer(prefs->keyfile, "GraphStyles", "gpu_style", prefs->gpu_graph_style);
     g_key_file_set_integer(prefs->keyfile, "GraphStyles", "aitoken_style", prefs->aitoken_graph_style);
+
+    /* Save AI Token settings */
+    g_key_file_set_boolean(prefs->keyfile, "AIToken", "show_model_breakdown", prefs->aitoken_show_model_breakdown);
 
     /* Write to file */
     GError *error = NULL;

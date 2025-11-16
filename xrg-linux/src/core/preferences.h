@@ -118,6 +118,7 @@ struct _XRGPreferences {
     gchar *aitoken_db_path;
     gchar *aitoken_otel_endpoint;
     gboolean aitoken_auto_detect;
+    gboolean aitoken_show_model_breakdown;
 
     /* Theme settings */
     gchar *current_theme;  /* Name of current theme */

@@ -23,6 +23,11 @@ typedef enum {
 } AITokenSource;
 
 typedef struct {
+    guint64 input_tokens;
+    guint64 output_tokens;
+} ModelTokens;
+
+typedef struct {
     gchar *source_path;
     AITokenSource source_type;
     guint64 total_input_tokens;
@@ -32,6 +37,10 @@ typedef struct {
     guint64 session_output_tokens;
     guint64 tokens_last_hour;
     gint64 last_check_time;
+
+    /* Per-model tracking */
+    GHashTable *model_tokens;  /* key: model name (gchar*), value: ModelTokens* */
+    gchar *current_model;      /* Most recent model used */
 } AITokenStats;
 
 typedef struct _XRGAITokenCollector XRGAITokenCollector;
@@ -85,5 +94,9 @@ const gchar* xrg_aitoken_collector_get_source_name(XRGAITokenCollector *collecto
 XRGDataset* xrg_aitoken_collector_get_input_dataset(XRGAITokenCollector *collector);
 XRGDataset* xrg_aitoken_collector_get_output_dataset(XRGAITokenCollector *collector);
 XRGDataset* xrg_aitoken_collector_get_total_dataset(XRGAITokenCollector *collector);
+
+/* Model tracking */
+const gchar* xrg_aitoken_collector_get_current_model(XRGAITokenCollector *collector);
+GHashTable* xrg_aitoken_collector_get_model_tokens(XRGAITokenCollector *collector);
 
 #endif /* XRG_AITOKEN_COLLECTOR_H */

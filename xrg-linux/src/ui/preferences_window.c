@@ -47,6 +47,7 @@ struct _XRGPreferencesWindow {
     GtkWidget *aitoken_enabled_check;
     GtkWidget *aitoken_height_spin;
     GtkWidget *aitoken_style_combo;
+    GtkWidget *aitoken_show_model_breakdown_check;
 
     /* Colors tab widgets */
     GtkWidget *theme_combo;
@@ -535,6 +536,19 @@ static GtkWidget* create_aitoken_tab(XRGPreferencesWindow *win) {
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_style_combo), "Hollow (Outline)");
     gtk_grid_attach(GTK_GRID(grid), win->aitoken_style_combo, 1, row++, 1, 1);
 
+    /* Separator */
+    gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
+
+    /* Data display options */
+    label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(label), "<b>Data Display Options</b>");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+
+    /* Show model breakdown */
+    win->aitoken_show_model_breakdown_check = gtk_check_button_new_with_label("Show Per-Model Token Breakdown");
+    gtk_grid_attach(GTK_GRID(grid), win->aitoken_show_model_breakdown_check, 0, row++, 2, 1);
+
     /* Note: Colors are managed in the Colors tab */
 
     return grid;
@@ -704,6 +718,7 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->aitoken_enabled_check), prefs->show_aitoken);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->aitoken_height_spin), prefs->graph_height_aitoken);
     gtk_combo_box_set_active(GTK_COMBO_BOX(win->aitoken_style_combo), prefs->aitoken_graph_style);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->aitoken_show_model_breakdown_check), prefs->aitoken_show_model_breakdown);
     /* Note: AIToken colors removed - use Colors tab instead */
 
     /* Colors tab */
@@ -794,6 +809,7 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     prefs->show_aitoken = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->aitoken_enabled_check));
     prefs->graph_height_aitoken = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->aitoken_height_spin));
     prefs->aitoken_graph_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->aitoken_style_combo));
+    prefs->aitoken_show_model_breakdown = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->aitoken_show_model_breakdown_check));
     /* Note: AIToken colors removed - use Colors tab instead */
 
     /* Colors tab */

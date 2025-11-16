@@ -31,9 +31,9 @@ static gchar* auto_detect_jsonl_path(void) {
 }
 
 /**
- * Parse tokens and session ID from a single JSONL line
+ * Parse tokens, session ID, and model from a single JSONL line
  */
-static gboolean parse_jsonl_tokens(const gchar *line, guint64 *input_tokens, guint64 *output_tokens, gchar **session_id) {
+static gboolean parse_jsonl_tokens(const gchar *line, guint64 *input_tokens, guint64 *output_tokens, gchar **session_id, gchar **model) {
     /* Skip empty lines */
     if (!line || strlen(line) < 2) {
         return FALSE;
@@ -67,6 +67,15 @@ static gboolean parse_jsonl_tokens(const gchar *line, guint64 *input_tokens, gui
         const gchar *sid = json_object_get_string_member(obj, "sessionId");
         if (sid && *session_id == NULL) {
             *session_id = g_strdup(sid);
+        }
+    }
+
+    /* Extract model name if requested */
+    if (model && json_object_has_member(obj, "model")) {
+        const gchar *mdl = json_object_get_string_member(obj, "model");
+        if (mdl) {
+            g_free(*model);
+            *model = g_strdup(mdl);
         }
     }
 
@@ -151,7 +160,14 @@ static void read_jsonl_tokens(const gchar *dir_path, AITokenStats *stats, gchar 
             /* First, scan the last few lines to find the current session ID */
             while (fgets(line, sizeof(line), fp)) {
                 guint64 input = 0, output = 0;
-                parse_jsonl_tokens(line, &input, &output, &detected_session);
+                gchar *model = NULL;
+                parse_jsonl_tokens(line, &input, &output, &detected_session, &model);
+
+                /* Track the most recent model */
+                if (model) {
+                    g_free(stats->current_model);
+                    stats->current_model = model;  /* Transfer ownership */
+                }
             }
 
             /* If we found a session ID and it's different from current, we have a new session */
@@ -170,14 +186,28 @@ static void read_jsonl_tokens(const gchar *dir_path, AITokenStats *stats, gchar 
                 while (fgets(line, sizeof(line), fp)) {
                     guint64 input = 0, output = 0;
                     gchar *line_session = NULL;
-                    if (parse_jsonl_tokens(line, &input, &output, &line_session)) {
+                    gchar *model = NULL;
+                    if (parse_jsonl_tokens(line, &input, &output, &line_session, &model)) {
                         /* Only count tokens from the current session */
                         if (line_session && *current_session_id &&
                             strcmp(line_session, *current_session_id) == 0) {
                             stats->total_input_tokens += input;
                             stats->total_output_tokens += output;
+
+                            /* Track per-model tokens */
+                            if (model && stats->model_tokens) {
+                                ModelTokens *mt = g_hash_table_lookup(stats->model_tokens, model);
+                                if (!mt) {
+                                    /* Create new entry for this model */
+                                    mt = g_new0(ModelTokens, 1);
+                                    g_hash_table_insert(stats->model_tokens, g_strdup(model), mt);
+                                }
+                                mt->input_tokens += input;
+                                mt->output_tokens += output;
+                            }
                         }
                         g_free(line_session);
+                        g_free(model);
                     }
                 }
             }
@@ -210,6 +240,10 @@ XRGAITokenCollector* xrg_aitoken_collector_new(gint dataset_capacity) {
     collector->stats.session_output_tokens = 0;
     collector->stats.tokens_last_hour = 0;
 
+    /* Initialize per-model tracking */
+    collector->stats.model_tokens = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+    collector->stats.current_model = NULL;
+
     /* Auto-detect by default */
     collector->auto_detect = TRUE;
     collector->jsonl_path = NULL;
@@ -238,6 +272,11 @@ void xrg_aitoken_collector_free(XRGAITokenCollector *collector) {
     xrg_dataset_free(collector->total_tokens_rate);
 
     g_free(collector->stats.source_path);
+    g_free(collector->stats.current_model);
+    if (collector->stats.model_tokens) {
+        g_hash_table_destroy(collector->stats.model_tokens);
+    }
+
     g_free(collector->jsonl_path);
     g_free(collector->db_path);
     g_free(collector->otel_endpoint);
@@ -303,6 +342,11 @@ void xrg_aitoken_collector_update(XRGAITokenCollector *collector) {
     /* Reset counters for fresh read */
     collector->stats.total_input_tokens = 0;
     collector->stats.total_output_tokens = 0;
+
+    /* Clear per-model tracking for fresh read */
+    if (collector->stats.model_tokens) {
+        g_hash_table_remove_all(collector->stats.model_tokens);
+    }
 
     /* Determine source */
     gchar *source_path = NULL;
@@ -466,4 +510,21 @@ XRGDataset* xrg_aitoken_collector_get_output_dataset(XRGAITokenCollector *collec
 XRGDataset* xrg_aitoken_collector_get_total_dataset(XRGAITokenCollector *collector) {
     g_return_val_if_fail(collector != NULL, NULL);
     return collector->total_tokens_rate;
+}
+
+/**
+ * Get current model name
+ */
+const gchar* xrg_aitoken_collector_get_current_model(XRGAITokenCollector *collector) {
+    g_return_val_if_fail(collector != NULL, NULL);
+    return collector->stats.current_model;
+}
+
+/**
+ * Get model tokens hash table
+ * Returns: (transfer none): Hash table mapping model names to ModelTokens structs
+ */
+GHashTable* xrg_aitoken_collector_get_model_tokens(XRGAITokenCollector *collector) {
+    g_return_val_if_fail(collector != NULL, NULL);
+    return collector->stats.model_tokens;
 }

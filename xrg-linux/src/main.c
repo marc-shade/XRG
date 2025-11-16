@@ -1943,6 +1943,56 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
     cairo_show_text(cr, line3);
     g_free(line3);
 
+    /* Show per-model breakdown if enabled */
+    gint next_y = 51;  /* Starting Y position for model breakdown */
+    if (state->prefs->aitoken_show_model_breakdown) {
+        GHashTable *model_tokens = xrg_aitoken_collector_get_model_tokens(state->aitoken_collector);
+        const gchar *current_model = xrg_aitoken_collector_get_current_model(state->aitoken_collector);
+
+        if (model_tokens && g_hash_table_size(model_tokens) > 0) {
+            /* Draw separator */
+            gchar *separator = g_strdup("--- By Model ---");
+            cairo_move_to(cr, 5, next_y);
+            cairo_show_text(cr, separator);
+            g_free(separator);
+            next_y += 12;
+
+            /* Helper function to display each model */
+            GHashTableIter iter;
+            gpointer key, value;
+            g_hash_table_iter_init(&iter, model_tokens);
+
+            while (g_hash_table_iter_next(&iter, &key, &value)) {
+                const gchar *model_name = (const gchar *)key;
+                ModelTokens *tokens = (ModelTokens *)value;
+                guint64 model_total = tokens->input_tokens + tokens->output_tokens;
+
+                /* Truncate long model names */
+                gchar *display_name = g_strdup(model_name);
+                if (strlen(display_name) > 20) {
+                    display_name[17] = '.';
+                    display_name[18] = '.';
+                    display_name[19] = '.';
+                    display_name[20] = '\0';
+                }
+
+                /* Mark current model with asterisk */
+                gchar *model_line;
+                if (current_model && g_strcmp0(model_name, current_model) == 0) {
+                    model_line = g_strdup_printf("* %s: %lu", display_name, (unsigned long)model_total);
+                } else {
+                    model_line = g_strdup_printf("  %s: %lu", display_name, (unsigned long)model_total);
+                }
+
+                cairo_move_to(cr, 5, next_y);
+                cairo_show_text(cr, model_line);
+                g_free(model_line);
+                g_free(display_name);
+                next_y += 12;
+            }
+        }
+    }
+
     /* Draw activity bar on the right (if enabled) */
     if (state->prefs->show_activity_bars) {
         gint bar_x = width - 20;  /* 20px from right edge */
