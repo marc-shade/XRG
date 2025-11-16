@@ -211,15 +211,44 @@ gboolean xrg_preferences_load(XRGPreferences *prefs) {
     prefs->window_always_on_top = g_key_file_get_boolean(prefs->keyfile, "Window", "always_on_top", NULL);
     prefs->window_opacity = g_key_file_get_double(prefs->keyfile, "Window", "opacity", NULL);
 
-    /* Load module visibility */
-    prefs->show_cpu = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_cpu", NULL);
-    prefs->show_memory = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_memory", NULL);
-    prefs->show_network = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_network", NULL);
-    prefs->show_disk = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_disk", NULL);
-    prefs->show_gpu = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_gpu", NULL);
-    prefs->show_temperature = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_temperature", NULL);
-    prefs->show_battery = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_battery", NULL);
-    prefs->show_aitoken = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_aitoken", NULL);
+    /* Load module visibility - check if key exists before loading */
+    GError *key_error = NULL;
+    if (g_key_file_has_key(prefs->keyfile, "Modules", "show_cpu", NULL)) {
+        prefs->show_cpu = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_cpu", &key_error);
+        if (key_error) { g_error_free(key_error); key_error = NULL; }
+    }
+    if (g_key_file_has_key(prefs->keyfile, "Modules", "show_memory", NULL)) {
+        prefs->show_memory = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_memory", &key_error);
+        if (key_error) { g_error_free(key_error); key_error = NULL; }
+    }
+    if (g_key_file_has_key(prefs->keyfile, "Modules", "show_network", NULL)) {
+        prefs->show_network = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_network", &key_error);
+        if (key_error) { g_error_free(key_error); key_error = NULL; }
+    }
+    if (g_key_file_has_key(prefs->keyfile, "Modules", "show_disk", NULL)) {
+        prefs->show_disk = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_disk", &key_error);
+        if (key_error) { g_error_free(key_error); key_error = NULL; }
+    }
+    if (g_key_file_has_key(prefs->keyfile, "Modules", "show_gpu", NULL)) {
+        prefs->show_gpu = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_gpu", &key_error);
+        if (key_error) { g_error_free(key_error); key_error = NULL; }
+    }
+    if (g_key_file_has_key(prefs->keyfile, "Modules", "show_temperature", NULL)) {
+        prefs->show_temperature = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_temperature", &key_error);
+        if (key_error) { g_error_free(key_error); key_error = NULL; }
+    }
+    if (g_key_file_has_key(prefs->keyfile, "Modules", "show_battery", NULL)) {
+        prefs->show_battery = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_battery", &key_error);
+        if (key_error) { g_error_free(key_error); key_error = NULL; }
+    }
+    if (g_key_file_has_key(prefs->keyfile, "Modules", "show_aitoken", NULL)) {
+        prefs->show_aitoken = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_aitoken", &key_error);
+        if (key_error) { g_error_free(key_error); key_error = NULL; }
+    }
+
+    g_message("Loaded module visibility: CPU=%d, Mem=%d, Net=%d, Disk=%d, GPU=%d, Temp=%d, Bat=%d, AI=%d",
+              prefs->show_cpu, prefs->show_memory, prefs->show_network, prefs->show_disk,
+              prefs->show_gpu, prefs->show_temperature, prefs->show_battery, prefs->show_aitoken);
 
     /* Load activity bars setting */
     prefs->show_activity_bars = g_key_file_get_boolean(prefs->keyfile, "Display", "show_activity_bars", NULL);
@@ -337,6 +366,9 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
     g_key_file_set_double(prefs->keyfile, "Window", "opacity", prefs->window_opacity);
 
     /* Save module visibility */
+    g_message("Saving module visibility: CPU=%d, Mem=%d, Net=%d, Disk=%d, GPU=%d, Temp=%d, Bat=%d, AI=%d",
+              prefs->show_cpu, prefs->show_memory, prefs->show_network, prefs->show_disk,
+              prefs->show_gpu, prefs->show_temperature, prefs->show_battery, prefs->show_aitoken);
     g_key_file_set_boolean(prefs->keyfile, "Modules", "show_cpu", prefs->show_cpu);
     g_key_file_set_boolean(prefs->keyfile, "Modules", "show_memory", prefs->show_memory);
     g_key_file_set_boolean(prefs->keyfile, "Modules", "show_network", prefs->show_network);
@@ -465,12 +497,14 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
 
     /* Write to file */
     GError *error = NULL;
+    g_message("Saving preferences to: %s", prefs->config_path);
     if (!g_key_file_save_to_file(prefs->keyfile, prefs->config_path, &error)) {
-        g_warning("Failed to save preferences: %s", error->message);
+        g_warning("Failed to save preferences to %s: %s", prefs->config_path, error->message);
         g_error_free(error);
         return FALSE;
     }
 
+    g_message("Preferences saved successfully to %s", prefs->config_path);
     return TRUE;
 }
 
