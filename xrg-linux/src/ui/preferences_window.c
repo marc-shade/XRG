@@ -1151,8 +1151,15 @@ static void on_response(GtkDialog *dialog, gint response_id, gpointer user_data)
     XRGPreferencesWindow *win = (XRGPreferencesWindow *)user_data;
 
     if (response_id == GTK_RESPONSE_OK || response_id == GTK_RESPONSE_APPLY) {
+        /* Save UI values to preferences struct */
         save_ui_to_preferences(win);
-        g_message("Preferences saved");
+
+        /* Persist preferences to disk */
+        if (xrg_preferences_save(win->prefs)) {
+            g_message("Preferences saved to disk successfully");
+        } else {
+            g_warning("Failed to save preferences to disk");
+        }
 
         /* Call the applied callback if set */
         if (win->applied_callback) {
