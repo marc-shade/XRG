@@ -1716,7 +1716,16 @@ static gboolean on_draw_gpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
     g_free(mem_text);
 
     /* Line 4: Temperature */
-    gchar *temp_text = g_strdup_printf("Temp: %.0f°C", temp);
+    gdouble display_temp = temp;
+    const gchar *unit_symbol = "°C";
+
+    if (state->prefs->temperature_units == XRG_TEMP_FAHRENHEIT) {
+        /* Convert Celsius to Fahrenheit: F = (C × 9/5) + 32 */
+        display_temp = (temp * 9.0 / 5.0) + 32.0;
+        unit_symbol = "°F";
+    }
+
+    gchar *temp_text = g_strdup_printf("Temp: %.0f%s", display_temp, unit_symbol);
     cairo_move_to(cr, 5, 48);
     cairo_show_text(cr, temp_text);
     g_free(temp_text);
@@ -2243,7 +2252,17 @@ static gboolean on_draw_sensors(GtkWidget *widget, cairo_t *cr, gpointer user_da
         XRGSensorData *sensor = (XRGSensorData *)l->data;
         if (!sensor->is_enabled) continue;
 
-        gchar *line = g_strdup_printf("%s: %.1f°C", sensor->name, sensor->current_value);
+        /* Convert temperature based on user preference */
+        gdouble display_temp = sensor->current_value;
+        const gchar *unit_symbol = "°C";
+
+        if (state->prefs->temperature_units == XRG_TEMP_FAHRENHEIT) {
+            /* Convert Celsius to Fahrenheit: F = (C × 9/5) + 32 */
+            display_temp = (sensor->current_value * 9.0 / 5.0) + 32.0;
+            unit_symbol = "°F";
+        }
+
+        gchar *line = g_strdup_printf("%s: %.1f%s", sensor->name, display_temp, unit_symbol);
         cairo_move_to(cr, 5, y_offset);
         cairo_show_text(cr, line);
         g_free(line);
@@ -2256,8 +2275,19 @@ static gboolean on_draw_sensors(GtkWidget *widget, cairo_t *cr, gpointer user_da
     GString *tooltip_str = g_string_new("Sensors:\n");
     for (GSList *l = temp_sensors; l != NULL; l = l->next) {
         XRGSensorData *sensor = (XRGSensorData *)l->data;
+
+        /* Convert temperature based on user preference */
+        gdouble display_temp = sensor->current_value;
+        const gchar *unit_symbol = "°C";
+
+        if (state->prefs->temperature_units == XRG_TEMP_FAHRENHEIT) {
+            /* Convert Celsius to Fahrenheit: F = (C × 9/5) + 32 */
+            display_temp = (sensor->current_value * 9.0 / 5.0) + 32.0;
+            unit_symbol = "°F";
+        }
+
         g_string_append_printf(tooltip_str, "%s: %.1f%s\n",
-                              sensor->name, sensor->current_value, sensor->units);
+                              sensor->name, display_temp, unit_symbol);
     }
     gtk_widget_set_tooltip_text(widget, tooltip_str->str);
     g_string_free(tooltip_str, TRUE);
