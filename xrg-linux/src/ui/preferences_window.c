@@ -47,6 +47,7 @@ struct _XRGPreferencesWindow {
     GtkWidget *gpu_enabled_check;
     GtkWidget *gpu_height_spin;
     GtkWidget *gpu_style_combo;
+    GtkWidget *gpu_temperature_units_combo;
 
     /* Battery module tab widgets */
     GtkWidget *battery_enabled_check;
@@ -563,6 +564,15 @@ static GtkWidget* create_gpu_tab(XRGPreferencesWindow *win) {
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->gpu_style_combo), "Hollow (Outline)");
     gtk_grid_attach(GTK_GRID(grid), win->gpu_style_combo, 1, row++, 1, 1);
 
+    /* Temperature units */
+    label = gtk_label_new("Temperature Units:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->gpu_temperature_units_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->gpu_temperature_units_combo), "Celsius (°C)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->gpu_temperature_units_combo), "Fahrenheit (°F)");
+    gtk_grid_attach(GTK_GRID(grid), win->gpu_temperature_units_combo, 1, row++, 1, 1);
+
     /* Note: Colors are managed in the Colors tab */
 
     return grid;
@@ -935,6 +945,7 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->gpu_enabled_check), prefs->show_gpu);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->gpu_height_spin), prefs->graph_height_gpu);
     gtk_combo_box_set_active(GTK_COMBO_BOX(win->gpu_style_combo), prefs->gpu_graph_style);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->gpu_temperature_units_combo), prefs->temperature_units);
     /* Note: GPU colors removed - use Colors tab instead */
 
     /* Battery module tab */
@@ -1054,6 +1065,7 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     prefs->show_gpu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->gpu_enabled_check));
     prefs->graph_height_gpu = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->gpu_height_spin));
     prefs->gpu_graph_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->gpu_style_combo));
+    prefs->temperature_units = gtk_combo_box_get_active(GTK_COMBO_BOX(win->gpu_temperature_units_combo));
     /* Note: GPU colors removed - use Colors tab instead */
 
     /* Battery module tab */
