@@ -98,6 +98,38 @@ static gboolean on_draw_disk(GtkWidget *widget, cairo_t *cr, gpointer user_data)
 static gboolean on_disk_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
 static gboolean on_disk_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
 static void show_disk_context_menu(AppState *state, GdkEventButton *event);
+
+/* Helper function to get gradient color for activity bars based on position */
+static void get_activity_bar_gradient_color(gdouble position, XRGPreferences *prefs, GdkRGBA *out_color) {
+    /* position: 0.0 = bottom (start), 1.0 = top (end) */
+    /* Gradient: fg1 (cyan) -> fg2 (purple) -> fg3 (amber) */
+
+    GdkRGBA *fg1 = &prefs->graph_fg1_color;
+    GdkRGBA *fg2 = &prefs->graph_fg2_color;
+    GdkRGBA *fg3 = &prefs->graph_fg3_color;
+
+    if (position < 0.33) {
+        /* Bottom third: interpolate from fg1 to fg2 */
+        gdouble t = position / 0.33;
+        out_color->red = fg1->red + t * (fg2->red - fg1->red);
+        out_color->green = fg1->green + t * (fg2->green - fg1->green);
+        out_color->blue = fg1->blue + t * (fg2->blue - fg1->blue);
+        out_color->alpha = 0.8;
+    } else if (position < 0.67) {
+        /* Middle third: interpolate from fg2 to fg3 */
+        gdouble t = (position - 0.33) / 0.34;
+        out_color->red = fg2->red + t * (fg3->red - fg2->red);
+        out_color->green = fg2->green + t * (fg3->green - fg2->green);
+        out_color->blue = fg2->blue + t * (fg3->blue - fg2->blue);
+        out_color->alpha = 0.8;
+    } else {
+        /* Top third: use fg3 */
+        out_color->red = fg3->red;
+        out_color->green = fg3->green;
+        out_color->blue = fg3->blue;
+        out_color->alpha = 0.8;
+    }
+}
 static gboolean on_draw_gpu(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_gpu_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
 static gboolean on_gpu_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
@@ -1371,34 +1403,45 @@ static gboolean on_draw_disk(GtkWidget *widget, cairo_t *cr, gpointer user_data)
         gdouble fill_height = current_value * height;
         gdouble bar_y = height - fill_height;
 
-        GdkRGBA *bar_color = &state->prefs->activity_bar_color;
         XRGGraphStyle bar_style = state->prefs->activity_bar_style;
+        GdkRGBA gradient_color;
 
         if (bar_style == XRG_GRAPH_STYLE_SOLID) {
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
-            cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
-            cairo_fill(cr);
+            /* Draw gradient by slicing horizontally */
+            for (gdouble y = height; y >= bar_y; y -= 1.0) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
+                cairo_rectangle(cr, bar_x, y, bar_width, 1.0);
+                cairo_fill(cr);
+            }
         } else if (bar_style == XRG_GRAPH_STYLE_PIXEL) {
-            /* Chunky pixels */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            /* Chunky pixels with gradient colors */
             for (gdouble y = height; y >= bar_y; y -= 4) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
                 for (gdouble x = bar_x; x < bar_x + bar_width; x += 4) {
                     cairo_arc(cr, x + 2, y, 1.5, 0, 2 * G_PI);
                     cairo_fill(cr);
                 }
             }
         } else if (bar_style == XRG_GRAPH_STYLE_DOT) {
-            /* Fine dots */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            /* Fine dots with gradient colors */
             for (gdouble y = height; y >= bar_y; y -= 2) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
                 for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
                     cairo_arc(cr, x + 1, y, 0.6, 0, 2 * G_PI);
                     cairo_fill(cr);
                 }
             }
         } else if (bar_style == XRG_GRAPH_STYLE_HOLLOW) {
-            /* Outline only - draw dots at top of fill level */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha);
+            /* Outline only - draw dots at top of fill level with gradient color */
+            gdouble position = (height - bar_y) / height;
+            get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+            cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
             for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
                 cairo_arc(cr, x, bar_y, 1.0, 0, 2 * G_PI);
                 cairo_fill(cr);
@@ -1699,36 +1742,45 @@ static gboolean on_draw_gpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
         gdouble fill_height = current_value * height;
         gdouble bar_y = height - fill_height;
 
-        /* Use activity bar color and style from preferences */
-        GdkRGBA *bar_color = &state->prefs->activity_bar_color;
         XRGGraphStyle bar_style = state->prefs->activity_bar_style;
+        GdkRGBA gradient_color;
 
         if (bar_style == XRG_GRAPH_STYLE_SOLID) {
-            /* Solid fill */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
-            cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
-            cairo_fill(cr);
+            /* Draw gradient by slicing horizontally */
+            for (gdouble y = height; y >= bar_y; y -= 1.0) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
+                cairo_rectangle(cr, bar_x, y, bar_width, 1.0);
+                cairo_fill(cr);
+            }
         } else if (bar_style == XRG_GRAPH_STYLE_PIXEL) {
-            /* Chunky pixels - dithered with 4px spacing */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            /* Chunky pixels with gradient colors */
             for (gdouble y = height; y >= bar_y; y -= 4) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
                 for (gdouble x = bar_x; x < bar_x + bar_width; x += 4) {
                     cairo_arc(cr, x + 2, y, 1.5, 0, 2 * G_PI);
                     cairo_fill(cr);
                 }
             }
         } else if (bar_style == XRG_GRAPH_STYLE_DOT) {
-            /* Fine dots - dithered with 2px spacing */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            /* Fine dots with gradient colors */
             for (gdouble y = height; y >= bar_y; y -= 2) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
                 for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
                     cairo_arc(cr, x + 1, y, 0.6, 0, 2 * G_PI);
                     cairo_fill(cr);
                 }
             }
         } else if (bar_style == XRG_GRAPH_STYLE_HOLLOW) {
-            /* Outline only - draw dots at top of fill level */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha);
+            /* Outline only - draw dots at top of fill level with gradient color */
+            gdouble position = (height - bar_y) / height;
+            get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+            cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
             for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
                 cairo_arc(cr, x, bar_y, 1.0, 0, 2 * G_PI);
                 cairo_fill(cr);
@@ -2664,36 +2716,45 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
         gdouble fill_height = current_value * height;
         gdouble bar_y = height - fill_height;
 
-        /* Use activity bar color and style from preferences */
-        GdkRGBA *bar_color = &state->prefs->activity_bar_color;
         XRGGraphStyle bar_style = state->prefs->activity_bar_style;
+        GdkRGBA gradient_color;
 
         if (bar_style == XRG_GRAPH_STYLE_SOLID) {
-            /* Solid fill */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
-            cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
-            cairo_fill(cr);
+            /* Draw gradient by slicing horizontally */
+            for (gdouble y = height; y >= bar_y; y -= 1.0) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
+                cairo_rectangle(cr, bar_x, y, bar_width, 1.0);
+                cairo_fill(cr);
+            }
         } else if (bar_style == XRG_GRAPH_STYLE_PIXEL) {
-            /* Chunky pixels - dithered with 4px spacing */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            /* Chunky pixels with gradient colors */
             for (gdouble y = height; y >= bar_y; y -= 4) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
                 for (gdouble x = bar_x; x < bar_x + bar_width; x += 4) {
                     cairo_arc(cr, x + 2, y, 1.5, 0, 2 * G_PI);
                     cairo_fill(cr);
                 }
             }
         } else if (bar_style == XRG_GRAPH_STYLE_DOT) {
-            /* Fine dots - dithered with 2px spacing */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            /* Fine dots with gradient colors */
             for (gdouble y = height; y >= bar_y; y -= 2) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
                 for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
                     cairo_arc(cr, x + 1, y, 0.6, 0, 2 * G_PI);
                     cairo_fill(cr);
                 }
             }
         } else if (bar_style == XRG_GRAPH_STYLE_HOLLOW) {
-            /* Outline only - draw dots at top of fill level */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha);
+            /* Outline only - draw dots at top of fill level with gradient color */
+            gdouble position = (height - bar_y) / height;
+            get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+            cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
             for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
                 cairo_arc(cr, x, bar_y, 1.0, 0, 2 * G_PI);
                 cairo_fill(cr);
@@ -3011,36 +3072,45 @@ static gboolean on_draw_cpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
         gdouble fill_height = current_value * height;
         gdouble bar_y = height - fill_height;
 
-        /* Use activity bar color and style from preferences */
-        GdkRGBA *bar_color = &state->prefs->activity_bar_color;
         XRGGraphStyle bar_style = state->prefs->activity_bar_style;
+        GdkRGBA gradient_color;
 
         if (bar_style == XRG_GRAPH_STYLE_SOLID) {
-            /* Solid fill */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
-            cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
-            cairo_fill(cr);
+            /* Draw gradient by slicing horizontally */
+            for (gdouble y = height; y >= bar_y; y -= 1.0) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
+                cairo_rectangle(cr, bar_x, y, bar_width, 1.0);
+                cairo_fill(cr);
+            }
         } else if (bar_style == XRG_GRAPH_STYLE_PIXEL) {
-            /* Chunky pixels - dithered with 4px spacing */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            /* Chunky pixels with gradient colors */
             for (gdouble y = height; y >= bar_y; y -= 4) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
                 for (gdouble x = bar_x; x < bar_x + bar_width; x += 4) {
                     cairo_arc(cr, x + 2, y, 1.5, 0, 2 * G_PI);
                     cairo_fill(cr);
                 }
             }
         } else if (bar_style == XRG_GRAPH_STYLE_DOT) {
-            /* Fine dots - dithered with 2px spacing */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            /* Fine dots with gradient colors */
             for (gdouble y = height; y >= bar_y; y -= 2) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
                 for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
                     cairo_arc(cr, x + 1, y, 0.6, 0, 2 * G_PI);
                     cairo_fill(cr);
                 }
             }
         } else if (bar_style == XRG_GRAPH_STYLE_HOLLOW) {
-            /* Outline only - draw dots at top of fill level */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha);
+            /* Outline only - draw dots at top of fill level with gradient color */
+            gdouble position = (height - bar_y) / height;
+            get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+            cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
             for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
                 cairo_arc(cr, x, bar_y, 1.0, 0, 2 * G_PI);
                 cairo_fill(cr);
@@ -3339,36 +3409,45 @@ static gboolean on_draw_memory(GtkWidget *widget, cairo_t *cr, gpointer user_dat
         gdouble fill_height = current_value * height;
         gdouble bar_y = height - fill_height;
 
-        /* Use activity bar color and style from preferences */
-        GdkRGBA *bar_color = &state->prefs->activity_bar_color;
         XRGGraphStyle bar_style = state->prefs->activity_bar_style;
+        GdkRGBA gradient_color;
 
         if (bar_style == XRG_GRAPH_STYLE_SOLID) {
-            /* Solid fill */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
-            cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
-            cairo_fill(cr);
+            /* Draw gradient by slicing horizontally */
+            for (gdouble y = height; y >= bar_y; y -= 1.0) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
+                cairo_rectangle(cr, bar_x, y, bar_width, 1.0);
+                cairo_fill(cr);
+            }
         } else if (bar_style == XRG_GRAPH_STYLE_PIXEL) {
-            /* Chunky pixels - dithered with 4px spacing */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            /* Chunky pixels with gradient colors */
             for (gdouble y = height; y >= bar_y; y -= 4) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
                 for (gdouble x = bar_x; x < bar_x + bar_width; x += 4) {
                     cairo_arc(cr, x + 2, y, 1.5, 0, 2 * G_PI);
                     cairo_fill(cr);
                 }
             }
         } else if (bar_style == XRG_GRAPH_STYLE_DOT) {
-            /* Fine dots - dithered with 2px spacing */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            /* Fine dots with gradient colors */
             for (gdouble y = height; y >= bar_y; y -= 2) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
                 for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
                     cairo_arc(cr, x + 1, y, 0.6, 0, 2 * G_PI);
                     cairo_fill(cr);
                 }
             }
         } else if (bar_style == XRG_GRAPH_STYLE_HOLLOW) {
-            /* Outline only - draw dots at top of fill level */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha);
+            /* Outline only - draw dots at top of fill level with gradient color */
+            gdouble position = (height - bar_y) / height;
+            get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+            cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
             for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
                 cairo_arc(cr, x, bar_y, 1.0, 0, 2 * G_PI);
                 cairo_fill(cr);
@@ -3592,36 +3671,45 @@ static gboolean on_draw_network(GtkWidget *widget, cairo_t *cr, gpointer user_da
         gdouble fill_height = current_value * height;
         gdouble bar_y = height - fill_height;
 
-        /* Use activity bar color and style from preferences */
-        GdkRGBA *bar_color = &state->prefs->activity_bar_color;
         XRGGraphStyle bar_style = state->prefs->activity_bar_style;
+        GdkRGBA gradient_color;
 
         if (bar_style == XRG_GRAPH_STYLE_SOLID) {
-            /* Solid fill */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
-            cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
-            cairo_fill(cr);
+            /* Draw gradient by slicing horizontally */
+            for (gdouble y = height; y >= bar_y; y -= 1.0) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
+                cairo_rectangle(cr, bar_x, y, bar_width, 1.0);
+                cairo_fill(cr);
+            }
         } else if (bar_style == XRG_GRAPH_STYLE_PIXEL) {
-            /* Chunky pixels - dithered with 4px spacing */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            /* Chunky pixels with gradient colors */
             for (gdouble y = height; y >= bar_y; y -= 4) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
                 for (gdouble x = bar_x; x < bar_x + bar_width; x += 4) {
                     cairo_arc(cr, x + 2, y, 1.5, 0, 2 * G_PI);
                     cairo_fill(cr);
                 }
             }
         } else if (bar_style == XRG_GRAPH_STYLE_DOT) {
-            /* Fine dots - dithered with 2px spacing */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha * 0.8);
+            /* Fine dots with gradient colors */
             for (gdouble y = height; y >= bar_y; y -= 2) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
                 for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
                     cairo_arc(cr, x + 1, y, 0.6, 0, 2 * G_PI);
                     cairo_fill(cr);
                 }
             }
         } else if (bar_style == XRG_GRAPH_STYLE_HOLLOW) {
-            /* Outline only - draw dots at top of fill level */
-            cairo_set_source_rgba(cr, bar_color->red, bar_color->green, bar_color->blue, bar_color->alpha);
+            /* Outline only - draw dots at top of fill level with gradient color */
+            gdouble position = (height - bar_y) / height;
+            get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+            cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
             for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
                 cairo_arc(cr, x, bar_y, 1.0, 0, 2 * G_PI);
                 cairo_fill(cr);
