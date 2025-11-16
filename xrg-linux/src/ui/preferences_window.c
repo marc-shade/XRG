@@ -43,6 +43,16 @@ struct _XRGPreferencesWindow {
     GtkWidget *gpu_height_spin;
     GtkWidget *gpu_style_combo;
 
+    /* Battery module tab widgets */
+    GtkWidget *battery_enabled_check;
+    GtkWidget *battery_height_spin;
+    GtkWidget *battery_style_combo;
+
+    /* Temperature/Sensors module tab widgets */
+    GtkWidget *temperature_enabled_check;
+    GtkWidget *temperature_height_spin;
+    GtkWidget *temperature_style_combo;
+
     /* AI Token module tab widgets */
     GtkWidget *aitoken_enabled_check;
     GtkWidget *aitoken_height_spin;
@@ -74,6 +84,8 @@ static GtkWidget* create_memory_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_network_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_disk_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_gpu_tab(XRGPreferencesWindow *win);
+static GtkWidget* create_battery_tab(XRGPreferencesWindow *win);
+static GtkWidget* create_temperature_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_aitoken_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_colors_tab(XRGPreferencesWindow *win);
 static void load_preferences_to_ui(XRGPreferencesWindow *win);
@@ -125,6 +137,14 @@ XRGPreferencesWindow* xrg_preferences_window_new(GtkWindow *parent, XRGPreferenc
     gtk_notebook_append_page(GTK_NOTEBOOK(win->notebook),
                             create_gpu_tab(win),
                             gtk_label_new("GPU Module"));
+
+    gtk_notebook_append_page(GTK_NOTEBOOK(win->notebook),
+                            create_battery_tab(win),
+                            gtk_label_new("Battery Module"));
+
+    gtk_notebook_append_page(GTK_NOTEBOOK(win->notebook),
+                            create_temperature_tab(win),
+                            gtk_label_new("Temperature Module"));
 
     gtk_notebook_append_page(GTK_NOTEBOOK(win->notebook),
                             create_aitoken_tab(win),
@@ -495,6 +515,100 @@ static GtkWidget* create_gpu_tab(XRGPreferencesWindow *win) {
 }
 
 /**
+ * Create Battery module settings tab
+ */
+static GtkWidget* create_battery_tab(XRGPreferencesWindow *win) {
+    GtkWidget *grid = gtk_grid_new();
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
+    gtk_container_set_border_width(GTK_CONTAINER(grid), 15);
+
+    gint row = 0;
+
+    /* Module enabled */
+    win->battery_enabled_check = gtk_check_button_new_with_label("Show Battery Module");
+    gtk_grid_attach(GTK_GRID(grid), win->battery_enabled_check, 0, row++, 2, 1);
+
+    /* Separator */
+    gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
+
+    /* Display settings */
+    GtkWidget *label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(label), "<b>Display Settings</b>");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+
+    /* Graph height */
+    label = gtk_label_new("Graph Height:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->battery_height_spin = gtk_spin_button_new_with_range(40, 300, 10);
+    gtk_grid_attach(GTK_GRID(grid), win->battery_height_spin, 1, row++, 1, 1);
+
+    /* Visual Style */
+    label = gtk_label_new("Visual Style:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->battery_style_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->battery_style_combo), "Solid (Filled)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->battery_style_combo), "Pixel (Chunky)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->battery_style_combo), "Dot (Fine)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->battery_style_combo), "Hollow (Outline)");
+    gtk_grid_attach(GTK_GRID(grid), win->battery_style_combo, 1, row++, 1, 1);
+
+    /* Note: Colors are managed in the Colors tab */
+
+    return grid;
+}
+
+/**
+ * Create Temperature/Sensors module settings tab
+ */
+static GtkWidget* create_temperature_tab(XRGPreferencesWindow *win) {
+    GtkWidget *grid = gtk_grid_new();
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
+    gtk_container_set_border_width(GTK_CONTAINER(grid), 15);
+
+    gint row = 0;
+
+    /* Module enabled */
+    win->temperature_enabled_check = gtk_check_button_new_with_label("Show Temperature/Sensors Module");
+    gtk_grid_attach(GTK_GRID(grid), win->temperature_enabled_check, 0, row++, 2, 1);
+
+    /* Separator */
+    gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
+
+    /* Display settings */
+    GtkWidget *label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(label), "<b>Display Settings</b>");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+
+    /* Graph height */
+    label = gtk_label_new("Graph Height:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->temperature_height_spin = gtk_spin_button_new_with_range(40, 300, 10);
+    gtk_grid_attach(GTK_GRID(grid), win->temperature_height_spin, 1, row++, 1, 1);
+
+    /* Visual Style */
+    label = gtk_label_new("Visual Style:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->temperature_style_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->temperature_style_combo), "Solid (Filled)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->temperature_style_combo), "Pixel (Chunky)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->temperature_style_combo), "Dot (Fine)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->temperature_style_combo), "Hollow (Outline)");
+    gtk_grid_attach(GTK_GRID(grid), win->temperature_style_combo, 1, row++, 1, 1);
+
+    /* Note: Colors are managed in the Colors tab */
+
+    return grid;
+}
+
+/**
  * Create AI Token module tab
  */
 static GtkWidget* create_aitoken_tab(XRGPreferencesWindow *win) {
@@ -714,6 +828,18 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     gtk_combo_box_set_active(GTK_COMBO_BOX(win->gpu_style_combo), prefs->gpu_graph_style);
     /* Note: GPU colors removed - use Colors tab instead */
 
+    /* Battery module tab */
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->battery_enabled_check), prefs->show_battery);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->battery_height_spin), prefs->graph_height_battery);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->battery_style_combo), prefs->battery_graph_style);
+    /* Note: Battery colors removed - use Colors tab instead */
+
+    /* Temperature/Sensors module tab */
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->temperature_enabled_check), prefs->show_temperature);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->temperature_height_spin), prefs->graph_height_temperature);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->temperature_style_combo), prefs->temperature_graph_style);
+    /* Note: Temperature colors removed - use Colors tab instead */
+
     /* AI Token module tab */
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->aitoken_enabled_check), prefs->show_aitoken);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->aitoken_height_spin), prefs->graph_height_aitoken);
@@ -804,6 +930,18 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     prefs->graph_height_gpu = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->gpu_height_spin));
     prefs->gpu_graph_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->gpu_style_combo));
     /* Note: GPU colors removed - use Colors tab instead */
+
+    /* Battery module tab */
+    prefs->show_battery = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->battery_enabled_check));
+    prefs->graph_height_battery = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->battery_height_spin));
+    prefs->battery_graph_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->battery_style_combo));
+    /* Note: Battery colors removed - use Colors tab instead */
+
+    /* Temperature/Sensors module tab */
+    prefs->show_temperature = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->temperature_enabled_check));
+    prefs->graph_height_temperature = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->temperature_height_spin));
+    prefs->temperature_graph_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->temperature_style_combo));
+    /* Note: Temperature colors removed - use Colors tab instead */
 
     /* AI Token module tab */
     prefs->show_aitoken = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->aitoken_enabled_check));
