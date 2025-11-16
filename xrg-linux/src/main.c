@@ -10,6 +10,8 @@
 #include "collectors/network_collector.h"
 #include "collectors/disk_collector.h"
 #include "collectors/gpu_collector.h"
+#include "collectors/battery_collector.h"
+#include "collectors/sensors_collector.h"
 #include "collectors/aitoken_collector.h"
 #include "ui/preferences_window.h"
 
@@ -32,6 +34,10 @@ typedef struct {
     GtkWidget *disk_drawing_area;
     GtkWidget *gpu_box;
     GtkWidget *gpu_drawing_area;
+    GtkWidget *battery_box;
+    GtkWidget *battery_drawing_area;
+    GtkWidget *sensors_box;
+    GtkWidget *sensors_drawing_area;
     GtkWidget *aitoken_box;
     GtkWidget *aitoken_drawing_area;
     XRGPreferences *prefs;
@@ -40,6 +46,8 @@ typedef struct {
     XRGNetworkCollector *network_collector;
     XRGDiskCollector *disk_collector;
     XRGGPUCollector *gpu_collector;
+    XRGBatteryCollector *battery_collector;
+    XRGSensorsCollector *sensors_collector;
     XRGAITokenCollector *aitoken_collector;
     XRGPreferencesWindow *prefs_window;
     guint update_timer_id;
@@ -94,6 +102,14 @@ static gboolean on_draw_gpu(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_gpu_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
 static gboolean on_gpu_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
 static void show_gpu_context_menu(AppState *state, GdkEventButton *event);
+static gboolean on_draw_battery(GtkWidget *widget, cairo_t *cr, gpointer user_data);
+static gboolean on_battery_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
+static gboolean on_battery_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
+static void show_battery_context_menu(AppState *state, GdkEventButton *event);
+static gboolean on_draw_sensors(GtkWidget *widget, cairo_t *cr, gpointer user_data);
+static gboolean on_sensors_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
+static gboolean on_sensors_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
+static void show_sensors_context_menu(AppState *state, GdkEventButton *event);
 static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 static gboolean on_aitoken_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
 static gboolean on_aitoken_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
@@ -528,6 +544,8 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     state->network_collector = xrg_network_collector_new(200);
     state->disk_collector = xrg_disk_collector_new(200);
     state->gpu_collector = xrg_gpu_collector_new(200);
+    state->battery_collector = xrg_battery_collector_new();
+    state->sensors_collector = xrg_sensors_collector_new();
     state->aitoken_collector = xrg_aitoken_collector_new(200);
 
     /* Create main window */
@@ -701,6 +719,56 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     gtk_box_pack_start(GTK_BOX(state->gpu_box), state->gpu_drawing_area, TRUE, TRUE, 0);
 
     gtk_box_pack_start(GTK_BOX(state->vbox), state->gpu_box, TRUE, TRUE, 0);
+
+    /* Create Battery module container */
+    state->battery_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+
+    /* Create Battery graph */
+    state->battery_drawing_area = gtk_drawing_area_new();
+    gint battery_height = (state->prefs->layout_orientation == XRG_LAYOUT_HORIZONTAL)
+                          ? state->prefs->graph_width
+                          : state->prefs->graph_height_battery;
+    gtk_widget_set_size_request(state->battery_drawing_area,
+                                state->prefs->graph_width,
+                                battery_height);
+
+    /* Enable tooltips */
+    gtk_widget_set_has_tooltip(state->battery_drawing_area, TRUE);
+
+    /* Enable button press and motion events */
+    gtk_widget_add_events(state->battery_drawing_area,
+                         GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK);
+    g_signal_connect(state->battery_drawing_area, "draw", G_CALLBACK(on_draw_battery), state);
+    g_signal_connect(state->battery_drawing_area, "button-press-event", G_CALLBACK(on_battery_button_press), state);
+    g_signal_connect(state->battery_drawing_area, "motion-notify-event", G_CALLBACK(on_battery_motion_notify), state);
+    gtk_box_pack_start(GTK_BOX(state->battery_box), state->battery_drawing_area, TRUE, TRUE, 0);
+
+    gtk_box_pack_start(GTK_BOX(state->vbox), state->battery_box, TRUE, TRUE, 0);
+
+    /* Create Sensors/Temperature module container */
+    state->sensors_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+
+    /* Create Sensors graph */
+    state->sensors_drawing_area = gtk_drawing_area_new();
+    gint sensors_height = (state->prefs->layout_orientation == XRG_LAYOUT_HORIZONTAL)
+                          ? state->prefs->graph_width
+                          : state->prefs->graph_height_temperature;
+    gtk_widget_set_size_request(state->sensors_drawing_area,
+                                state->prefs->graph_width,
+                                sensors_height);
+
+    /* Enable tooltips */
+    gtk_widget_set_has_tooltip(state->sensors_drawing_area, TRUE);
+
+    /* Enable button press and motion events */
+    gtk_widget_add_events(state->sensors_drawing_area,
+                         GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK);
+    g_signal_connect(state->sensors_drawing_area, "draw", G_CALLBACK(on_draw_sensors), state);
+    g_signal_connect(state->sensors_drawing_area, "button-press-event", G_CALLBACK(on_sensors_button_press), state);
+    g_signal_connect(state->sensors_drawing_area, "motion-notify-event", G_CALLBACK(on_sensors_motion_notify), state);
+    gtk_box_pack_start(GTK_BOX(state->sensors_box), state->sensors_drawing_area, TRUE, TRUE, 0);
+
+    gtk_box_pack_start(GTK_BOX(state->vbox), state->sensors_box, TRUE, TRUE, 0);
 
     /* Create AI Token module container */
     state->aitoken_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -1747,6 +1815,574 @@ static gboolean on_aitoken_motion_notify(GtkWidget *widget, GdkEventMotion *even
                                      total_val, input_val, output_val);
     gtk_widget_set_tooltip_text(widget, tooltip);
     g_free(tooltip);
+
+    return FALSE;
+}
+
+/**
+ * Draw Battery graph
+ */
+static gboolean on_draw_battery(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(widget, &allocation);
+
+    gint width = allocation.width;
+    gint height = allocation.height;
+
+    /* Draw background */
+    GdkRGBA *bg_color = &state->prefs->graph_bg_color;
+    cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
+    cairo_rectangle(cr, 0, 0, width, height);
+    cairo_fill(cr);
+
+    /* Draw border */
+    GdkRGBA *border_color = &state->prefs->border_color;
+    cairo_set_source_rgba(cr, border_color->red, border_color->green, border_color->blue, border_color->alpha);
+    cairo_set_line_width(cr, 1.0);
+    cairo_rectangle(cr, 0.5, 0.5, width - 1, height - 1);
+    cairo_stroke(cr);
+
+    /* Get battery datasets */
+    XRGDataset *charge_dataset = state->battery_collector->charge_watts;
+    XRGDataset *discharge_dataset = state->battery_collector->discharge_watts;
+
+    gint count = xrg_dataset_get_count(charge_dataset);
+    if (count < 2) {
+        /* Not enough data yet - draw "No Battery" message */
+        cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 0.5);
+        cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+        cairo_set_font_size(cr, 10.0);
+        cairo_move_to(cr, 10, height / 2);
+        cairo_show_text(cr, "Battery");
+        return FALSE;
+    }
+
+    /* Get battery status */
+    XRGBatteryStatus status = xrg_battery_collector_get_status(state->battery_collector);
+    gint charge_percent = xrg_battery_collector_get_charge_percent(state->battery_collector);
+    gint minutes_remaining = xrg_battery_collector_get_minutes_remaining(state->battery_collector);
+
+    /* Draw charge level graph (green when charging, cyan when discharging) */
+    GdkRGBA *fg1_color = &state->prefs->graph_fg1_color;
+    GdkRGBA *fg2_color = &state->prefs->graph_fg2_color;
+
+    XRGGraphStyle style = state->prefs->battery_graph_style;
+
+    /* Draw discharge watts (cyan - FG1) */
+    cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, fg1_color->alpha);
+
+    gdouble max_discharge = xrg_dataset_get_max(discharge_dataset);
+    if (max_discharge < 10.0) max_discharge = 10.0;  /* Minimum scale */
+
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(discharge_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_discharge * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(discharge_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_discharge * height);
+            cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
+    }
+
+    /* Draw charge watts (green - FG2) on top */
+    cairo_set_source_rgba(cr, fg2_color->red, fg2_color->green, fg2_color->blue, fg2_color->alpha);
+
+    gdouble max_charge = xrg_dataset_get_max(charge_dataset);
+    if (max_charge < 10.0) max_charge = 10.0;
+
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(charge_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_charge * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    }
+
+    /* Draw battery icon/bar on the right */
+    gint bar_x = width - 30;
+    gint bar_width = 25;
+    gint bar_height_total = height - 20;
+    gint bar_y = 10;
+
+    /* Draw battery outline */
+    cairo_set_source_rgba(cr, border_color->red, border_color->green, border_color->blue, border_color->alpha);
+    cairo_set_line_width(cr, 2.0);
+    cairo_rectangle(cr, bar_x, bar_y, bar_width, bar_height_total);
+    cairo_stroke(cr);
+
+    /* Draw battery terminal */
+    cairo_rectangle(cr, bar_x + 7, bar_y - 3, 11, 3);
+    cairo_fill(cr);
+
+    /* Draw charge level fill */
+    gdouble fill_height = (charge_percent / 100.0) * (bar_height_total - 4);
+    gdouble fill_y = bar_y + bar_height_total - fill_height - 2;
+
+    /* Color based on charge level */
+    if (charge_percent > 50) {
+        cairo_set_source_rgba(cr, 0.0, 1.0, 0.2, 0.8);  /* Green */
+    } else if (charge_percent > 20) {
+        cairo_set_source_rgba(cr, 1.0, 0.8, 0.0, 0.8);  /* Yellow */
+    } else {
+        cairo_set_source_rgba(cr, 1.0, 0.2, 0.0, 0.8);  /* Red */
+    }
+
+    cairo_rectangle(cr, bar_x + 2, fill_y, bar_width - 4, fill_height);
+    cairo_fill(cr);
+
+    /* Draw text labels */
+    cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 1.0);
+    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 10.0);
+
+    /* Line 1: Status and charge percent */
+    const gchar *status_text = "";
+    switch (status) {
+        case XRG_BATTERY_STATUS_CHARGING:
+            status_text = "Charging";
+            break;
+        case XRG_BATTERY_STATUS_DISCHARGING:
+            status_text = "Battery";
+            break;
+        case XRG_BATTERY_STATUS_FULL:
+            status_text = "Fully Charged";
+            break;
+        case XRG_BATTERY_STATUS_NOT_CHARGING:
+            status_text = "Not Charging";
+            break;
+        case XRG_BATTERY_STATUS_NO_BATTERY:
+            status_text = "No Battery";
+            break;
+        default:
+            status_text = "Unknown";
+    }
+
+    gchar *line1 = g_strdup_printf("%s: %d%%", status_text, charge_percent);
+    cairo_move_to(cr, 5, 12);
+    cairo_show_text(cr, line1);
+    g_free(line1);
+
+    /* Line 2: Time remaining */
+    if (minutes_remaining > 0) {
+        gint hours = minutes_remaining / 60;
+        gint mins = minutes_remaining % 60;
+        gchar *line2 = g_strdup_printf("Time: %dh %dm", hours, mins);
+        cairo_move_to(cr, 5, 26);
+        cairo_show_text(cr, line2);
+        g_free(line2);
+    }
+
+    /* Line 3: Current power */
+    gdouble current_discharge = xrg_dataset_get_latest(discharge_dataset);
+    gdouble current_charge = xrg_dataset_get_latest(charge_dataset);
+    if (current_charge > 0.1) {
+        gchar *line3 = g_strdup_printf("Charging: %.1fW", current_charge);
+        cairo_move_to(cr, 5, 40);
+        cairo_show_text(cr, line3);
+        g_free(line3);
+    } else if (current_discharge > 0.1) {
+        gchar *line3 = g_strdup_printf("Discharging: %.1fW", current_discharge);
+        cairo_move_to(cr, 5, 40);
+        cairo_show_text(cr, line3);
+        g_free(line3);
+    }
+
+    /* Set tooltip */
+    gint64 charge = xrg_battery_collector_get_total_charge(state->battery_collector);
+    gint64 capacity = xrg_battery_collector_get_total_capacity(state->battery_collector);
+    gchar *tooltip = g_strdup_printf("Battery: %d%% (%s)\nCharge: %ldmWh / %ldmWh",
+                                     charge_percent, status_text,
+                                     charge / 1000, capacity / 1000);
+    gtk_widget_set_tooltip_text(widget, tooltip);
+    g_free(tooltip);
+
+    return FALSE;
+}
+
+/**
+ * Draw Sensors/Temperature graph
+ */
+static gboolean on_draw_sensors(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(widget, &allocation);
+
+    gint width = allocation.width;
+    gint height = allocation.height;
+
+    /* Draw background */
+    GdkRGBA *bg_color = &state->prefs->graph_bg_color;
+    cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
+    cairo_rectangle(cr, 0, 0, width, height);
+    cairo_fill(cr);
+
+    /* Draw border */
+    GdkRGBA *border_color = &state->prefs->border_color;
+    cairo_set_source_rgba(cr, border_color->red, border_color->green, border_color->blue, border_color->alpha);
+    cairo_set_line_width(cr, 1.0);
+    cairo_rectangle(cr, 0.5, 0.5, width - 1, height - 1);
+    cairo_stroke(cr);
+
+    /* Get temperature sensors */
+    GSList *temp_sensors = xrg_sensors_collector_get_temp_sensors(state->sensors_collector);
+
+    if (temp_sensors == NULL || g_slist_length(temp_sensors) == 0) {
+        /* No sensors found */
+        cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 0.5);
+        cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+        cairo_set_font_size(cr, 10.0);
+        cairo_move_to(cr, 10, height / 2);
+        cairo_show_text(cr, "No Sensors");
+        if (temp_sensors) g_slist_free(temp_sensors);
+        return FALSE;
+    }
+
+    XRGGraphStyle style = state->prefs->temperature_graph_style;
+    GdkRGBA *fg1_color = &state->prefs->graph_fg1_color;
+    GdkRGBA *fg2_color = &state->prefs->graph_fg2_color;
+    GdkRGBA *fg3_color = &state->prefs->graph_fg3_color;
+
+    /* Draw up to 3 temperature sensors */
+    gint sensor_count = 0;
+    GdkRGBA *colors[] = {fg1_color, fg2_color, fg3_color};
+
+    for (GSList *l = temp_sensors; l != NULL && sensor_count < 3; l = l->next) {
+        XRGSensorData *sensor = (XRGSensorData *)l->data;
+        if (!sensor->is_enabled) continue;
+
+        gint count = xrg_dataset_get_count(sensor->dataset);
+        if (count < 2) continue;
+
+        GdkRGBA *color = colors[sensor_count];
+        cairo_set_source_rgba(cr, color->red, color->green, color->blue, color->alpha);
+
+        gdouble max_temp = 100.0;  /* Scale to 100°C */
+
+        if (style == XRG_GRAPH_STYLE_SOLID) {
+            cairo_move_to(cr, 0, height);
+            for (gint i = 0; i < count; i++) {
+                gdouble temp = xrg_dataset_get_value(sensor->dataset, i);
+                gdouble x = (gdouble)i / count * width;
+                gdouble y = height - (temp / max_temp * height);
+                if (y < 0) y = 0;
+                if (y > height) y = height;
+                cairo_line_to(cr, x, y);
+            }
+            cairo_line_to(cr, width, height);
+            cairo_close_path(cr);
+            cairo_fill(cr);
+        } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+            for (gint i = 0; i < count; i++) {
+                gdouble temp = xrg_dataset_get_value(sensor->dataset, i);
+                gdouble x = (gdouble)i / count * width;
+                gdouble y = height - (temp / max_temp * height);
+                if (y < 0) y = 0;
+                if (y > height) y = height;
+                cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
+        }
+
+        sensor_count++;
+    }
+
+    /* Draw temperature bar on the right */
+    if (sensor_count > 0) {
+        gint bar_x = width - 20;
+        gint bar_width = 20;
+
+        /* Draw bar background */
+        cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
+        cairo_rectangle(cr, bar_x, 0, bar_width, height);
+        cairo_fill(cr);
+
+        /* Draw bar border */
+        cairo_set_source_rgba(cr, border_color->red, border_color->green, border_color->blue, border_color->alpha);
+        cairo_set_line_width(cr, 1.0);
+        cairo_rectangle(cr, bar_x + 0.5, 0.5, bar_width - 1, height - 1);
+        cairo_stroke(cr);
+
+        /* Get current temperature from first sensor */
+        XRGSensorData *first_sensor = (XRGSensorData *)temp_sensors->data;
+        gdouble current_temp = first_sensor->current_value;
+        gdouble temp_ratio = current_temp / 100.0;
+        if (temp_ratio > 1.0) temp_ratio = 1.0;
+
+        gdouble fill_height = temp_ratio * height;
+        gdouble bar_y = height - fill_height;
+
+        /* Color gradient based on temperature */
+        if (current_temp < 50.0) {
+            cairo_set_source_rgba(cr, 0.2, 0.8, 0.9, 0.8);  /* Cyan (cool) */
+        } else if (current_temp < 70.0) {
+            cairo_set_source_rgba(cr, 1.0, 0.8, 0.2, 0.8);  /* Yellow (warm) */
+        } else {
+            cairo_set_source_rgba(cr, 1.0, 0.2, 0.2, 0.8);  /* Red (hot) */
+        }
+
+        cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
+        cairo_fill(cr);
+    }
+
+    /* Draw text labels */
+    cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 1.0);
+    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 10.0);
+
+    cairo_move_to(cr, 5, 12);
+    cairo_show_text(cr, "Temperature");
+
+    /* Show temperatures of up to 3 sensors */
+    sensor_count = 0;
+    gint y_offset = 26;
+    for (GSList *l = temp_sensors; l != NULL && sensor_count < 3; l = l->next) {
+        XRGSensorData *sensor = (XRGSensorData *)l->data;
+        if (!sensor->is_enabled) continue;
+
+        gchar *line = g_strdup_printf("%s: %.1f°C", sensor->name, sensor->current_value);
+        cairo_move_to(cr, 5, y_offset);
+        cairo_show_text(cr, line);
+        g_free(line);
+
+        y_offset += 14;
+        sensor_count++;
+    }
+
+    /* Set tooltip with all sensors */
+    GString *tooltip_str = g_string_new("Sensors:\n");
+    for (GSList *l = temp_sensors; l != NULL; l = l->next) {
+        XRGSensorData *sensor = (XRGSensorData *)l->data;
+        g_string_append_printf(tooltip_str, "%s: %.1f%s\n",
+                              sensor->name, sensor->current_value, sensor->units);
+    }
+    gtk_widget_set_tooltip_text(widget, tooltip_str->str);
+    g_string_free(tooltip_str, TRUE);
+
+    g_slist_free(temp_sensors);
+    return FALSE;
+}
+
+/**
+ * Handle battery button press
+ */
+static gboolean on_battery_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+
+    if (event->button == 3) {  /* Right click */
+        show_battery_context_menu(state, event);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+/**
+ * Show battery context menu
+ */
+static void show_battery_context_menu(AppState *state, GdkEventButton *event) {
+    GtkWidget *menu = gtk_menu_new();
+
+    /* Battery Settings */
+    GtkWidget *settings_item = gtk_menu_item_new_with_label("Battery Settings...");
+    g_signal_connect_swapped(settings_item, "activate",
+                             G_CALLBACK(xrg_preferences_window_show), state->prefs_window);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), settings_item);
+
+    /* Separator */
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+
+    /* Stats */
+    XRGBatteryStatus status = xrg_battery_collector_get_status(state->battery_collector);
+    gint charge_percent = xrg_battery_collector_get_charge_percent(state->battery_collector);
+    gint minutes_remaining = xrg_battery_collector_get_minutes_remaining(state->battery_collector);
+    gint64 total_charge = xrg_battery_collector_get_total_charge(state->battery_collector);
+    gint64 total_capacity = xrg_battery_collector_get_total_capacity(state->battery_collector);
+
+    const gchar *status_str = "Unknown";
+    switch (status) {
+        case XRG_BATTERY_STATUS_DISCHARGING:
+            status_str = "Discharging";
+            break;
+        case XRG_BATTERY_STATUS_CHARGING:
+            status_str = "Charging";
+            break;
+        case XRG_BATTERY_STATUS_FULL:
+            status_str = "Full";
+            break;
+        case XRG_BATTERY_STATUS_NOT_CHARGING:
+            status_str = "Not Charging";
+            break;
+        case XRG_BATTERY_STATUS_NO_BATTERY:
+            status_str = "No Battery";
+            break;
+        default:
+            break;
+    }
+
+    gchar *stats_text;
+    if (minutes_remaining > 0) {
+        gint hours = minutes_remaining / 60;
+        gint mins = minutes_remaining % 60;
+        stats_text = g_strdup_printf("%s | %d%% | %dh %dm remaining",
+                                     status_str, charge_percent, hours, mins);
+    } else {
+        stats_text = g_strdup_printf("%s | %d%% | %.1f/%.1f Wh",
+                                     status_str, charge_percent,
+                                     total_charge / 1000000.0, total_capacity / 1000000.0);
+    }
+
+    GtkWidget *stats_item = gtk_menu_item_new_with_label(stats_text);
+    gtk_widget_set_sensitive(stats_item, FALSE);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), stats_item);
+    g_free(stats_text);
+
+    gtk_widget_show_all(menu);
+    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+}
+
+/**
+ * Handle battery motion notify
+ */
+static gboolean on_battery_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(widget, &allocation);
+
+    /* Get datasets */
+    XRGDataset *charge_dataset = state->battery_collector->charge_watts;
+    XRGDataset *discharge_dataset = state->battery_collector->discharge_watts;
+    gint count = xrg_dataset_get_count(charge_dataset);
+
+    if (count < 2) {
+        gtk_widget_set_tooltip_text(widget, "Battery: Waiting for data...");
+        return FALSE;
+    }
+
+    /* Calculate which data point the mouse is over */
+    gint index = (gint)((event->x / allocation.width) * count);
+    if (index < 0) index = 0;
+    if (index >= count) index = count - 1;
+
+    /* Get values at this index */
+    gdouble charge_val = xrg_dataset_get_value(charge_dataset, index);
+    gdouble discharge_val = xrg_dataset_get_value(discharge_dataset, index);
+
+    /* Set tooltip */
+    gchar *tooltip;
+    if (charge_val > 0.1) {
+        tooltip = g_strdup_printf("Battery\nCharging: %.1f W", charge_val);
+    } else if (discharge_val > 0.1) {
+        tooltip = g_strdup_printf("Battery\nDischarging: %.1f W", discharge_val);
+    } else {
+        tooltip = g_strdup_printf("Battery\nIdle");
+    }
+    gtk_widget_set_tooltip_text(widget, tooltip);
+    g_free(tooltip);
+
+    return FALSE;
+}
+
+/**
+ * Handle sensors button press
+ */
+static gboolean on_sensors_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+
+    if (event->button == 3) {  /* Right click */
+        show_sensors_context_menu(state, event);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+/**
+ * Show sensors context menu
+ */
+static void show_sensors_context_menu(AppState *state, GdkEventButton *event) {
+    GtkWidget *menu = gtk_menu_new();
+
+    /* Sensors Settings */
+    GtkWidget *settings_item = gtk_menu_item_new_with_label("Sensors Settings...");
+    g_signal_connect_swapped(settings_item, "activate",
+                             G_CALLBACK(xrg_preferences_window_show), state->prefs_window);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), settings_item);
+
+    /* Separator */
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+
+    /* Get temperature sensors */
+    GSList *temp_sensors = xrg_sensors_collector_get_temp_sensors(state->sensors_collector);
+
+    if (temp_sensors == NULL) {
+        GtkWidget *no_sensors_item = gtk_menu_item_new_with_label("No sensors detected");
+        gtk_widget_set_sensitive(no_sensors_item, FALSE);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), no_sensors_item);
+    } else {
+        /* List all temperature sensors */
+        for (GSList *l = temp_sensors; l != NULL; l = l->next) {
+            XRGSensorData *sensor = (XRGSensorData *)l->data;
+            gchar *sensor_text = g_strdup_printf("%s: %.1f %s",
+                                                 sensor->name,
+                                                 sensor->current_value,
+                                                 sensor->units);
+            GtkWidget *sensor_item = gtk_menu_item_new_with_label(sensor_text);
+            gtk_widget_set_sensitive(sensor_item, FALSE);
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu), sensor_item);
+            g_free(sensor_text);
+        }
+    }
+
+    g_slist_free(temp_sensors);
+
+    gtk_widget_show_all(menu);
+    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+}
+
+/**
+ * Handle sensors motion notify
+ */
+static gboolean on_sensors_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+
+    /* Get temperature sensors */
+    GSList *temp_sensors = xrg_sensors_collector_get_temp_sensors(state->sensors_collector);
+
+    if (temp_sensors == NULL) {
+        gtk_widget_set_tooltip_text(widget, "Sensors: No sensors detected");
+        return FALSE;
+    }
+
+    /* Build tooltip with all sensors */
+    GString *tooltip_str = g_string_new("Temperature Sensors\n");
+    for (GSList *l = temp_sensors; l != NULL; l = l->next) {
+        XRGSensorData *sensor = (XRGSensorData *)l->data;
+        g_string_append_printf(tooltip_str, "%s: %.1f %s\n",
+                              sensor->name,
+                              sensor->current_value,
+                              sensor->units);
+    }
+
+    gtk_widget_set_tooltip_text(widget, tooltip_str->str);
+    g_string_free(tooltip_str, TRUE);
+    g_slist_free(temp_sensors);
 
     return FALSE;
 }
@@ -2988,6 +3624,8 @@ static gboolean on_update_timer(gpointer user_data) {
     xrg_network_collector_update(state->network_collector);
     xrg_disk_collector_update(state->disk_collector);
     xrg_gpu_collector_update(state->gpu_collector);
+    xrg_battery_collector_update(state->battery_collector);
+    xrg_sensors_collector_update(state->sensors_collector);
     xrg_aitoken_collector_update(state->aitoken_collector);
 
     /* Redraw graphs */
@@ -2996,6 +3634,8 @@ static gboolean on_update_timer(gpointer user_data) {
     gtk_widget_queue_draw(state->network_drawing_area);
     gtk_widget_queue_draw(state->disk_drawing_area);
     gtk_widget_queue_draw(state->gpu_drawing_area);
+    gtk_widget_queue_draw(state->battery_drawing_area);
+    gtk_widget_queue_draw(state->sensors_drawing_area);
     gtk_widget_queue_draw(state->aitoken_drawing_area);
 
     return G_SOURCE_CONTINUE;  /* Keep timer running */

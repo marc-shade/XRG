@@ -171,6 +171,8 @@ void xrg_preferences_set_defaults(XRGPreferences *prefs) {
     prefs->network_graph_style = XRG_GRAPH_STYLE_SOLID;
     prefs->disk_graph_style = XRG_GRAPH_STYLE_SOLID;
     prefs->gpu_graph_style = XRG_GRAPH_STYLE_SOLID;
+    prefs->battery_graph_style = XRG_GRAPH_STYLE_SOLID;
+    prefs->temperature_graph_style = XRG_GRAPH_STYLE_SOLID;
     prefs->aitoken_graph_style = XRG_GRAPH_STYLE_SOLID;
 
     /* AI Token settings */
@@ -304,6 +306,8 @@ gboolean xrg_preferences_load(XRGPreferences *prefs) {
     prefs->network_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "network_style", NULL);
     prefs->disk_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "disk_style", NULL);
     prefs->gpu_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "gpu_style", NULL);
+    prefs->battery_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "battery_style", NULL);
+    prefs->temperature_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "temperature_style", NULL);
     prefs->aitoken_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "aitoken_style", NULL);
 
     /* Load AI Token settings */
@@ -443,6 +447,8 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
     g_key_file_set_integer(prefs->keyfile, "GraphStyles", "network_style", prefs->network_graph_style);
     g_key_file_set_integer(prefs->keyfile, "GraphStyles", "disk_style", prefs->disk_graph_style);
     g_key_file_set_integer(prefs->keyfile, "GraphStyles", "gpu_style", prefs->gpu_graph_style);
+    g_key_file_set_integer(prefs->keyfile, "GraphStyles", "battery_style", prefs->battery_graph_style);
+    g_key_file_set_integer(prefs->keyfile, "GraphStyles", "temperature_style", prefs->temperature_graph_style);
     g_key_file_set_integer(prefs->keyfile, "GraphStyles", "aitoken_style", prefs->aitoken_graph_style);
 
     /* Save AI Token settings */

@@ -111,6 +111,8 @@ struct _XRGPreferences {
     XRGGraphStyle network_graph_style;
     XRGGraphStyle disk_graph_style;
     XRGGraphStyle gpu_graph_style;
+    XRGGraphStyle battery_graph_style;
+    XRGGraphStyle temperature_graph_style;
     XRGGraphStyle aitoken_graph_style;
 
     /* AI Token settings */
