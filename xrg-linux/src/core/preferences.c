@@ -175,6 +175,9 @@ void xrg_preferences_set_defaults(XRGPreferences *prefs) {
     prefs->temperature_graph_style = XRG_GRAPH_STYLE_SOLID;
     prefs->aitoken_graph_style = XRG_GRAPH_STYLE_SOLID;
 
+    /* Temperature settings */
+    prefs->temperature_units = XRG_TEMP_CELSIUS;  /* Default to Celsius */
+
     /* AI Token settings */
     gchar *home = g_strdup(g_get_home_dir());
     prefs->aitoken_jsonl_path = g_build_filename(home, ".claude", "projects", NULL);
@@ -309,6 +312,9 @@ gboolean xrg_preferences_load(XRGPreferences *prefs) {
     prefs->battery_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "battery_style", NULL);
     prefs->temperature_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "temperature_style", NULL);
     prefs->aitoken_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "aitoken_style", NULL);
+
+    /* Load Temperature settings */
+    prefs->temperature_units = g_key_file_get_integer(prefs->keyfile, "Temperature", "units", NULL);
 
     /* Load AI Token settings */
     prefs->aitoken_show_model_breakdown = g_key_file_get_boolean(prefs->keyfile, "AIToken", "show_model_breakdown", NULL);
@@ -450,6 +456,9 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
     g_key_file_set_integer(prefs->keyfile, "GraphStyles", "battery_style", prefs->battery_graph_style);
     g_key_file_set_integer(prefs->keyfile, "GraphStyles", "temperature_style", prefs->temperature_graph_style);
     g_key_file_set_integer(prefs->keyfile, "GraphStyles", "aitoken_style", prefs->aitoken_graph_style);
+
+    /* Save temperature settings */
+    g_key_file_set_integer(prefs->keyfile, "Temperature", "units", prefs->temperature_units);
 
     /* Save AI Token settings */
     g_key_file_set_boolean(prefs->keyfile, "AIToken", "show_model_breakdown", prefs->aitoken_show_model_breakdown);

@@ -16,6 +16,11 @@ struct _XRGPreferencesWindow {
     GtkWidget *show_activity_bars_check;
     GtkWidget *activity_bar_style_combo;
     GtkWidget *layout_orientation_combo;
+    GtkWidget *graph_width_spin;
+    GtkWidget *fast_update_interval_spin;
+    GtkWidget *normal_update_interval_spin;
+    GtkWidget *slow_update_interval_spin;
+    GtkWidget *vslow_update_interval_spin;
 
     /* CPU module tab widgets */
     GtkWidget *cpu_enabled_check;
@@ -52,12 +57,17 @@ struct _XRGPreferencesWindow {
     GtkWidget *temperature_enabled_check;
     GtkWidget *temperature_height_spin;
     GtkWidget *temperature_style_combo;
+    GtkWidget *temperature_units_combo;
 
     /* AI Token module tab widgets */
     GtkWidget *aitoken_enabled_check;
     GtkWidget *aitoken_height_spin;
     GtkWidget *aitoken_style_combo;
     GtkWidget *aitoken_show_model_breakdown_check;
+    GtkWidget *aitoken_jsonl_path_entry;
+    GtkWidget *aitoken_db_path_entry;
+    GtkWidget *aitoken_otel_endpoint_entry;
+    GtkWidget *aitoken_auto_detect_check;
 
     /* Colors tab widgets */
     GtkWidget *theme_combo;
@@ -268,6 +278,50 @@ static GtkWidget* create_window_tab(XRGPreferencesWindow *win) {
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->layout_orientation_combo), "Vertical (Stacked)");
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->layout_orientation_combo), "Horizontal (Side-by-Side)");
     gtk_grid_attach(GTK_GRID(grid), win->layout_orientation_combo, 1, row++, 1, 1);
+
+    /* Graph width */
+    label = gtk_label_new("Graph Width:");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->graph_width_spin = gtk_spin_button_new_with_range(100, 800, 10);
+    gtk_grid_attach(GTK_GRID(grid), win->graph_width_spin, 1, row++, 1, 1);
+
+    /* Separator */
+    gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
+
+    /* Update Intervals section */
+    label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(label), "<b>Update Intervals (milliseconds)</b>");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+
+    /* Fast update interval (CPU, Network) */
+    label = gtk_label_new("Fast (CPU, Network):");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->fast_update_interval_spin = gtk_spin_button_new_with_range(50, 500, 10);
+    gtk_grid_attach(GTK_GRID(grid), win->fast_update_interval_spin, 1, row++, 1, 1);
+
+    /* Normal update interval (Memory, Disk, GPU) */
+    label = gtk_label_new("Normal (Memory, Disk, GPU):");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->normal_update_interval_spin = gtk_spin_button_new_with_range(100, 5000, 100);
+    gtk_grid_attach(GTK_GRID(grid), win->normal_update_interval_spin, 1, row++, 1, 1);
+
+    /* Slow update interval (Temperature, Battery) */
+    label = gtk_label_new("Slow (Temperature, Battery):");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->slow_update_interval_spin = gtk_spin_button_new_with_range(1000, 10000, 500);
+    gtk_grid_attach(GTK_GRID(grid), win->slow_update_interval_spin, 1, row++, 1, 1);
+
+    /* Very slow update interval (Weather, Stocks) */
+    label = gtk_label_new("Very Slow (Weather, Stocks):");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->vslow_update_interval_spin = gtk_spin_button_new_with_range(10000, 600000, 5000);
+    gtk_grid_attach(GTK_GRID(grid), win->vslow_update_interval_spin, 1, row++, 1, 1);
 
     return grid;
 }
@@ -603,6 +657,15 @@ static GtkWidget* create_temperature_tab(XRGPreferencesWindow *win) {
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->temperature_style_combo), "Hollow (Outline)");
     gtk_grid_attach(GTK_GRID(grid), win->temperature_style_combo, 1, row++, 1, 1);
 
+    /* Temperature units */
+    label = gtk_label_new("Temperature Units:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->temperature_units_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->temperature_units_combo), "Celsius (°C)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->temperature_units_combo), "Fahrenheit (°F)");
+    gtk_grid_attach(GTK_GRID(grid), win->temperature_units_combo, 1, row++, 1, 1);
+
     /* Note: Colors are managed in the Colors tab */
 
     return grid;
@@ -662,6 +725,47 @@ static GtkWidget* create_aitoken_tab(XRGPreferencesWindow *win) {
     /* Show model breakdown */
     win->aitoken_show_model_breakdown_check = gtk_check_button_new_with_label("Show Per-Model Token Breakdown");
     gtk_grid_attach(GTK_GRID(grid), win->aitoken_show_model_breakdown_check, 0, row++, 2, 1);
+
+    /* Separator */
+    gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
+
+    /* Advanced settings */
+    label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(label), "<b>Advanced Data Sources</b>");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+
+    /* Auto-detect */
+    win->aitoken_auto_detect_check = gtk_check_button_new_with_label("Auto-detect data sources (recommended)");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->aitoken_auto_detect_check), TRUE);
+    gtk_grid_attach(GTK_GRID(grid), win->aitoken_auto_detect_check, 0, row++, 2, 1);
+
+    /* JSONL path */
+    label = gtk_label_new("JSONL Path:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->aitoken_jsonl_path_entry = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(win->aitoken_jsonl_path_entry), "~/.claude/projects/*/sessionid.jsonl");
+    gtk_widget_set_hexpand(win->aitoken_jsonl_path_entry, TRUE);
+    gtk_grid_attach(GTK_GRID(grid), win->aitoken_jsonl_path_entry, 1, row++, 1, 1);
+
+    /* Database path */
+    label = gtk_label_new("Database Path:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->aitoken_db_path_entry = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(win->aitoken_db_path_entry), "~/.claude/monitoring/claude_usage.db");
+    gtk_widget_set_hexpand(win->aitoken_db_path_entry, TRUE);
+    gtk_grid_attach(GTK_GRID(grid), win->aitoken_db_path_entry, 1, row++, 1, 1);
+
+    /* OTel endpoint */
+    label = gtk_label_new("OTel Endpoint:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->aitoken_otel_endpoint_entry = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(win->aitoken_otel_endpoint_entry), "http://localhost:8889/metrics");
+    gtk_widget_set_hexpand(win->aitoken_otel_endpoint_entry, TRUE);
+    gtk_grid_attach(GTK_GRID(grid), win->aitoken_otel_endpoint_entry, 1, row++, 1, 1);
 
     /* Note: Colors are managed in the Colors tab */
 
@@ -796,6 +900,11 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->show_activity_bars_check), prefs->show_activity_bars);
     gtk_combo_box_set_active(GTK_COMBO_BOX(win->activity_bar_style_combo), prefs->activity_bar_style);
     gtk_combo_box_set_active(GTK_COMBO_BOX(win->layout_orientation_combo), prefs->layout_orientation);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->graph_width_spin), prefs->graph_width);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->fast_update_interval_spin), prefs->fast_update_interval);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->normal_update_interval_spin), prefs->normal_update_interval);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->slow_update_interval_spin), prefs->slow_update_interval);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->vslow_update_interval_spin), prefs->vslow_update_interval);
 
     /* CPU module tab */
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->cpu_enabled_check), prefs->show_cpu);
@@ -838,6 +947,7 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->temperature_enabled_check), prefs->show_temperature);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->temperature_height_spin), prefs->graph_height_temperature);
     gtk_combo_box_set_active(GTK_COMBO_BOX(win->temperature_style_combo), prefs->temperature_graph_style);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->temperature_units_combo), prefs->temperature_units);
     /* Note: Temperature colors removed - use Colors tab instead */
 
     /* AI Token module tab */
@@ -845,6 +955,16 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->aitoken_height_spin), prefs->graph_height_aitoken);
     gtk_combo_box_set_active(GTK_COMBO_BOX(win->aitoken_style_combo), prefs->aitoken_graph_style);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->aitoken_show_model_breakdown_check), prefs->aitoken_show_model_breakdown);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->aitoken_auto_detect_check), prefs->aitoken_auto_detect);
+    if (prefs->aitoken_jsonl_path) {
+        gtk_entry_set_text(GTK_ENTRY(win->aitoken_jsonl_path_entry), prefs->aitoken_jsonl_path);
+    }
+    if (prefs->aitoken_db_path) {
+        gtk_entry_set_text(GTK_ENTRY(win->aitoken_db_path_entry), prefs->aitoken_db_path);
+    }
+    if (prefs->aitoken_otel_endpoint) {
+        gtk_entry_set_text(GTK_ENTRY(win->aitoken_otel_endpoint_entry), prefs->aitoken_otel_endpoint);
+    }
     /* Note: AIToken colors removed - use Colors tab instead */
 
     /* Colors tab */
@@ -899,6 +1019,11 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     prefs->show_activity_bars = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->show_activity_bars_check));
     prefs->activity_bar_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->activity_bar_style_combo));
     prefs->layout_orientation = gtk_combo_box_get_active(GTK_COMBO_BOX(win->layout_orientation_combo));
+    prefs->graph_width = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->graph_width_spin));
+    prefs->fast_update_interval = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->fast_update_interval_spin));
+    prefs->normal_update_interval = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->normal_update_interval_spin));
+    prefs->slow_update_interval = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->slow_update_interval_spin));
+    prefs->vslow_update_interval = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->vslow_update_interval_spin));
 
     /* CPU module tab */
     prefs->show_cpu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->cpu_enabled_check));
@@ -941,6 +1066,7 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     prefs->show_temperature = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->temperature_enabled_check));
     prefs->graph_height_temperature = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->temperature_height_spin));
     prefs->temperature_graph_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->temperature_style_combo));
+    prefs->temperature_units = gtk_combo_box_get_active(GTK_COMBO_BOX(win->temperature_units_combo));
     /* Note: Temperature colors removed - use Colors tab instead */
 
     /* AI Token module tab */
@@ -948,6 +1074,13 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     prefs->graph_height_aitoken = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->aitoken_height_spin));
     prefs->aitoken_graph_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->aitoken_style_combo));
     prefs->aitoken_show_model_breakdown = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->aitoken_show_model_breakdown_check));
+    prefs->aitoken_auto_detect = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->aitoken_auto_detect_check));
+    g_free(prefs->aitoken_jsonl_path);
+    prefs->aitoken_jsonl_path = g_strdup(gtk_entry_get_text(GTK_ENTRY(win->aitoken_jsonl_path_entry)));
+    g_free(prefs->aitoken_db_path);
+    prefs->aitoken_db_path = g_strdup(gtk_entry_get_text(GTK_ENTRY(win->aitoken_db_path_entry)));
+    g_free(prefs->aitoken_otel_endpoint);
+    prefs->aitoken_otel_endpoint = g_strdup(gtk_entry_get_text(GTK_ENTRY(win->aitoken_otel_endpoint_entry)));
     /* Note: AIToken colors removed - use Colors tab instead */
 
     /* Colors tab */

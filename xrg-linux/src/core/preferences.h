@@ -23,6 +23,14 @@ typedef enum {
 } XRGLayoutOrientation;
 
 /**
+ * Temperature units
+ */
+typedef enum {
+    XRG_TEMP_CELSIUS    = 0,  /* Celsius (°C) */
+    XRG_TEMP_FAHRENHEIT = 1   /* Fahrenheit (°F) */
+} XRGTemperatureUnits;
+
+/**
  * XRGPreferences - Application settings and preferences
  *
  * Manages all user preferences including window position, module visibility,
@@ -114,6 +122,9 @@ struct _XRGPreferences {
     XRGGraphStyle battery_graph_style;
     XRGGraphStyle temperature_graph_style;
     XRGGraphStyle aitoken_graph_style;
+
+    /* Temperature settings */
+    XRGTemperatureUnits temperature_units;  /* Celsius or Fahrenheit */
 
     /* AI Token settings */
     gchar *aitoken_jsonl_path;
