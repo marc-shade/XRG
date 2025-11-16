@@ -2182,17 +2182,50 @@ static gboolean on_draw_sensors(GtkWidget *widget, cairo_t *cr, gpointer user_da
         gdouble fill_height = temp_ratio * height;
         gdouble bar_y = height - fill_height;
 
-        /* Color gradient based on temperature */
-        if (current_temp < 50.0) {
-            cairo_set_source_rgba(cr, 0.2, 0.8, 0.9, 0.8);  /* Cyan (cool) */
-        } else if (current_temp < 70.0) {
-            cairo_set_source_rgba(cr, 1.0, 0.8, 0.2, 0.8);  /* Yellow (warm) */
-        } else {
-            cairo_set_source_rgba(cr, 1.0, 0.2, 0.2, 0.8);  /* Red (hot) */
-        }
+        XRGGraphStyle bar_style = state->prefs->activity_bar_style;
+        GdkRGBA gradient_color;
 
-        cairo_rectangle(cr, bar_x, bar_y, bar_width, fill_height);
-        cairo_fill(cr);
+        if (bar_style == XRG_GRAPH_STYLE_SOLID) {
+            /* Draw gradient by slicing horizontally */
+            for (gdouble y = height; y >= bar_y; y -= 1.0) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
+                cairo_rectangle(cr, bar_x, y, bar_width, 1.0);
+                cairo_fill(cr);
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_PIXEL) {
+            /* Chunky pixels with gradient colors */
+            for (gdouble y = height; y >= bar_y; y -= 4) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 4) {
+                    cairo_arc(cr, x + 2, y, 1.5, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_DOT) {
+            /* Fine dots with gradient colors */
+            for (gdouble y = height; y >= bar_y; y -= 2) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                    cairo_arc(cr, x + 1, y, 0.6, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_HOLLOW) {
+            /* Outline only - draw dots at top of fill level with gradient color */
+            gdouble position = (height - bar_y) / height;
+            get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+            cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
+            for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                cairo_arc(cr, x, bar_y, 1.0, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
+        }
     }
 
     /* Draw text labels */
