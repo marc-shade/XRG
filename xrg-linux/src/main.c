@@ -3716,6 +3716,10 @@ static void on_window_destroy(GtkWidget *widget, gpointer user_data) {
 static void on_preferences_applied(gpointer user_data) {
     AppState *state = (AppState *)user_data;
 
+    /* Update window properties */
+    gtk_widget_set_opacity(state->window, state->prefs->window_opacity);
+    gtk_window_set_keep_above(GTK_WINDOW(state->window), state->prefs->window_always_on_top);
+
     /* Update visibility of all module boxes based on preferences */
     gtk_widget_set_visible(state->cpu_box, state->prefs->show_cpu);
     gtk_widget_set_visible(state->memory_box, state->prefs->show_memory);
@@ -3725,6 +3729,26 @@ static void on_preferences_applied(gpointer user_data) {
     gtk_widget_set_visible(state->battery_box, state->prefs->show_battery);
     gtk_widget_set_visible(state->sensors_box, state->prefs->show_temperature);
     gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
+
+    /* Update module heights */
+    gtk_widget_set_size_request(state->cpu_drawing_area, state->prefs->graph_width, state->prefs->graph_height_cpu);
+    gtk_widget_set_size_request(state->memory_drawing_area, state->prefs->graph_width, state->prefs->graph_height_memory);
+    gtk_widget_set_size_request(state->network_drawing_area, state->prefs->graph_width, state->prefs->graph_height_network);
+    gtk_widget_set_size_request(state->disk_drawing_area, state->prefs->graph_width, state->prefs->graph_height_disk);
+    gtk_widget_set_size_request(state->gpu_drawing_area, state->prefs->graph_width, state->prefs->graph_height_gpu);
+    gtk_widget_set_size_request(state->battery_drawing_area, state->prefs->graph_width, state->prefs->graph_height_battery);
+    gtk_widget_set_size_request(state->sensors_drawing_area, state->prefs->graph_width, state->prefs->graph_height_temperature);
+    gtk_widget_set_size_request(state->aitoken_drawing_area, state->prefs->graph_width, state->prefs->graph_height_aitoken);
+
+    /* Trigger redraw of all modules to apply new colors, styles, and settings */
+    gtk_widget_queue_draw(state->cpu_drawing_area);
+    gtk_widget_queue_draw(state->memory_drawing_area);
+    gtk_widget_queue_draw(state->network_drawing_area);
+    gtk_widget_queue_draw(state->disk_drawing_area);
+    gtk_widget_queue_draw(state->gpu_drawing_area);
+    gtk_widget_queue_draw(state->battery_drawing_area);
+    gtk_widget_queue_draw(state->sensors_drawing_area);
+    gtk_widget_queue_draw(state->aitoken_drawing_area);
 
     /* Check if layout orientation changed */
     if (state->current_layout_orientation != state->prefs->layout_orientation) {
@@ -3759,5 +3783,5 @@ static void on_preferences_applied(gpointer user_data) {
         }
     }
 
-    g_message("Module visibility updated from preferences");
+    g_message("Preferences applied - window properties, visibility, sizes, and colors updated");
 }
