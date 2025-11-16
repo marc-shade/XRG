@@ -961,6 +961,10 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     gtk_widget_set_visible(state->sensors_box, state->prefs->show_temperature);
     gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
 
+    g_message("Initial module visibility - Battery: %s (prefs value: %d)",
+              state->prefs->show_battery ? "SHOWN" : "HIDDEN",
+              state->prefs->show_battery);
+
     /* Connect keyboard events */
     g_signal_connect(state->window, "key-press-event", G_CALLBACK(on_key_press), state);
 
@@ -980,6 +984,20 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
 
     /* Show window */
     gtk_widget_show_all(state->window);
+
+    /* Re-apply visibility settings after show_all (which shows everything) */
+    gtk_widget_set_visible(state->cpu_box, state->prefs->show_cpu);
+    gtk_widget_set_visible(state->memory_box, state->prefs->show_memory);
+    gtk_widget_set_visible(state->network_box, state->prefs->show_network);
+    gtk_widget_set_visible(state->disk_box, state->prefs->show_disk);
+    gtk_widget_set_visible(state->gpu_box, state->prefs->show_gpu);
+    gtk_widget_set_visible(state->battery_box, state->prefs->show_battery);
+    gtk_widget_set_visible(state->sensors_box, state->prefs->show_temperature);
+    gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
+
+    g_message("Final module visibility after show_all - Battery: %s (prefs value: %d)",
+              state->prefs->show_battery ? "SHOWN" : "HIDDEN",
+              state->prefs->show_battery);
 
     g_message("XRG-Linux started - Monitoring %d CPU cores",
               xrg_cpu_collector_get_num_cpus(state->cpu_collector));
@@ -4004,6 +4022,10 @@ static void on_preferences_applied(gpointer user_data) {
     gtk_widget_set_visible(state->battery_box, state->prefs->show_battery);
     gtk_widget_set_visible(state->sensors_box, state->prefs->show_temperature);
     gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
+
+    g_message("Preferences applied - Battery: %s (prefs value: %d)",
+              state->prefs->show_battery ? "SHOWN" : "HIDDEN",
+              state->prefs->show_battery);
 
     /* Update module heights */
     gtk_widget_set_size_request(state->cpu_drawing_area, state->prefs->graph_width, state->prefs->graph_height_cpu);
