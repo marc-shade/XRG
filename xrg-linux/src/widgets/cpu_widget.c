@@ -362,12 +362,40 @@ static gchar* cpu_widget_tooltip(XRGBaseWidget *base, int x, int y) {
 
     gint num_cpus = xrg_cpu_collector_get_num_cpus(widget->collector);
 
-    return g_strdup_printf(
-        "CPU Usage\n"
-        "─────────────\n"
-        "Total: %.1f%%\n"
-        "User:  %.1f%%\n"
-        "System: %.1f%%\n"
+    /* Get widget width for position mapping */
+    gint width = gtk_widget_get_allocated_width(base->drawing_area);
+
+    /* Check for position-aware historical value */
+    gdouble hist_user = 0, hist_system = 0;
+    gint time_offset = xrg_get_time_offset_at_position(x, width, user_dataset);
+
+    gboolean has_position_data =
+        xrg_get_value_at_position(x, width, user_dataset, &hist_user) &&
+        xrg_get_value_at_position(x, width, system_dataset, &hist_system);
+
+    GString *tooltip = g_string_new("CPU Usage\n─────────────\n");
+
+    /* Show position-specific value if hovering over valid graph area */
+    if (has_position_data && time_offset >= 0) {
+        gchar *time_str = xrg_format_time_offset(time_offset);
+        gdouble hist_total = hist_user + hist_system;
+
+        g_string_append_printf(tooltip,
+            "📍 At %s:\n"
+            "   Total: %.1f%%\n"
+            "   User:  %.1f%%\n"
+            "   System: %.1f%%\n"
+            "\n",
+            time_str, hist_total, hist_user, hist_system);
+        g_free(time_str);
+    }
+
+    /* Current values */
+    g_string_append_printf(tooltip,
+        "Current\n"
+        "   Total: %.1f%%\n"
+        "   User:  %.1f%%\n"
+        "   System: %.1f%%\n"
         "\n"
         "Load Average\n"
         "─────────────\n"
@@ -378,6 +406,7 @@ static gchar* cpu_widget_tooltip(XRGBaseWidget *base, int x, int y) {
         "CPUs: %d",
         total_usage, user_usage, system_usage,
         load_1, load_5, load_15,
-        num_cpus
-    );
+        num_cpus);
+
+    return g_string_free(tooltip, FALSE);
 }

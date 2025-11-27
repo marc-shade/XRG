@@ -330,7 +330,6 @@ static void network_widget_draw(XRGBaseWidget *base, cairo_t *cr, int width, int
  * Generate tooltip text for network widget
  */
 static gchar* network_widget_tooltip(XRGBaseWidget *base, int x, int y) {
-    (void)x; (void)y;
     XRGNetworkWidget *widget = (XRGNetworkWidget *)base;
 
     const gchar *iface = xrg_network_collector_get_primary_interface(widget->collector);
@@ -339,26 +338,57 @@ static gchar* network_widget_tooltip(XRGBaseWidget *base, int x, int y) {
     guint64 total_rx = xrg_network_collector_get_total_rx(widget->collector);
     guint64 total_tx = xrg_network_collector_get_total_tx(widget->collector);
 
+    XRGDataset *download_dataset = xrg_network_collector_get_download_dataset(widget->collector);
+    XRGDataset *upload_dataset = xrg_network_collector_get_upload_dataset(widget->collector);
+
+    /* Get widget width for position mapping */
+    gint width = gtk_widget_get_allocated_width(base->drawing_area);
+
+    GString *tooltip = g_string_new("Network Traffic\n─────────────\n");
+
+    /* Check for position-aware historical value */
+    gdouble hist_download = 0, hist_upload = 0;
+    gint time_offset = xrg_get_time_offset_at_position(x, width, download_dataset);
+
+    gboolean has_position_data =
+        xrg_get_value_at_position(x, width, download_dataset, &hist_download) &&
+        xrg_get_value_at_position(x, width, upload_dataset, &hist_upload);
+
+    if (has_position_data && time_offset >= 0) {
+        gchar *time_str = xrg_format_time_offset(time_offset);
+
+        g_string_append_printf(tooltip,
+            "📍 At %s:\n"
+            "   ↓ %.2f MB/s\n"
+            "   ↑ %.2f MB/s\n"
+            "\n",
+            time_str, hist_download, hist_upload);
+
+        g_free(time_str);
+    }
+
     gchar *rx_str = xrg_format_bytes(total_rx);
     gchar *tx_str = xrg_format_bytes(total_tx);
 
-    gchar *tooltip = g_strdup_printf(
-        "Interface: %s\n"
-        "Download: %.2f MB/s\n"
-        "Upload: %.2f MB/s\n"
-        "Total Received: %s\n"
-        "Total Sent: %s",
-        iface ? iface : "unknown",
-        download_rate,
-        upload_rate,
-        rx_str,
-        tx_str
-    );
+    g_string_append_printf(tooltip,
+        "Current\n"
+        "   ↓ %.2f MB/s\n"
+        "   ↑ %.2f MB/s\n"
+        "\n"
+        "Session Totals\n"
+        "─────────────\n"
+        "Received: %s\n"
+        "Sent:     %s\n"
+        "\n"
+        "Interface: %s",
+        download_rate, upload_rate,
+        rx_str, tx_str,
+        iface ? iface : "unknown");
 
     g_free(rx_str);
     g_free(tx_str);
 
-    return tooltip;
+    return g_string_free(tooltip, FALSE);
 }
 
 /**

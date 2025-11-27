@@ -345,37 +345,81 @@ static void gpu_widget_draw(XRGBaseWidget *base, cairo_t *cr, int width, int hei
  * Generate tooltip text for GPU widget
  */
 static gchar* gpu_widget_tooltip(XRGBaseWidget *base, int x, int y) {
-    (void)x; (void)y;
     XRGGPUWidget *widget = (XRGGPUWidget *)base;
     XRGPreferences *prefs = base->prefs;
 
     const gchar *gpu_name = xrg_gpu_collector_get_name(widget->collector);
+    const gchar *backend_name = xrg_gpu_collector_get_backend_name(widget->collector);
     gdouble utilization = xrg_gpu_collector_get_utilization(widget->collector);
     gdouble mem_used = xrg_gpu_collector_get_memory_used_mb(widget->collector);
     gdouble mem_total = xrg_gpu_collector_get_memory_total_mb(widget->collector);
     gdouble temp = xrg_gpu_collector_get_temperature(widget->collector);
+    gdouble fan_rpm = xrg_gpu_collector_get_fan_speed_rpm(widget->collector);
+    gdouble power_watts = xrg_gpu_collector_get_power_watts(widget->collector);
+
+    XRGDataset *util_dataset = xrg_gpu_collector_get_utilization_dataset(widget->collector);
+    XRGDataset *mem_dataset = xrg_gpu_collector_get_memory_dataset(widget->collector);
+
+    /* Get widget width for position mapping */
+    gint width = gtk_widget_get_allocated_width(base->drawing_area);
 
     /* Temperature unit conversion */
     gdouble display_temp = temp;
-    const gchar *unit_symbol = "\302\260C";
+    const gchar *unit_symbol = "°C";
 
     if (prefs->temperature_units == XRG_TEMP_FAHRENHEIT) {
         display_temp = (temp * 9.0 / 5.0) + 32.0;
-        unit_symbol = "\302\260F";
+        unit_symbol = "°F";
     }
 
-    gchar *tooltip = g_strdup_printf(
-        "GPU: %s\n"
-        "Utilization: %.1f%%\n"
-        "Memory: %.0f / %.0f MB (%.1f%%)\n"
-        "Temperature: %.0f%s",
-        gpu_name,
-        utilization,
-        mem_used, mem_total, mem_total > 0 ? (mem_used / mem_total * 100.0) : 0.0,
-        display_temp, unit_symbol
-    );
+    GString *tooltip = g_string_new("");
+    g_string_append_printf(tooltip, "%s\n─────────────\n", gpu_name);
 
-    return tooltip;
+    /* Check for position-aware historical value */
+    gdouble hist_util = 0, hist_mem = 0;
+    gint time_offset = xrg_get_time_offset_at_position(x, width, util_dataset);
+
+    gboolean has_position_data =
+        xrg_get_value_at_position(x, width, util_dataset, &hist_util) &&
+        xrg_get_value_at_position(x, width, mem_dataset, &hist_mem);
+
+    if (has_position_data && time_offset >= 0) {
+        gchar *time_str = xrg_format_time_offset(time_offset);
+
+        g_string_append_printf(tooltip,
+            "📍 At %s:\n"
+            "   Util: %.1f%%\n"
+            "   Mem:  %.1f%%\n"
+            "\n",
+            time_str, hist_util, hist_mem);
+
+        g_free(time_str);
+    }
+
+    /* Current values */
+    gdouble mem_percent = mem_total > 0 ? (mem_used / mem_total * 100.0) : 0.0;
+
+    g_string_append_printf(tooltip,
+        "Current\n"
+        "   Util: %.1f%%\n"
+        "   Mem:  %.0f / %.0f MB (%.1f%%)\n"
+        "   Temp: %.0f%s\n",
+        utilization,
+        mem_used, mem_total, mem_percent,
+        display_temp, unit_symbol);
+
+    /* Optional power and fan info */
+    if (power_watts > 0) {
+        g_string_append_printf(tooltip, "   Power: %.1f W\n", power_watts);
+    }
+    if (fan_rpm > 0) {
+        g_string_append_printf(tooltip, "   Fan: %.0f RPM\n", fan_rpm);
+    }
+
+    /* Backend info */
+    g_string_append_printf(tooltip, "\nDriver: %s", backend_name);
+
+    return g_string_free(tooltip, FALSE);
 }
 
 /**

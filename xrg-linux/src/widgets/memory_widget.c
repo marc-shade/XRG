@@ -405,7 +405,6 @@ static void memory_widget_draw(XRGBaseWidget *base, cairo_t *cr, int width, int 
  * Generate tooltip text for memory widget
  */
 static gchar* memory_widget_tooltip(XRGBaseWidget *base, int x, int y) {
-    (void)x; (void)y;
     XRGMemoryWidget *widget = (XRGMemoryWidget *)base;
 
     guint64 total_memory = xrg_memory_collector_get_total_memory(widget->collector);
@@ -414,6 +413,7 @@ static gchar* memory_widget_tooltip(XRGBaseWidget *base, int x, int y) {
     guint64 swap_used = xrg_memory_collector_get_swap_used(widget->collector);
     gdouble used_percent = xrg_memory_collector_get_used_percentage(widget->collector);
 
+    XRGDataset *used_dataset = xrg_memory_collector_get_used_dataset(widget->collector);
     XRGDataset *cached_dataset = xrg_memory_collector_get_cached_dataset(widget->collector);
     XRGDataset *wired_dataset = xrg_memory_collector_get_wired_dataset(widget->collector);
 
@@ -422,6 +422,40 @@ static gchar* memory_widget_tooltip(XRGBaseWidget *base, int x, int y) {
     guint64 cached_bytes = (guint64)(total_memory * cached_percent / 100.0);
     guint64 wired_bytes = (guint64)(total_memory * wired_percent / 100.0);
 
+    /* Get widget width for position mapping */
+    gint width = gtk_widget_get_allocated_width(base->drawing_area);
+
+    GString *tooltip = g_string_new("Memory Usage\n─────────────\n");
+
+    /* Check for position-aware historical value */
+    gdouble hist_used = 0, hist_cached = 0, hist_wired = 0;
+    gint time_offset = xrg_get_time_offset_at_position(x, width, used_dataset);
+
+    gboolean has_position_data =
+        xrg_get_value_at_position(x, width, used_dataset, &hist_used) &&
+        xrg_get_value_at_position(x, width, cached_dataset, &hist_cached) &&
+        xrg_get_value_at_position(x, width, wired_dataset, &hist_wired);
+
+    if (has_position_data && time_offset >= 0) {
+        gchar *time_str = xrg_format_time_offset(time_offset);
+        guint64 hist_used_bytes = (guint64)(total_memory * hist_used / 100.0);
+        guint64 hist_cached_bytes = (guint64)(total_memory * hist_cached / 100.0);
+        gchar *hist_used_str = xrg_format_bytes(hist_used_bytes);
+        gchar *hist_cached_str = xrg_format_bytes(hist_cached_bytes);
+
+        g_string_append_printf(tooltip,
+            "📍 At %s:\n"
+            "   Used: %.1f%% (%s)\n"
+            "   Cached: %.1f%% (%s)\n"
+            "\n",
+            time_str, hist_used, hist_used_str, hist_cached, hist_cached_str);
+
+        g_free(time_str);
+        g_free(hist_used_str);
+        g_free(hist_cached_str);
+    }
+
+    /* Current values */
     gchar *total_str = xrg_format_bytes(total_memory);
     gchar *used_str = xrg_format_bytes(used_memory);
     gchar *free_str = xrg_format_bytes(free_memory);
@@ -429,16 +463,16 @@ static gchar* memory_widget_tooltip(XRGBaseWidget *base, int x, int y) {
     gchar *wired_str = xrg_format_bytes(wired_bytes);
     gchar *swap_str = xrg_format_bytes(swap_used);
 
-    gchar *tooltip = g_strdup_printf(
-        "Memory Usage: %.1f%%\n"
-        "Total: %s\n"
-        "Used: %s\n"
+    g_string_append_printf(tooltip,
+        "Current: %.1f%%\n"
+        "─────────────\n"
+        "Total:  %s\n"
+        "Used:   %s\n"
         "Cached: %s\n"
-        "Wired: %s\n"
-        "Free: %s\n"
-        "Swap Used: %s",
-        used_percent, total_str, used_str, cached_str, wired_str, free_str, swap_str
-    );
+        "Wired:  %s\n"
+        "Free:   %s\n"
+        "Swap:   %s",
+        used_percent, total_str, used_str, cached_str, wired_str, free_str, swap_str);
 
     g_free(total_str);
     g_free(used_str);
@@ -447,7 +481,7 @@ static gchar* memory_widget_tooltip(XRGBaseWidget *base, int x, int y) {
     g_free(wired_str);
     g_free(swap_str);
 
-    return tooltip;
+    return g_string_free(tooltip, FALSE);
 }
 
 /**

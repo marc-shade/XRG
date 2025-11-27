@@ -601,6 +601,92 @@ int xrg_get_block_char_index(gdouble value) {
 }
 
 /*============================================================================
+ * Position-Aware Tooltip Support
+ *============================================================================*/
+
+gint xrg_map_x_to_dataset_index(gint x, gint width, XRGDataset *dataset) {
+    if (!dataset || width <= 0) return -1;
+
+    gint count = xrg_dataset_get_count(dataset);
+    if (count == 0) return -1;
+
+    /* Graph is drawn right-to-left: x=width-1 is newest (index count-1) */
+    /* x=0 would be oldest visible data */
+    gint offset_from_right = width - 1 - x;
+    gint index = count - 1 - offset_from_right;
+
+    /* Validate index is within dataset bounds */
+    if (index < 0 || index >= count) return -1;
+
+    return index;
+}
+
+gboolean xrg_get_value_at_position(gint x, gint width, XRGDataset *dataset,
+                                    gdouble *out_value) {
+    gint index = xrg_map_x_to_dataset_index(x, width, dataset);
+    if (index < 0) return FALSE;
+
+    if (out_value) {
+        *out_value = xrg_dataset_get_value(dataset, index);
+    }
+    return TRUE;
+}
+
+gint xrg_get_time_offset_at_position(gint x, gint width, XRGDataset *dataset) {
+    if (!dataset || width <= 0) return -1;
+
+    gint count = xrg_dataset_get_count(dataset);
+    if (count == 0) return -1;
+
+    gint index = xrg_map_x_to_dataset_index(x, width, dataset);
+    if (index < 0) return -1;
+
+    /* Assuming 1-second sample intervals, time offset is (count-1 - index) seconds ago */
+    return count - 1 - index;
+}
+
+gchar* xrg_format_time_offset(gint seconds_ago) {
+    if (seconds_ago < 0) {
+        return g_strdup("--");
+    }
+
+    if (seconds_ago == 0) {
+        return g_strdup("now");
+    }
+
+    if (seconds_ago < 60) {
+        return g_strdup_printf("%ds ago", seconds_ago);
+    }
+
+    gint minutes = seconds_ago / 60;
+    gint seconds = seconds_ago % 60;
+
+    if (minutes < 60) {
+        if (seconds == 0) {
+            return g_strdup_printf("%dm ago", minutes);
+        } else {
+            return g_strdup_printf("%dm %ds ago", minutes, seconds);
+        }
+    }
+
+    gint hours = minutes / 60;
+    minutes = minutes % 60;
+
+    if (hours < 24) {
+        if (minutes == 0) {
+            return g_strdup_printf("%dh ago", hours);
+        } else {
+            return g_strdup_printf("%dh %dm ago", hours, minutes);
+        }
+    }
+
+    /* For very long histories (unlikely with typical datasets) */
+    gint days = hours / 24;
+    hours = hours % 24;
+    return g_strdup_printf("%dd %dh ago", days, hours);
+}
+
+/*============================================================================
  * Tooltip Support
  *============================================================================*/
 

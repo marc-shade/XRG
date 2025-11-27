@@ -330,7 +330,6 @@ static void disk_widget_draw(XRGBaseWidget *base, cairo_t *cr, int width, int he
  * Generate tooltip text for disk widget
  */
 static gchar* disk_widget_tooltip(XRGBaseWidget *base, int x, int y) {
-    (void)x; (void)y;
     XRGDiskWidget *widget = (XRGDiskWidget *)base;
 
     const gchar *device = xrg_disk_collector_get_primary_device(widget->collector);
@@ -339,26 +338,57 @@ static gchar* disk_widget_tooltip(XRGBaseWidget *base, int x, int y) {
     guint64 total_read = xrg_disk_collector_get_total_read(widget->collector);
     guint64 total_written = xrg_disk_collector_get_total_written(widget->collector);
 
+    XRGDataset *read_dataset = xrg_disk_collector_get_read_dataset(widget->collector);
+    XRGDataset *write_dataset = xrg_disk_collector_get_write_dataset(widget->collector);
+
+    /* Get widget width for position mapping */
+    gint width = gtk_widget_get_allocated_width(base->drawing_area);
+
+    GString *tooltip = g_string_new("Disk Activity\n─────────────\n");
+
+    /* Check for position-aware historical value */
+    gdouble hist_read = 0, hist_write = 0;
+    gint time_offset = xrg_get_time_offset_at_position(x, width, read_dataset);
+
+    gboolean has_position_data =
+        xrg_get_value_at_position(x, width, read_dataset, &hist_read) &&
+        xrg_get_value_at_position(x, width, write_dataset, &hist_write);
+
+    if (has_position_data && time_offset >= 0) {
+        gchar *time_str = xrg_format_time_offset(time_offset);
+
+        g_string_append_printf(tooltip,
+            "📍 At %s:\n"
+            "   Read:  %.2f MB/s\n"
+            "   Write: %.2f MB/s\n"
+            "\n",
+            time_str, hist_read, hist_write);
+
+        g_free(time_str);
+    }
+
     gchar *read_str = xrg_format_bytes(total_read);
     gchar *write_str = xrg_format_bytes(total_written);
 
-    gchar *tooltip = g_strdup_printf(
-        "Device: %s\n"
-        "Read Rate: %.2f MB/s\n"
-        "Write Rate: %.2f MB/s\n"
-        "Total Read: %s\n"
-        "Total Written: %s",
-        device ? device : "unknown",
-        read_rate,
-        write_rate,
-        read_str,
-        write_str
-    );
+    g_string_append_printf(tooltip,
+        "Current\n"
+        "   Read:  %.2f MB/s\n"
+        "   Write: %.2f MB/s\n"
+        "\n"
+        "Session Totals\n"
+        "─────────────\n"
+        "Read:    %s\n"
+        "Written: %s\n"
+        "\n"
+        "Device: %s",
+        read_rate, write_rate,
+        read_str, write_str,
+        device ? device : "unknown");
 
     g_free(read_str);
     g_free(write_str);
 
-    return tooltip;
+    return g_string_free(tooltip, FALSE);
 }
 
 /**

@@ -157,6 +157,52 @@ extern const gchar* XRG_BLOCK_CHARS[];  /* ▁▂▃▄▅▆▇█ */
 int xrg_get_block_char_index(gdouble value);
 
 /*============================================================================
+ * Position-Aware Tooltip Support
+ *============================================================================*/
+
+/**
+ * Map mouse x-position to dataset index for position-aware tooltips.
+ *
+ * Graphs are drawn right-to-left (newest data on right edge).
+ * Returns -1 if position is out of bounds.
+ *
+ * @param x Mouse x-position in widget coordinates
+ * @param width Widget width
+ * @param dataset The dataset being displayed
+ * @return Dataset index at that position, or -1 if invalid
+ */
+gint xrg_map_x_to_dataset_index(gint x, gint width, XRGDataset *dataset);
+
+/**
+ * Get value from dataset at mouse x-position.
+ *
+ * @param x Mouse x-position
+ * @param width Widget width
+ * @param dataset The dataset
+ * @param out_value Output value (if valid)
+ * @return TRUE if position maps to valid data, FALSE otherwise
+ */
+gboolean xrg_get_value_at_position(gint x, gint width, XRGDataset *dataset,
+                                    gdouble *out_value);
+
+/**
+ * Calculate time offset (in seconds) for a position in the graph.
+ * Assumes 1-second sample intervals.
+ *
+ * @param x Mouse x-position
+ * @param width Widget width
+ * @param dataset The dataset
+ * @return Seconds ago (0 = now, positive = past), or -1 if invalid
+ */
+gint xrg_get_time_offset_at_position(gint x, gint width, XRGDataset *dataset);
+
+/**
+ * Format time offset as human-readable string (e.g., "2m 30s ago")
+ * Returns newly allocated string, caller must free.
+ */
+gchar* xrg_format_time_offset(gint seconds_ago);
+
+/*============================================================================
  * Tooltip Support
  *============================================================================*/
 
