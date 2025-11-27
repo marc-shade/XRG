@@ -2293,6 +2293,38 @@ static gboolean on_draw_sensors(GtkWidget *widget, cairo_t *cr, gpointer user_da
             cairo_line_to(cr, width, height);
             cairo_close_path(cr);
             cairo_fill(cr);
+        } else if (style == XRG_GRAPH_STYLE_PIXEL) {
+            /* Chunky pixels - fill area with dots */
+            gint dot_spacing = 4;
+            for (gint i = 0; i < count; i++) {
+                gdouble temp = xrg_dataset_get_value(sensor->dataset, i);
+                gdouble x = (gdouble)i / count * width;
+                gdouble y_top = height - (temp / max_temp * height);
+                if (y_top < 0) y_top = 0;
+                if (y_top > height) y_top = height;
+
+                /* Fill from bottom to the data line with dots */
+                for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                    cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (style == XRG_GRAPH_STYLE_DOT) {
+            /* Fine dots - fill area with small dots */
+            gint dot_spacing = 2;
+            for (gint i = 0; i < count; i++) {
+                gdouble temp = xrg_dataset_get_value(sensor->dataset, i);
+                gdouble x = (gdouble)i / count * width;
+                gdouble y_top = height - (temp / max_temp * height);
+                if (y_top < 0) y_top = 0;
+                if (y_top > height) y_top = height;
+
+                /* Fill from bottom to the data line with dots */
+                for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                    cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
         } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
             for (gint i = 0; i < count; i++) {
                 gdouble temp = xrg_dataset_get_value(sensor->dataset, i);
