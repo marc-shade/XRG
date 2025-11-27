@@ -40,7 +40,7 @@ struct _XRGProcessCollector {
  * Helper Functions
  *============================================================================*/
 
-static gchar* read_file_contents(const gchar *path, gsize max_len) {
+static gchar* read_file_contents(const gchar *path, gsize max_len, gsize *bytes_read) {
     FILE *f = fopen(path, "r");
     if (!f) return NULL;
 
@@ -49,6 +49,7 @@ static gchar* read_file_contents(const gchar *path, gsize max_len) {
     fclose(f);
 
     buffer[len] = '\0';
+    if (bytes_read) *bytes_read = len;
     return buffer;
 }
 
@@ -56,18 +57,21 @@ static gchar* read_cmdline(pid_t pid) {
     gchar path[64];
     g_snprintf(path, sizeof(path), "/proc/%d/cmdline", pid);
 
-    gchar *cmdline = read_file_contents(path, 256);
-    if (!cmdline) return NULL;
+    gsize bytes_read = 0;
+    gchar *cmdline = read_file_contents(path, 256, &bytes_read);
+    if (!cmdline || bytes_read == 0) {
+        g_free(cmdline);
+        return NULL;
+    }
 
-    /* Replace null bytes with spaces */
-    gsize len = strlen(cmdline);
-    for (gsize i = 0; i < len; i++) {
+    /* Replace null bytes with spaces (cmdline has null-separated args) */
+    for (gsize i = 0; i < bytes_read - 1; i++) {  /* -1 to keep final null */
         if (cmdline[i] == '\0') {
             cmdline[i] = ' ';
         }
     }
 
-    /* Trim trailing space */
+    /* Trim trailing whitespace */
     g_strchomp(cmdline);
 
     return cmdline;
@@ -77,7 +81,7 @@ static gchar* read_comm(pid_t pid) {
     gchar path[64];
     g_snprintf(path, sizeof(path), "/proc/%d/comm", pid);
 
-    gchar *comm = read_file_contents(path, 64);
+    gchar *comm = read_file_contents(path, 64, NULL);
     if (comm) {
         g_strchomp(comm);
     }
@@ -148,7 +152,7 @@ static XRGProcessInfo* parse_process(XRGProcessCollector *collector, pid_t pid) 
 
     /* Read /proc/[pid]/stat */
     g_snprintf(path, sizeof(path), "/proc/%d/stat", pid);
-    gchar *stat_contents = read_file_contents(path, 1024);
+    gchar *stat_contents = read_file_contents(path, 1024, NULL);
     if (!stat_contents) return NULL;
 
     /* Parse stat file - format is complex due to comm field possibly containing spaces/parens */
@@ -186,7 +190,7 @@ static XRGProcessInfo* parse_process(XRGProcessCollector *collector, pid_t pid) 
 
     /* Read UID from /proc/[pid]/status */
     g_snprintf(path, sizeof(path), "/proc/%d/status", pid);
-    gchar *status_contents = read_file_contents(path, 2048);
+    gchar *status_contents = read_file_contents(path, 2048, NULL);
     uid_t uid = 0;
 
     if (status_contents) {
@@ -376,20 +380,25 @@ void xrg_process_collector_update(XRGProcessCollector *collector) {
     /* Sort processes */
     all_processes = g_list_sort_with_data(all_processes, compare_processes, collector);
 
-    /* Keep only top N processes */
+    /* Keep only top N processes, free the rest */
     gint count = 0;
-    for (GList *l = all_processes; l != NULL; l = l->next) {
-        if (count >= collector->max_processes) {
-            /* Free remaining processes */
-            g_list_free_full(l, (GDestroyNotify)xrg_process_info_free);
-            break;
+    GList *l = all_processes;
+    while (l != NULL) {
+        GList *next = l->next;  /* Save next pointer before any modifications */
+        XRGProcessInfo *info = l->data;
+
+        if (count < collector->max_processes) {
+            /* Keep this process */
+            collector->processes = g_list_append(collector->processes, info);
+            count++;
+        } else {
+            /* Free this process (over the limit) */
+            xrg_process_info_free(info);
         }
-        collector->processes = g_list_append(collector->processes, l->data);
-        l->data = NULL;  /* Prevent double-free */
-        count++;
+        l = next;
     }
 
-    /* Free the temporary list (items already transferred or freed) */
+    /* Free the GList nodes (data already handled above) */
     g_list_free(all_processes);
 
     /* Clean up stale entries from prev_cpu_times */
