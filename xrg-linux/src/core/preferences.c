@@ -186,6 +186,38 @@ void xrg_preferences_set_defaults(XRGPreferences *prefs) {
     prefs->aitoken_auto_detect = TRUE;
     prefs->aitoken_show_model_breakdown = FALSE;  /* Default to grouped total */
     g_free(home);
+
+    /* AI Token billing settings - default to cap-based (subscription) */
+    prefs->aitoken_claude_billing_mode = XRG_AITOKEN_BILLING_CAP;
+    prefs->aitoken_codex_billing_mode = XRG_AITOKEN_BILLING_CAP;
+    prefs->aitoken_gemini_billing_mode = XRG_AITOKEN_BILLING_CAP;  /* Default to Free tier cap */
+
+    /* Subscription tier defaults - most common user plans */
+    prefs->aitoken_claude_tier = XRG_CLAUDE_TIER_MAX_5X;   /* $100/mo Max plan is popular */
+    prefs->aitoken_codex_tier = XRG_CODEX_TIER_PLUS;       /* $20/mo Plus plan */
+    prefs->aitoken_gemini_tier = XRG_GEMINI_TIER_FREE;     /* Free tier */
+
+    /* Cap-based defaults - auto-calculated from tier by collector
+     * These can be overridden by user for custom caps */
+    prefs->aitoken_billing_period = XRG_AITOKEN_PERIOD_WEEKLY;
+    prefs->aitoken_claude_cap = 0;         /* 0 = use tier default */
+    prefs->aitoken_codex_cap = 0;          /* 0 = use tier default */
+    prefs->aitoken_gemini_cap = 0;         /* 0 = use tier default */
+    prefs->aitoken_alert_threshold = 0.80; /* Alert at 80% of cap */
+
+    /* API-based budget defaults (0 = unlimited) */
+    prefs->aitoken_budget_daily = 0.0;
+    prefs->aitoken_budget_weekly = 0.0;
+    prefs->aitoken_budget_monthly = 0.0;
+
+    /* Default model pricing (USD per 1K tokens) - Nov 2025 rates */
+    prefs->aitoken_use_custom_pricing = FALSE;
+    prefs->aitoken_claude_input_price = 0.003;    /* $3/1M input (Sonnet) */
+    prefs->aitoken_claude_output_price = 0.015;   /* $15/1M output (Sonnet) */
+    prefs->aitoken_codex_input_price = 0.002;     /* $2/1M input */
+    prefs->aitoken_codex_output_price = 0.008;    /* $8/1M output */
+    prefs->aitoken_gemini_input_price = 0.000075; /* Gemini Flash free tier */
+    prefs->aitoken_gemini_output_price = 0.0003;
 }
 
 /**
@@ -348,6 +380,74 @@ gboolean xrg_preferences_load(XRGPreferences *prefs) {
     /* Load AI Token settings */
     prefs->aitoken_show_model_breakdown = g_key_file_get_boolean(prefs->keyfile, "AIToken", "show_model_breakdown", NULL);
 
+    /* Load AI Token billing settings */
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "claude_billing_mode", NULL)) {
+        prefs->aitoken_claude_billing_mode = g_key_file_get_integer(prefs->keyfile, "AIToken", "claude_billing_mode", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "codex_billing_mode", NULL)) {
+        prefs->aitoken_codex_billing_mode = g_key_file_get_integer(prefs->keyfile, "AIToken", "codex_billing_mode", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "gemini_billing_mode", NULL)) {
+        prefs->aitoken_gemini_billing_mode = g_key_file_get_integer(prefs->keyfile, "AIToken", "gemini_billing_mode", NULL);
+    }
+
+    /* Load subscription tier settings */
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "claude_tier", NULL)) {
+        prefs->aitoken_claude_tier = g_key_file_get_integer(prefs->keyfile, "AIToken", "claude_tier", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "codex_tier", NULL)) {
+        prefs->aitoken_codex_tier = g_key_file_get_integer(prefs->keyfile, "AIToken", "codex_tier", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "gemini_tier", NULL)) {
+        prefs->aitoken_gemini_tier = g_key_file_get_integer(prefs->keyfile, "AIToken", "gemini_tier", NULL);
+    }
+
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "billing_period", NULL)) {
+        prefs->aitoken_billing_period = g_key_file_get_integer(prefs->keyfile, "AIToken", "billing_period", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "claude_cap", NULL)) {
+        prefs->aitoken_claude_cap = g_key_file_get_uint64(prefs->keyfile, "AIToken", "claude_cap", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "codex_cap", NULL)) {
+        prefs->aitoken_codex_cap = g_key_file_get_uint64(prefs->keyfile, "AIToken", "codex_cap", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "gemini_cap", NULL)) {
+        prefs->aitoken_gemini_cap = g_key_file_get_uint64(prefs->keyfile, "AIToken", "gemini_cap", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "alert_threshold", NULL)) {
+        prefs->aitoken_alert_threshold = g_key_file_get_double(prefs->keyfile, "AIToken", "alert_threshold", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "budget_daily", NULL)) {
+        prefs->aitoken_budget_daily = g_key_file_get_double(prefs->keyfile, "AIToken", "budget_daily", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "budget_weekly", NULL)) {
+        prefs->aitoken_budget_weekly = g_key_file_get_double(prefs->keyfile, "AIToken", "budget_weekly", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "budget_monthly", NULL)) {
+        prefs->aitoken_budget_monthly = g_key_file_get_double(prefs->keyfile, "AIToken", "budget_monthly", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "use_custom_pricing", NULL)) {
+        prefs->aitoken_use_custom_pricing = g_key_file_get_boolean(prefs->keyfile, "AIToken", "use_custom_pricing", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "claude_input_price", NULL)) {
+        prefs->aitoken_claude_input_price = g_key_file_get_double(prefs->keyfile, "AIToken", "claude_input_price", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "claude_output_price", NULL)) {
+        prefs->aitoken_claude_output_price = g_key_file_get_double(prefs->keyfile, "AIToken", "claude_output_price", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "codex_input_price", NULL)) {
+        prefs->aitoken_codex_input_price = g_key_file_get_double(prefs->keyfile, "AIToken", "codex_input_price", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "codex_output_price", NULL)) {
+        prefs->aitoken_codex_output_price = g_key_file_get_double(prefs->keyfile, "AIToken", "codex_output_price", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "gemini_input_price", NULL)) {
+        prefs->aitoken_gemini_input_price = g_key_file_get_double(prefs->keyfile, "AIToken", "gemini_input_price", NULL);
+    }
+    if (g_key_file_has_key(prefs->keyfile, "AIToken", "gemini_output_price", NULL)) {
+        prefs->aitoken_gemini_output_price = g_key_file_get_double(prefs->keyfile, "AIToken", "gemini_output_price", NULL);
+    }
+
     return TRUE;
 }
 
@@ -494,6 +594,32 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
 
     /* Save AI Token settings */
     g_key_file_set_boolean(prefs->keyfile, "AIToken", "show_model_breakdown", prefs->aitoken_show_model_breakdown);
+
+    /* Save AI Token billing settings */
+    g_key_file_set_integer(prefs->keyfile, "AIToken", "claude_billing_mode", prefs->aitoken_claude_billing_mode);
+    g_key_file_set_integer(prefs->keyfile, "AIToken", "codex_billing_mode", prefs->aitoken_codex_billing_mode);
+    g_key_file_set_integer(prefs->keyfile, "AIToken", "gemini_billing_mode", prefs->aitoken_gemini_billing_mode);
+
+    /* Save subscription tier settings */
+    g_key_file_set_integer(prefs->keyfile, "AIToken", "claude_tier", prefs->aitoken_claude_tier);
+    g_key_file_set_integer(prefs->keyfile, "AIToken", "codex_tier", prefs->aitoken_codex_tier);
+    g_key_file_set_integer(prefs->keyfile, "AIToken", "gemini_tier", prefs->aitoken_gemini_tier);
+
+    g_key_file_set_integer(prefs->keyfile, "AIToken", "billing_period", prefs->aitoken_billing_period);
+    g_key_file_set_uint64(prefs->keyfile, "AIToken", "claude_cap", prefs->aitoken_claude_cap);
+    g_key_file_set_uint64(prefs->keyfile, "AIToken", "codex_cap", prefs->aitoken_codex_cap);
+    g_key_file_set_uint64(prefs->keyfile, "AIToken", "gemini_cap", prefs->aitoken_gemini_cap);
+    g_key_file_set_double(prefs->keyfile, "AIToken", "alert_threshold", prefs->aitoken_alert_threshold);
+    g_key_file_set_double(prefs->keyfile, "AIToken", "budget_daily", prefs->aitoken_budget_daily);
+    g_key_file_set_double(prefs->keyfile, "AIToken", "budget_weekly", prefs->aitoken_budget_weekly);
+    g_key_file_set_double(prefs->keyfile, "AIToken", "budget_monthly", prefs->aitoken_budget_monthly);
+    g_key_file_set_boolean(prefs->keyfile, "AIToken", "use_custom_pricing", prefs->aitoken_use_custom_pricing);
+    g_key_file_set_double(prefs->keyfile, "AIToken", "claude_input_price", prefs->aitoken_claude_input_price);
+    g_key_file_set_double(prefs->keyfile, "AIToken", "claude_output_price", prefs->aitoken_claude_output_price);
+    g_key_file_set_double(prefs->keyfile, "AIToken", "codex_input_price", prefs->aitoken_codex_input_price);
+    g_key_file_set_double(prefs->keyfile, "AIToken", "codex_output_price", prefs->aitoken_codex_output_price);
+    g_key_file_set_double(prefs->keyfile, "AIToken", "gemini_input_price", prefs->aitoken_gemini_input_price);
+    g_key_file_set_double(prefs->keyfile, "AIToken", "gemini_output_price", prefs->aitoken_gemini_output_price);
 
     /* Write to file */
     GError *error = NULL;

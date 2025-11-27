@@ -34,6 +34,18 @@ typedef struct {
     guint64 output_tokens;
 } ModelTokens;
 
+/**
+ * Cost tracking per provider
+ */
+typedef struct {
+    gdouble total_cost;          /* Total cost in USD */
+    gdouble session_cost;        /* Cost for current session */
+    gdouble cost_per_minute;     /* Current spending rate */
+    guint64 period_input_tokens; /* Tokens used in current billing period */
+    guint64 period_output_tokens;
+    gint64 period_start_time;    /* When the current period started */
+} ProviderCostStats;
+
 typedef struct {
     gchar *source_path;
     AITokenSource source_type;
@@ -90,6 +102,20 @@ struct _XRGAITokenCollector {
     /* Update tracking */
     gint64 last_update_time;
     guint64 prev_total_tokens;
+
+    /* Cost tracking per provider */
+    ProviderCostStats claude_cost;
+    ProviderCostStats codex_cost;
+    ProviderCostStats gemini_cost;
+
+    /* Aggregate cost tracking */
+    gdouble total_cost_usd;       /* Total estimated cost in USD */
+    gdouble session_cost_usd;     /* Cost for current session */
+    gdouble cost_rate_per_minute; /* Current spending rate ($/min) */
+
+    /* Alert state */
+    gboolean alert_triggered;     /* TRUE if budget/cap alert triggered */
+    gchar *alert_message;         /* Human-readable alert message */
 };
 
 /* Constructor and destructor */
@@ -129,5 +155,28 @@ guint64 xrg_aitoken_collector_get_gemini_tokens(XRGAITokenCollector *collector);
 XRGDataset* xrg_aitoken_collector_get_claude_dataset(XRGAITokenCollector *collector);
 XRGDataset* xrg_aitoken_collector_get_codex_dataset(XRGAITokenCollector *collector);
 XRGDataset* xrg_aitoken_collector_get_gemini_dataset(XRGAITokenCollector *collector);
+
+/* Cost tracking getters */
+gdouble xrg_aitoken_collector_get_total_cost(XRGAITokenCollector *collector);
+gdouble xrg_aitoken_collector_get_session_cost(XRGAITokenCollector *collector);
+gdouble xrg_aitoken_collector_get_cost_rate(XRGAITokenCollector *collector);
+gdouble xrg_aitoken_collector_get_claude_cost(XRGAITokenCollector *collector);
+gdouble xrg_aitoken_collector_get_codex_cost(XRGAITokenCollector *collector);
+gdouble xrg_aitoken_collector_get_gemini_cost(XRGAITokenCollector *collector);
+
+/* Cap usage getters (returns percentage 0.0-1.0+) */
+gdouble xrg_aitoken_collector_get_claude_cap_usage(XRGAITokenCollector *collector, guint64 cap);
+gdouble xrg_aitoken_collector_get_codex_cap_usage(XRGAITokenCollector *collector, guint64 cap);
+gdouble xrg_aitoken_collector_get_gemini_cap_usage(XRGAITokenCollector *collector, guint64 cap);
+
+/* Alert state */
+gboolean xrg_aitoken_collector_has_alert(XRGAITokenCollector *collector);
+const gchar* xrg_aitoken_collector_get_alert_message(XRGAITokenCollector *collector);
+void xrg_aitoken_collector_clear_alert(XRGAITokenCollector *collector);
+
+/* Cost calculation - call with preferences to update costs */
+struct _XRGPreferences;  /* Forward declaration */
+void xrg_aitoken_collector_update_costs(XRGAITokenCollector *collector,
+                                        struct _XRGPreferences *prefs);
 
 #endif /* XRG_AITOKEN_COLLECTOR_H */

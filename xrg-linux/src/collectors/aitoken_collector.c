@@ -1,4 +1,6 @@
 #include "aitoken_collector.h"
+#include "aitoken_pricing.h"
+#include "../core/preferences.h"
 #include <glib/gstdio.h>
 #include <json-glib/json-glib.h>
 #include <string.h>
@@ -680,6 +682,16 @@ XRGAITokenCollector* xrg_aitoken_collector_new(gint dataset_capacity) {
     collector->last_update_time = g_get_monotonic_time();
     collector->prev_total_tokens = 0;
 
+    /* Initialize cost tracking */
+    memset(&collector->claude_cost, 0, sizeof(ProviderCostStats));
+    memset(&collector->codex_cost, 0, sizeof(ProviderCostStats));
+    memset(&collector->gemini_cost, 0, sizeof(ProviderCostStats));
+    collector->total_cost_usd = 0.0;
+    collector->session_cost_usd = 0.0;
+    collector->cost_rate_per_minute = 0.0;
+    collector->alert_triggered = FALSE;
+    collector->alert_message = NULL;
+
     return collector;
 }
 
@@ -710,6 +722,7 @@ void xrg_aitoken_collector_free(XRGAITokenCollector *collector) {
     g_free(collector->db_path);
     g_free(collector->otel_endpoint);
     g_free(collector->current_session_id);
+    g_free(collector->alert_message);
     g_free(collector);
 }
 
@@ -1058,4 +1071,289 @@ XRGDataset* xrg_aitoken_collector_get_codex_dataset(XRGAITokenCollector *collect
 XRGDataset* xrg_aitoken_collector_get_gemini_dataset(XRGAITokenCollector *collector) {
     g_return_val_if_fail(collector != NULL, NULL);
     return collector->gemini_tokens_rate;
+}
+
+/* ============================================================================
+ * Cost Tracking Functions
+ * ============================================================================ */
+
+/**
+ * Get total estimated cost
+ */
+gdouble xrg_aitoken_collector_get_total_cost(XRGAITokenCollector *collector) {
+    g_return_val_if_fail(collector != NULL, 0.0);
+    return collector->total_cost_usd;
+}
+
+/**
+ * Get session cost
+ */
+gdouble xrg_aitoken_collector_get_session_cost(XRGAITokenCollector *collector) {
+    g_return_val_if_fail(collector != NULL, 0.0);
+    return collector->session_cost_usd;
+}
+
+/**
+ * Get current spending rate ($/minute)
+ */
+gdouble xrg_aitoken_collector_get_cost_rate(XRGAITokenCollector *collector) {
+    g_return_val_if_fail(collector != NULL, 0.0);
+    return collector->cost_rate_per_minute;
+}
+
+/**
+ * Get Claude cost
+ */
+gdouble xrg_aitoken_collector_get_claude_cost(XRGAITokenCollector *collector) {
+    g_return_val_if_fail(collector != NULL, 0.0);
+    return collector->claude_cost.total_cost;
+}
+
+/**
+ * Get Codex cost
+ */
+gdouble xrg_aitoken_collector_get_codex_cost(XRGAITokenCollector *collector) {
+    g_return_val_if_fail(collector != NULL, 0.0);
+    return collector->codex_cost.total_cost;
+}
+
+/**
+ * Get Gemini cost
+ */
+gdouble xrg_aitoken_collector_get_gemini_cost(XRGAITokenCollector *collector) {
+    g_return_val_if_fail(collector != NULL, 0.0);
+    return collector->gemini_cost.total_cost;
+}
+
+/**
+ * Get Claude cap usage as percentage (0.0-1.0+)
+ */
+gdouble xrg_aitoken_collector_get_claude_cap_usage(XRGAITokenCollector *collector, guint64 cap) {
+    g_return_val_if_fail(collector != NULL, 0.0);
+    if (cap == 0) return 0.0;
+    return (gdouble)collector->stats.claude_tokens / cap;
+}
+
+/**
+ * Get Codex cap usage as percentage (0.0-1.0+)
+ */
+gdouble xrg_aitoken_collector_get_codex_cap_usage(XRGAITokenCollector *collector, guint64 cap) {
+    g_return_val_if_fail(collector != NULL, 0.0);
+    if (cap == 0) return 0.0;
+    return (gdouble)collector->stats.codex_tokens / cap;
+}
+
+/**
+ * Get Gemini cap usage as percentage (0.0-1.0+)
+ */
+gdouble xrg_aitoken_collector_get_gemini_cap_usage(XRGAITokenCollector *collector, guint64 cap) {
+    g_return_val_if_fail(collector != NULL, 0.0);
+    if (cap == 0) return 0.0;
+    return (gdouble)collector->stats.gemini_tokens / cap;
+}
+
+/**
+ * Check if an alert has been triggered
+ */
+gboolean xrg_aitoken_collector_has_alert(XRGAITokenCollector *collector) {
+    g_return_val_if_fail(collector != NULL, FALSE);
+    return collector->alert_triggered;
+}
+
+/**
+ * Get alert message
+ */
+const gchar* xrg_aitoken_collector_get_alert_message(XRGAITokenCollector *collector) {
+    g_return_val_if_fail(collector != NULL, NULL);
+    return collector->alert_message;
+}
+
+/**
+ * Clear alert state
+ */
+void xrg_aitoken_collector_clear_alert(XRGAITokenCollector *collector) {
+    g_return_if_fail(collector != NULL);
+    collector->alert_triggered = FALSE;
+    g_free(collector->alert_message);
+    collector->alert_message = NULL;
+}
+
+/**
+ * Update cost calculations based on preferences
+ */
+void xrg_aitoken_collector_update_costs(XRGAITokenCollector *collector,
+                                        XRGPreferences *prefs) {
+    g_return_if_fail(collector != NULL);
+    g_return_if_fail(prefs != NULL);
+
+    gdouble prev_total_cost = collector->total_cost_usd;
+
+    /* Calculate Claude costs */
+    if (prefs->aitoken_claude_billing_mode == XRG_AITOKEN_BILLING_API) {
+        /* API billing - calculate actual cost */
+        gdouble input_price = prefs->aitoken_use_custom_pricing ?
+            prefs->aitoken_claude_input_price : 0.003;
+        gdouble output_price = prefs->aitoken_use_custom_pricing ?
+            prefs->aitoken_claude_output_price : 0.015;
+
+        /* If we have per-model tokens, use model-specific pricing */
+        if (collector->stats.model_tokens && g_hash_table_size(collector->stats.model_tokens) > 0) {
+            collector->claude_cost.total_cost = 0.0;
+            GHashTableIter iter;
+            gpointer key, value;
+            g_hash_table_iter_init(&iter, collector->stats.model_tokens);
+            while (g_hash_table_iter_next(&iter, &key, &value)) {
+                const gchar *model_name = (const gchar *)key;
+                ModelTokens *mt = (ModelTokens *)value;
+
+                /* Get model-specific pricing */
+                gdouble model_input_price, model_output_price;
+                if (get_model_pricing(model_name, &model_input_price, &model_output_price)) {
+                    collector->claude_cost.total_cost += calculate_token_cost(
+                        mt->input_tokens, mt->output_tokens,
+                        model_input_price, model_output_price);
+                } else {
+                    /* Use default pricing */
+                    collector->claude_cost.total_cost += calculate_token_cost(
+                        mt->input_tokens, mt->output_tokens,
+                        input_price, output_price);
+                }
+            }
+        } else {
+            /* Use aggregate tokens with default pricing */
+            collector->claude_cost.total_cost = calculate_token_cost(
+                collector->stats.total_input_tokens,
+                collector->stats.total_output_tokens,
+                input_price, output_price);
+        }
+    }
+    /* For cap billing, cost is 0 (subscription) */
+
+    /* Calculate Codex costs */
+    if (prefs->aitoken_codex_billing_mode == XRG_AITOKEN_BILLING_API) {
+        gdouble input_price = prefs->aitoken_use_custom_pricing ?
+            prefs->aitoken_codex_input_price : 0.002;
+        gdouble output_price = prefs->aitoken_use_custom_pricing ?
+            prefs->aitoken_codex_output_price : 0.008;
+
+        /* Codex doesn't provide input/output split, so estimate 50/50 */
+        guint64 estimated_input = collector->stats.codex_tokens / 2;
+        guint64 estimated_output = collector->stats.codex_tokens - estimated_input;
+
+        collector->codex_cost.total_cost = calculate_token_cost(
+            estimated_input, estimated_output,
+            input_price, output_price);
+    }
+
+    /* Calculate Gemini costs */
+    if (prefs->aitoken_gemini_billing_mode == XRG_AITOKEN_BILLING_API) {
+        gdouble input_price = prefs->aitoken_use_custom_pricing ?
+            prefs->aitoken_gemini_input_price : 0.000075;
+        gdouble output_price = prefs->aitoken_use_custom_pricing ?
+            prefs->aitoken_gemini_output_price : 0.0003;
+
+        /* Gemini doesn't provide input/output split, so estimate 50/50 */
+        guint64 estimated_input = collector->stats.gemini_tokens / 2;
+        guint64 estimated_output = collector->stats.gemini_tokens - estimated_input;
+
+        collector->gemini_cost.total_cost = calculate_token_cost(
+            estimated_input, estimated_output,
+            input_price, output_price);
+    }
+
+    /* Sum up total cost */
+    collector->total_cost_usd = collector->claude_cost.total_cost +
+                                collector->codex_cost.total_cost +
+                                collector->gemini_cost.total_cost;
+
+    /* Calculate cost rate ($/minute) */
+    gdouble cost_delta = collector->total_cost_usd - prev_total_cost;
+    if (cost_delta > 0) {
+        /* Smooth the rate over time */
+        collector->cost_rate_per_minute = collector->cost_rate_per_minute * 0.8 +
+                                          cost_delta * 12.0 * 0.2;  /* 5-sec updates = 12/min */
+    } else {
+        collector->cost_rate_per_minute *= 0.9;  /* Decay when no new cost */
+    }
+
+    /* Check for alerts */
+    gboolean should_alert = FALSE;
+    gchar *new_alert = NULL;
+
+    /* Get effective caps - use tier defaults if manual cap is 0 */
+    guint64 effective_claude_cap = prefs->aitoken_claude_cap > 0 ?
+        prefs->aitoken_claude_cap : get_claude_tier_weekly_cap(prefs->aitoken_claude_tier);
+    guint64 effective_codex_cap = prefs->aitoken_codex_cap > 0 ?
+        prefs->aitoken_codex_cap : get_codex_tier_weekly_cap(prefs->aitoken_codex_tier);
+    guint64 effective_gemini_cap = prefs->aitoken_gemini_cap > 0 ?
+        prefs->aitoken_gemini_cap : get_gemini_tier_daily_cap(prefs->aitoken_gemini_tier) * 7; /* Weekly */
+
+    /* Check cap-based alerts */
+    if (prefs->aitoken_claude_billing_mode == XRG_AITOKEN_BILLING_CAP &&
+        effective_claude_cap > 0) {
+        gdouble usage = xrg_aitoken_collector_get_claude_cap_usage(collector, effective_claude_cap);
+        if (usage >= prefs->aitoken_alert_threshold && !collector->alert_triggered) {
+            should_alert = TRUE;
+            new_alert = g_strdup_printf("Claude %s: %.0f%% of cap",
+                get_claude_tier_name(prefs->aitoken_claude_tier), usage * 100.0);
+        }
+    }
+
+    if (prefs->aitoken_codex_billing_mode == XRG_AITOKEN_BILLING_CAP &&
+        effective_codex_cap > 0) {
+        gdouble usage = xrg_aitoken_collector_get_codex_cap_usage(collector, effective_codex_cap);
+        if (usage >= prefs->aitoken_alert_threshold && !collector->alert_triggered) {
+            should_alert = TRUE;
+            gchar *codex_alert = g_strdup_printf("Codex %s: %.0f%% of cap",
+                get_codex_tier_name(prefs->aitoken_codex_tier), usage * 100.0);
+            if (new_alert) {
+                gchar *combined = g_strdup_printf("%s | %s", new_alert, codex_alert);
+                g_free(new_alert);
+                g_free(codex_alert);
+                new_alert = combined;
+            } else {
+                new_alert = codex_alert;
+            }
+        }
+    }
+
+    if (prefs->aitoken_gemini_billing_mode == XRG_AITOKEN_BILLING_CAP &&
+        effective_gemini_cap > 0) {
+        gdouble usage = xrg_aitoken_collector_get_gemini_cap_usage(collector, effective_gemini_cap);
+        if (usage >= prefs->aitoken_alert_threshold && !collector->alert_triggered) {
+            should_alert = TRUE;
+            gchar *gemini_alert = g_strdup_printf("Gemini %s: %.0f%% of cap",
+                get_gemini_tier_name(prefs->aitoken_gemini_tier), usage * 100.0);
+            if (new_alert) {
+                gchar *combined = g_strdup_printf("%s | %s", new_alert, gemini_alert);
+                g_free(new_alert);
+                g_free(gemini_alert);
+                new_alert = combined;
+            } else {
+                new_alert = gemini_alert;
+            }
+        }
+    }
+
+    /* Check budget-based alerts (API mode) */
+    if (prefs->aitoken_budget_daily > 0 && collector->total_cost_usd >= prefs->aitoken_budget_daily) {
+        should_alert = TRUE;
+        gchar *budget_alert = g_strdup_printf("Daily budget ($%.2f) exceeded!", prefs->aitoken_budget_daily);
+        if (new_alert) {
+            gchar *combined = g_strdup_printf("%s | %s", new_alert, budget_alert);
+            g_free(new_alert);
+            g_free(budget_alert);
+            new_alert = combined;
+        } else {
+            new_alert = budget_alert;
+        }
+    }
+
+    if (should_alert) {
+        collector->alert_triggered = TRUE;
+        g_free(collector->alert_message);
+        collector->alert_message = new_alert;
+    } else {
+        g_free(new_alert);
+    }
 }

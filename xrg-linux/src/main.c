@@ -13,6 +13,7 @@
 #include "collectors/battery_collector.h"
 #include "collectors/sensors_collector.h"
 #include "collectors/aitoken_collector.h"
+#include "collectors/aitoken_pricing.h"
 #include "ui/preferences_window.h"
 
 #define SNAP_DISTANCE 20  /* Pixels from edge to snap */
@@ -2920,8 +2921,85 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
     cairo_show_text(cr, line3);
     g_free(line3);
 
+    /* Line 4: Cost or Cap display based on billing mode */
+    gint next_y = 51;
+
+    /* Update cost calculations */
+    xrg_aitoken_collector_update_costs(state->aitoken_collector, state->prefs);
+
+    /* Get Claude tokens for cap display */
+    guint64 claude_tokens = xrg_aitoken_collector_get_claude_tokens(state->aitoken_collector);
+
+    if (state->prefs->aitoken_claude_billing_mode == XRG_AITOKEN_BILLING_API) {
+        /* API billing - show cost in USD */
+        gdouble total_cost = xrg_aitoken_collector_get_total_cost(state->aitoken_collector);
+        gchar *cost_str;
+        if (total_cost < 0.01) {
+            cost_str = g_strdup_printf("Cost: %.2f¢", total_cost * 100.0);
+        } else {
+            cost_str = g_strdup_printf("Cost: $%.2f", total_cost);
+        }
+        cairo_move_to(cr, 5, next_y);
+        cairo_show_text(cr, cost_str);
+        g_free(cost_str);
+        next_y += 12;
+
+        /* Show budget if set */
+        if (state->prefs->aitoken_budget_daily > 0) {
+            gdouble pct = (total_cost / state->prefs->aitoken_budget_daily) * 100.0;
+            gchar *budget_str = g_strdup_printf("Budget: %.0f%%", pct);
+            cairo_move_to(cr, 5, next_y);
+            cairo_show_text(cr, budget_str);
+            g_free(budget_str);
+            next_y += 12;
+        }
+    } else {
+        /* Cap billing - show usage percentage */
+        /* Get effective cap - use tier default if manual cap is 0 */
+        guint64 effective_cap = state->prefs->aitoken_claude_cap > 0 ?
+            state->prefs->aitoken_claude_cap :
+            get_claude_tier_weekly_cap(state->prefs->aitoken_claude_tier);
+
+        if (effective_cap > 0) {
+            gdouble usage = xrg_aitoken_collector_get_claude_cap_usage(
+                state->aitoken_collector, effective_cap);
+
+            /* Show tier name and usage */
+            gchar *cap_str = g_strdup_printf("%s: %.1f%%",
+                get_claude_tier_name(state->prefs->aitoken_claude_tier), usage * 100.0);
+            cairo_move_to(cr, 5, next_y);
+            cairo_show_text(cr, cap_str);
+            g_free(cap_str);
+            next_y += 12;
+
+            /* Show tokens remaining */
+            guint64 remaining = (claude_tokens < effective_cap) ?
+                                (effective_cap - claude_tokens) : 0;
+            gchar *remain_str = format_tokens(remaining);
+            gchar *left_str = g_strdup_printf("Left: %s", remain_str);
+            cairo_move_to(cr, 5, next_y);
+            cairo_show_text(cr, left_str);
+            g_free(remain_str);
+            g_free(left_str);
+            next_y += 12;
+        }
+    }
+
+    /* Show alert if triggered */
+    if (xrg_aitoken_collector_has_alert(state->aitoken_collector)) {
+        const gchar *alert_msg = xrg_aitoken_collector_get_alert_message(state->aitoken_collector);
+        if (alert_msg) {
+            /* Draw alert in warning color (orange) */
+            cairo_set_source_rgba(cr, 1.0, 0.6, 0.0, 1.0);
+            cairo_move_to(cr, 5, next_y);
+            cairo_show_text(cr, "⚠ ALERT");
+            next_y += 12;
+            /* Reset color */
+            cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
+        }
+    }
+
     /* Show per-model breakdown if enabled */
-    gint next_y = 51;  /* Starting Y position for model breakdown */
     if (state->prefs->aitoken_show_model_breakdown) {
         GHashTable *model_tokens = xrg_aitoken_collector_get_model_tokens(state->aitoken_collector);
         const gchar *current_model = xrg_aitoken_collector_get_current_model(state->aitoken_collector);

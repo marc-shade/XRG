@@ -31,6 +31,61 @@ typedef enum {
 } XRGTemperatureUnits;
 
 /**
+ * AI Token billing mode
+ * Different providers use different billing models:
+ * - Subscription: Fixed weekly/monthly caps (Claude Pro, Codex subscription)
+ * - API: Pay-per-token based on actual usage
+ */
+typedef enum {
+    XRG_AITOKEN_BILLING_CAP = 0,  /* Subscription with token cap */
+    XRG_AITOKEN_BILLING_API = 1   /* API pay-per-token */
+} XRGAITokenBillingMode;
+
+/**
+ * AI Token billing period for cap-based billing
+ */
+typedef enum {
+    XRG_AITOKEN_PERIOD_DAILY   = 0,
+    XRG_AITOKEN_PERIOD_WEEKLY  = 1,
+    XRG_AITOKEN_PERIOD_MONTHLY = 2
+} XRGAITokenBillingPeriod;
+
+/**
+ * Claude subscription tiers
+ * Limits are weekly, measured in "hours" but we convert to approximate tokens
+ * Source: https://support.claude.com/en/articles/11145838-using-claude-code-with-your-pro-or-max-plan
+ */
+typedef enum {
+    XRG_CLAUDE_TIER_PRO     = 0,  /* $20/mo: 40-80 hrs Sonnet 4/week */
+    XRG_CLAUDE_TIER_MAX_5X  = 1,  /* $100/mo: 140-280 hrs Sonnet, 15-35 hrs Opus/week */
+    XRG_CLAUDE_TIER_MAX_20X = 2,  /* $200/mo: 240-480 hrs Sonnet, 24-40 hrs Opus/week */
+    XRG_CLAUDE_TIER_API     = 3   /* Pay-per-token API usage */
+} XRGClaudeTier;
+
+/**
+ * OpenAI Codex subscription tiers
+ * Limits are per 5-hour window + weekly caps
+ * Source: https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan
+ */
+typedef enum {
+    XRG_CODEX_TIER_PLUS = 0,  /* $20/mo: 30-150 msg/5hrs, ~3K thinking req/week */
+    XRG_CODEX_TIER_PRO  = 1,  /* $200/mo: 300-1500 msg/5hrs */
+    XRG_CODEX_TIER_API  = 2   /* Pay-per-token API usage */
+} XRGCodexTier;
+
+/**
+ * Google Gemini CLI subscription tiers
+ * Limits are daily, measured as multipliers of base
+ * Source: https://blog.google/technology/developers/gemini-cli-code-assist-higher-limits/
+ */
+typedef enum {
+    XRG_GEMINI_TIER_FREE  = 0,  /* Free tier: base limits */
+    XRG_GEMINI_TIER_PRO   = 1,  /* $20/mo: 5x base limits */
+    XRG_GEMINI_TIER_ULTRA = 2,  /* 20x base limits */
+    XRG_GEMINI_TIER_API   = 3   /* Pay-per-token API usage */
+} XRGGeminiTier;
+
+/**
  * XRGPreferences - Application settings and preferences
  *
  * Manages all user preferences including window position, module visibility,
@@ -132,6 +187,37 @@ struct _XRGPreferences {
     gchar *aitoken_otel_endpoint;
     gboolean aitoken_auto_detect;
     gboolean aitoken_show_model_breakdown;
+
+    /* AI Token billing settings - per provider */
+    XRGAITokenBillingMode aitoken_claude_billing_mode;   /* Claude: cap or API */
+    XRGAITokenBillingMode aitoken_codex_billing_mode;    /* Codex: cap or API */
+    XRGAITokenBillingMode aitoken_gemini_billing_mode;   /* Gemini: cap or API */
+
+    /* Subscription tiers - determines token caps */
+    XRGClaudeTier aitoken_claude_tier;    /* Pro, Max 5x, Max 20x, or API */
+    XRGCodexTier aitoken_codex_tier;      /* Plus, Pro, or API */
+    XRGGeminiTier aitoken_gemini_tier;    /* Free, Pro, Ultra, or API */
+
+    /* Cap-based billing settings (subscription accounts) */
+    XRGAITokenBillingPeriod aitoken_billing_period;      /* Daily/Weekly/Monthly */
+    guint64 aitoken_claude_cap;      /* Token cap for Claude (e.g., 500K/week) */
+    guint64 aitoken_codex_cap;       /* Token cap for Codex */
+    guint64 aitoken_gemini_cap;      /* Token cap for Gemini */
+    gdouble aitoken_alert_threshold; /* Alert at this % of cap (e.g., 0.8 = 80%) */
+
+    /* API-based billing settings (pay-per-token) */
+    gdouble aitoken_budget_daily;    /* Daily budget in USD (0 = unlimited) */
+    gdouble aitoken_budget_weekly;   /* Weekly budget in USD */
+    gdouble aitoken_budget_monthly;  /* Monthly budget in USD */
+
+    /* Custom model pricing (USD per 1K tokens) - user can override defaults */
+    gboolean aitoken_use_custom_pricing;
+    gdouble aitoken_claude_input_price;   /* $/1K input tokens */
+    gdouble aitoken_claude_output_price;  /* $/1K output tokens */
+    gdouble aitoken_codex_input_price;
+    gdouble aitoken_codex_output_price;
+    gdouble aitoken_gemini_input_price;
+    gdouble aitoken_gemini_output_price;
 
     /* Theme settings */
     gchar *current_theme;  /* Name of current theme */
