@@ -69,6 +69,13 @@ struct _XRGPreferencesWindow {
     GtkWidget *aitoken_db_path_entry;
     GtkWidget *aitoken_otel_endpoint_entry;
     GtkWidget *aitoken_auto_detect_check;
+    /* Subscription tier selectors */
+    GtkWidget *aitoken_claude_tier_combo;
+    GtkWidget *aitoken_codex_tier_combo;
+    GtkWidget *aitoken_gemini_tier_combo;
+    GtkWidget *aitoken_claude_billing_combo;
+    GtkWidget *aitoken_codex_billing_combo;
+    GtkWidget *aitoken_gemini_billing_combo;
 
     /* Colors tab widgets */
     GtkWidget *theme_combo;
@@ -726,6 +733,74 @@ static GtkWidget* create_aitoken_tab(XRGPreferencesWindow *win) {
     /* Separator */
     gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
 
+    /* Subscription Tiers section */
+    label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(label), "<b>Subscription Tiers</b>");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+
+    /* Claude tier */
+    label = gtk_label_new("Claude Plan:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->aitoken_claude_tier_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_claude_tier_combo), "Pro ($20/mo)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_claude_tier_combo), "Max 5x ($100/mo)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_claude_tier_combo), "Max 20x ($200/mo)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_claude_tier_combo), "API (Pay-per-token)");
+    gtk_grid_attach(GTK_GRID(grid), win->aitoken_claude_tier_combo, 1, row++, 1, 1);
+
+    /* Claude billing mode */
+    label = gtk_label_new("Claude Billing:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->aitoken_claude_billing_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_claude_billing_combo), "Subscription Cap");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_claude_billing_combo), "API Pay-per-token");
+    gtk_grid_attach(GTK_GRID(grid), win->aitoken_claude_billing_combo, 1, row++, 1, 1);
+
+    /* Codex tier */
+    label = gtk_label_new("Codex Plan:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->aitoken_codex_tier_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_codex_tier_combo), "Plus ($20/mo)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_codex_tier_combo), "Pro ($200/mo)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_codex_tier_combo), "API (Pay-per-token)");
+    gtk_grid_attach(GTK_GRID(grid), win->aitoken_codex_tier_combo, 1, row++, 1, 1);
+
+    /* Codex billing mode */
+    label = gtk_label_new("Codex Billing:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->aitoken_codex_billing_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_codex_billing_combo), "Subscription Cap");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_codex_billing_combo), "API Pay-per-token");
+    gtk_grid_attach(GTK_GRID(grid), win->aitoken_codex_billing_combo, 1, row++, 1, 1);
+
+    /* Gemini tier */
+    label = gtk_label_new("Gemini Plan:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->aitoken_gemini_tier_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_gemini_tier_combo), "Free");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_gemini_tier_combo), "Pro ($20/mo)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_gemini_tier_combo), "Ultra");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_gemini_tier_combo), "API (Pay-per-token)");
+    gtk_grid_attach(GTK_GRID(grid), win->aitoken_gemini_tier_combo, 1, row++, 1, 1);
+
+    /* Gemini billing mode */
+    label = gtk_label_new("Gemini Billing:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->aitoken_gemini_billing_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_gemini_billing_combo), "Subscription Cap");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->aitoken_gemini_billing_combo), "API Pay-per-token");
+    gtk_grid_attach(GTK_GRID(grid), win->aitoken_gemini_billing_combo, 1, row++, 1, 1);
+
+    /* Separator */
+    gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
+
     /* Data display options */
     label = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(label), "<b>Data Display Options</b>");
@@ -965,6 +1040,13 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->aitoken_enabled_check), prefs->show_aitoken);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->aitoken_height_spin), prefs->graph_height_aitoken);
     gtk_combo_box_set_active(GTK_COMBO_BOX(win->aitoken_style_combo), prefs->aitoken_graph_style);
+    /* Subscription tier selectors */
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->aitoken_claude_tier_combo), prefs->aitoken_claude_tier);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->aitoken_codex_tier_combo), prefs->aitoken_codex_tier);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->aitoken_gemini_tier_combo), prefs->aitoken_gemini_tier);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->aitoken_claude_billing_combo), prefs->aitoken_claude_billing_mode);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->aitoken_codex_billing_combo), prefs->aitoken_codex_billing_mode);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->aitoken_gemini_billing_combo), prefs->aitoken_gemini_billing_mode);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->aitoken_show_model_breakdown_check), prefs->aitoken_show_model_breakdown);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->aitoken_auto_detect_check), prefs->aitoken_auto_detect);
     if (prefs->aitoken_jsonl_path) {
@@ -1085,6 +1167,13 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     prefs->show_aitoken = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->aitoken_enabled_check));
     prefs->graph_height_aitoken = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->aitoken_height_spin));
     prefs->aitoken_graph_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->aitoken_style_combo));
+    /* Subscription tier selectors */
+    prefs->aitoken_claude_tier = gtk_combo_box_get_active(GTK_COMBO_BOX(win->aitoken_claude_tier_combo));
+    prefs->aitoken_codex_tier = gtk_combo_box_get_active(GTK_COMBO_BOX(win->aitoken_codex_tier_combo));
+    prefs->aitoken_gemini_tier = gtk_combo_box_get_active(GTK_COMBO_BOX(win->aitoken_gemini_tier_combo));
+    prefs->aitoken_claude_billing_mode = gtk_combo_box_get_active(GTK_COMBO_BOX(win->aitoken_claude_billing_combo));
+    prefs->aitoken_codex_billing_mode = gtk_combo_box_get_active(GTK_COMBO_BOX(win->aitoken_codex_billing_combo));
+    prefs->aitoken_gemini_billing_mode = gtk_combo_box_get_active(GTK_COMBO_BOX(win->aitoken_gemini_billing_combo));
     prefs->aitoken_show_model_breakdown = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->aitoken_show_model_breakdown_check));
     prefs->aitoken_auto_detect = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->aitoken_auto_detect_check));
     g_free(prefs->aitoken_jsonl_path);
