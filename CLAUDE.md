@@ -740,12 +740,15 @@ If duplicate files exist, remove them from the Xcode project (not just filesyste
 
 ## AI Token Monitoring
 
-AI token tracking works on both platforms by parsing `~/.claude/projects/*/sessionid.jsonl`. Zero configuration required.
+Multi-provider AI token tracking works on both platforms. Zero configuration required.
 
-**Data Sources** (auto-detected in priority order):
-1. JSONL transcripts (universal, default)
-2. SQLite database `~/.claude/monitoring/claude_usage.db` (advanced)
-3. OpenTelemetry endpoint (advanced)
+**Supported Providers** (auto-detected):
+
+| Provider | Data Source |
+|----------|-------------|
+| Claude Code | `~/.claude/projects/*/sessionid.jsonl` |
+| OpenAI Codex CLI | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` |
+| Google Gemini CLI | `~/.gemini/tmp/<hash>/chats/session-*.json` |
 
 **Key Files**:
 - macOS: `Data Miners/XRGAITokenMiner.m`, `Graph Views/XRGAITokenView.m`
@@ -754,6 +757,16 @@ AI token tracking works on both platforms by parsing `~/.claude/projects/*/sessi
 **JSONL Parsing Note**: Model field is in `message.model`, not root level:
 ```json
 {"message": {"model": "claude-sonnet-4-5-20250929", "usage": {"input_tokens": 10, "output_tokens": 791}}}
+```
+
+**Codex CLI Format**: Token counts in `event_msg` with `token_count` payload:
+```json
+{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":X,"output_tokens":Y}}}}
+```
+
+**Gemini CLI Format**: Session JSON with messages array containing tokens:
+```json
+{"messages":[{"tokens":{"input":X,"output":Y,"total":Z}}]}
 ```
 
 **Settings** (macOS - `XRGAISettingsKeys.h`):

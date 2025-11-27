@@ -26,36 +26,43 @@ XRG displays real-time graphs for:
 - **Temperature** - CPU, GPU, and system sensors
 - **Weather** - Current conditions and forecast
 - **Stock Prices** - Real-time market data
-- **AI Token Usage** - Live AI API token consumption (NEW)
+- **AI Token Usage** - Live token consumption for Claude, OpenAI Codex, and Gemini CLI
 
 ## AI Token Monitoring
 
-**New in this fork**: Real-time monitoring of AI token usage for Claude Code and other AI services.
+**New in this fork**: Real-time monitoring of AI token usage across multiple AI coding assistants.
+
+### Supported Providers
+
+| Provider | Data Source | Auto-Detected |
+|----------|-------------|---------------|
+| **Claude Code** | `~/.claude/projects/*/sessionid.jsonl` | ✓ |
+| **OpenAI Codex CLI** | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` | ✓ |
+| **Google Gemini CLI** | `~/.gemini/tmp/<hash>/chats/session-*.json` | ✓ |
 
 ### Features
 
-- **Universal Compatibility** - Works on ALL Macs with default Claude Code installation
-- **Zero Configuration** - No setup required, works out of the box
+- **Multi-Provider** - Track Claude, Codex, and Gemini tokens in a single stacked graph
+- **Zero Configuration** - Auto-detects installed AI tools, no setup required
 - **Real-Time Tracking** - Updates within 1-2 seconds during active AI usage
-- **Multi-Strategy** - Automatic fallback between JSONL transcripts, SQLite database, and OpenTelemetry
+- **Per-Provider Breakdown** - Color-coded visualization shows usage by provider
 - **Performance Optimized** - Background threading, intelligent caching, no UI freezing
 
 ### How It Works
 
-The AI Token monitor automatically detects and uses the best available data source:
+The AI Token monitor automatically detects all installed AI coding tools:
 
-1. **JSONL Transcripts** (Primary - Universal)
+1. **Claude Code** (Anthropic)
    - Source: `~/.claude/projects/*/sessionid.jsonl`
-   - Works with default Claude Code installation
-   - No configuration required
+   - Fallback: SQLite database or OpenTelemetry endpoint
 
-2. **SQLite Database** (Fallback - Advanced)
-   - Source: `~/.claude/monitoring/claude_usage.db`
-   - For users with custom monitoring setups
+2. **OpenAI Codex CLI**
+   - Source: `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`
+   - Parses `token_count` events from session files
 
-3. **OpenTelemetry** (Fallback - Advanced)
-   - Source: `http://localhost:8889/metrics`
-   - For users with OTel configured
+3. **Google Gemini CLI**
+   - Source: `~/.gemini/tmp/<hash>/chats/session-*.json`
+   - Extracts tokens from message history
 
 ### Quick Start
 
