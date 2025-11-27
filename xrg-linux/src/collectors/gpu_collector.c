@@ -105,23 +105,30 @@ static void detect_gpu_backend(XRGGPUCollector *collector) {
     if (fp) {
         char buffer[256];
         if (fgets(buffer, sizeof(buffer), fp) != NULL) {
-            /* nvidia-smi works - use NVML backend */
-            pclose(fp);
-            collector->backend = XRG_GPU_BACKEND_NVML;
-            collector->gpu_name = g_strdup(g_strstrip(buffer));
+            int status = pclose(fp);
+            fp = NULL;  /* Mark as closed */
 
-            /* Get memory total */
-            fp = popen("nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null", "r");
-            if (fp) {
-                if (fgets(buffer, sizeof(buffer), fp) != NULL) {
-                    collector->memory_total_mb = atof(buffer);
+            /* Check for nvidia-smi error messages (output to stdout, not stderr!) */
+            /* Error messages start with "NVIDIA-SMI" */
+            if (status == 0 && strncmp(buffer, "NVIDIA-SMI", 10) != 0) {
+                /* nvidia-smi works - use NVML backend */
+                collector->backend = XRG_GPU_BACKEND_NVML;
+                collector->gpu_name = g_strdup(g_strstrip(buffer));
+
+                /* Get memory total */
+                fp = popen("nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null", "r");
+                if (fp) {
+                    if (fgets(buffer, sizeof(buffer), fp) != NULL) {
+                        collector->memory_total_mb = atof(buffer);
+                    }
+                    pclose(fp);
                 }
-                pclose(fp);
+                g_message("GPU: Using NVML backend for %s", collector->gpu_name);
+                return;
             }
-            g_message("GPU: Using NVML backend for %s", collector->gpu_name);
-            return;
+            /* nvidia-smi failed or returned error - fall through to DRM scan */
         }
-        pclose(fp);
+        if (fp) pclose(fp);
     }
 
     /* Scan DRM devices for GPU hardware */
