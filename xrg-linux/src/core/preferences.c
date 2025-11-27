@@ -16,10 +16,15 @@ static gboolean parse_color(const gchar *str, GdkRGBA *color) {
     return result;
 }
 
-/* Helper function to format RGBA color to string */
+/* Helper function to format RGBA color to string
+ * GTK's gdk_rgba_parse() expects rgba(R,G,B,A) where R,G,B are 0-255 integers
+ * and A is a 0-1 float. NOT floating point 0-1 for RGB! */
 static gchar* format_color(GdkRGBA *color) {
-    return g_strdup_printf("rgba(%.3f,%.3f,%.3f,%.3f)",
-                           color->red, color->green, color->blue, color->alpha);
+    return g_strdup_printf("rgba(%d,%d,%d,%.3f)",
+                           (int)(color->red * 255 + 0.5),
+                           (int)(color->green * 255 + 0.5),
+                           (int)(color->blue * 255 + 0.5),
+                           color->alpha);
 }
 
 /**
