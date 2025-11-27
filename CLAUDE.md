@@ -4,51 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-XRG is a **cross-platform** system resource monitoring application with native implementations for **macOS** and **Linux**. It displays real-time graphs for CPU, memory, network, disk, GPU, battery, temperature, weather, stocks, and AI token usage in a customizable floating window.
-
-**Platforms:**
-- 🍎 **macOS** - Native Objective-C/Cocoa implementation (original)
-- 🐧 **Linux** - Native C/GTK3 implementation (port)
-
-Website: https://gaucho.software/xrg/
-
-## Repository Structure
-
-This is a **unified cross-platform repository** with separate implementation directories:
-
-```
-XRG/                          # Repository root
-├── CLAUDE.md                 # This file (development guide)
-├── README.md                 # User-facing cross-platform overview
-├── LICENSE                   # GNU GPL v2
-│
-├── XRG.xcodeproj/           # macOS Xcode project
-├── Controllers/             # macOS: App/Window controllers (Objective-C)
-├── Data Miners/             # macOS: System metric collectors (Objective-C)
-├── Graph Views/             # macOS: Graph rendering views (Objective-C/Quartz)
-├── Utility/                 # macOS: Core classes (Settings, DataSet, etc.)
-├── Other Sources/           # macOS: Constants and definitions
-├── Resources/               # macOS: NIB files, icons, plists
-├── XRG-Info.plist           # macOS: Bundle metadata
-│
-└── xrg-linux/               # Linux implementation (separate directory)
-    ├── CMakeLists.txt       # Linux: Build configuration
-    ├── README.md            # Linux: Platform-specific guide
-    ├── src/
-    │   ├── collectors/      # Linux: System metric collectors (C)
-    │   ├── widgets/         # Linux: Graph rendering widgets (GTK/Cairo)
-    │   ├── core/            # Linux: Core modules (Module manager, DataSet, etc.)
-    │   ├── ui/              # Linux: Main window, preferences (GTK)
-    │   └── main.c           # Linux: Application entry point
-    ├── data/                # Linux: Desktop file, icons
-    └── tests/               # Linux: Unit tests
-```
+XRG is a **cross-platform** system resource monitoring application with native implementations for **macOS** (Objective-C/Cocoa) and **Linux** (C/GTK3). It displays real-time graphs for CPU, memory, network, disk, GPU, battery, temperature, weather, stocks, and AI token usage.
 
 **Key Points:**
-- Both implementations share the same architecture (three-layer pattern)
-- AI token monitoring works identically on both platforms (same data sources)
-- Color schemes and visual design are consistent across platforms
-- Each platform uses native APIs and frameworks for optimal performance
+- Both platforms share identical three-layer architecture (Data Collector → Graph View → Module Manager)
+- AI token monitoring works on both platforms (parses `~/.claude/projects/*/sessionid.jsonl`)
+- macOS: `Controllers/`, `Data Miners/`, `Graph Views/`, `Utility/`
+- Linux: `xrg-linux/src/collectors/`, `xrg-linux/src/widgets/`, `xrg-linux/src/core/`
 
 ## Building and Running
 
@@ -635,292 +597,6 @@ int main() {
 }
 ```
 
-## Recent Changes
-
-### Linux Port (Nov 2025) - Cross-Platform Support
-
-XRG is now a **cross-platform application** with native implementations for both macOS and Linux!
-
-**Linux Implementation** (`xrg-linux/` directory):
-- **Language**: Native C with GTK3/Cairo (not a wrapper or compatibility layer)
-- **Architecture**: Same three-layer pattern as macOS (collectors, widgets, module manager)
-- **Build System**: CMake for modern, portable builds
-- **Modules Implemented**: CPU, Memory, Network, Disk, AI Tokens (all with activity bars)
-- **Performance**: <1% CPU idle, ~40-50 MB RAM
-- **Documentation**: Complete with `xrg-linux/README.md` and `LINUX_PORT_STRATEGY.md`
-
-**Key Features**:
-- Cyberpunk color scheme (electric cyan, magenta, green)
-- Floating window with transparency and always-on-top
-- Draggable window with snap-to-edge
-- Preferences persistence in `~/.config/xrg-linux/settings.conf`
-- Context menus for module statistics
-- Same AI token monitoring (JSONL/SQLite/OTel fallback)
-
-**Technology Stack**:
-- GTK 3.24+ for UI framework
-- Cairo for vector graphics rendering (equivalent to macOS Quartz)
-- GLib for timers and main loop
-- json-glib for AI token JSONL parsing
-- CMake for build configuration
-
-**Platform Parity**:
-| Feature | macOS | Linux |
-|---------|-------|-------|
-| CPU Monitor | ✓ | ✓ |
-| Memory Monitor | ✓ | ✓ |
-| Network Monitor | ✓ | ✓ |
-| Disk Monitor | ✓ | ✓ |
-| AI Token Monitor | ✓ | ✓ |
-| GPU Monitor | ✓ (planned) | ✓ (planned) |
-| Temperature | ✓ (planned) | ✓ (planned) |
-| Battery | ✓ (planned) | ✓ (planned) |
-
-**Build Commands**:
-```bash
-cd xrg-linux
-mkdir build && cd build
-cmake ..
-make -j$(nproc)
-./xrg-linux
-```
-
-See `xrg-linux/README.md` for complete documentation.
-
-### Default Color Scheme Improvement (Nov 2025) - macOS
-
-Updated the default color palette for first-time installations to provide a modern, visually appealing out-of-box experience:
-
-**New Default Colors**:
-- **Background**: Dark gray (0.1, 0.1, 0.1, 0.9) - softer than pure black
-- **Graph Background**: Slightly lighter gray (0.15, 0.15, 0.15, 0.9) - creates subtle depth
-- **Graph FG1**: Bright cyan (0.2, 0.8, 0.9) - primary data series, high visibility
-- **Graph FG2**: Vibrant purple (0.7, 0.3, 0.9) - secondary data series, complementary to cyan
-- **Graph FG3**: Warm amber/gold (1.0, 0.7, 0.2) - tertiary data series, warm accent
-- **Border**: Subtle gray (0.3, 0.3, 0.3, 0.4) - visible but not intrusive
-- **Text**: White - maintains excellent contrast
-
-**Previous Default Colors** (replaced):
-- Background/GraphBG: Pure black (0, 0, 0) - harsh, no depth
-- FG1: Dark blue (0.165, 0.224, 0.773) - too dark, low visibility
-- FG2: Orange (0.922, 0.667, 0.337) - decent
-- FG3: Dark red (0.690, 0.102, 0.102) - too dark
-
-**Benefits**:
-- Modern appearance aligned with contemporary macOS design
-- Better visual separation between data series
-- Improved readability and aesthetics on first launch
-- Professional look without user customization
-- Only affects new installations - existing user preferences preserved
-
-**Implementation**: `Controllers/XRGGraphWindow.m` lines 108-128 in `getDefaultPrefs` method.
-
-### AI Token Monitoring Module (Nov 2025) - Universal Implementation
-
-Added real-time AI API token usage tracking that works on **all Macs** with **any Claude Code installation**:
-
-- **Files**: `XRGAITokenMiner.{h,m}`, `XRGAITokenView.{h,m}`
-- **Purpose**: Monitor Claude Code, OpenAI Codex, and other AI service token usage
-- **Documentation**: See `UNIVERSAL_AI_TOKEN_MONITORING.md` for complete details
-
-**Universal Multi-Strategy Data Collection**:
-
-The miner automatically detects and uses the best available data source:
-
-1. **Strategy 1 (Universal)**: JSONL Transcripts `~/.claude/projects/*/sessionid.jsonl`
-   - Works on ALL Macs with default Claude Code installation
-   - No setup or configuration required
-   - Parses session transcripts for token usage
-   - Background threading for performance
-   - Intelligent caching to avoid re-parsing
-
-2. **Strategy 2 (Advanced)**: SQLite Database `~/.claude/monitoring/claude_usage.db`
-   - For users with custom monitoring setups
-   - Queries session table for total tokens and costs
-   - Faster than JSONL parsing when available
-
-3. **Strategy 3 (Advanced)**: OpenTelemetry Endpoint `http://localhost:8889/metrics`
-   - For users with OTel configured (optional)
-   - Provides real-time granular metrics
-   - Automatic health check on startup
-
-**Key Features**:
-- ✅ Zero configuration required
-- ✅ Works with default and modified AI stacks
-- ✅ Automatic failover between strategies
-- ✅ No external dependencies or setup
-- ✅ Compatible with macOS 10.13+
-
-**Implementation Details**:
-- Auto-detects best data source on startup
-- Calculates token rate as delta between updates
-- Stores rates in instance variables (avoids recalculation bug)
-- Three separate data series: `claudeCodeTokens`, `codexTokens`, `otherAITokens`
-- Uses native SQLite3 library (linked via `-lsqlite3` in project settings)
-- Critical bug fix: Must store rates BEFORE updating lastCount to avoid always-zero rate
-
-**Miner-Observer Integration** (Nov 2025 fix):
-The system uses two complementary components:
-- **XRGAITokenMiner**: Parses JSONL/SQLite/OTel data sources for total token counts and rates
-- **XRGAITokensObserver**: Tracks individual events with model/provider breakdown and budget notifications
-
-The Miner feeds parsed events to the Observer:
-```objc
-// In parseJSONLFile - for each JSONL line with token usage:
-[observer recordEventWithPromptTokens:promptTokens
-                     completionTokens:completionTokens
-                               model:model        // e.g. "claude-sonnet-4-5"
-                            provider:provider];   // e.g. "anthropic"
-```
-
-This enables:
-- Model breakdown: See which models (claude-sonnet-4-5, gpt-4, etc.) consume most tokens
-- Provider breakdown: Track usage across anthropic, openai, etc.
-- Budget tracking: Set daily limits and get threshold notifications
-- Prompt vs completion separation: Understand input vs output token usage
-
-**Critical**: `aiTokensTrackingEnabled` must be YES (default) or Observer will ignore all events.
-
-### AI Token Settings and Features
-
-The AI Token module has comprehensive settings for tracking, budgeting, and visualizing AI token usage. All settings are defined in `XRGAISettingsKeys.h` and managed through `XRGSettings`:
-
-**Available Settings** (all fully implemented):
-
-1. **`aiTokensTrackingEnabled`** (BOOL, default: NO)
-   - Master toggle for token tracking
-   - When disabled, no tokens are recorded
-   - Used by `XRGAITokensObserver` to gate all recording operations
-
-2. **`aiTokensDailyAutoReset`** (BOOL, default: YES)
-   - Automatically reset daily counters at midnight
-   - Triggered by `checkAndResetDailyIfNeeded` in Observer
-   - When disabled, daily counters persist until manually reset
-
-3. **`aiTokensDailyBudget`** (NSInteger, default: 0)
-   - Daily token budget limit (0 = unlimited)
-   - Displayed in view as "Daily: X/Y (Z%)"
-   - Triggers budget threshold notifications when exceeded
-
-4. **`aiTokensBudgetNotifyPercent`** (NSInteger, default: 80)
-   - Percentage of budget that triggers notification (1-100)
-   - Implemented in `checkBudgetThresholdAndNotifyIfNeeded`
-   - Sends `XRGAITokensBudgetThresholdReachedNotification` when reached
-   - Only notifies once per day to avoid spam
-
-5. **`aiTokensAggregateByModel`** (BOOL, default: YES)
-   - Track token usage per AI model (e.g., "claude-sonnet-4-5", "gpt-4")
-   - Displayed in breakdown section when `showBreakdown` is enabled
-   - Stored in `dailyModelPromptTokens` and `dailyModelCompletionTokens` dictionaries
-
-6. **`aiTokensAggregateByProvider`** (BOOL, default: NO)
-   - Track token usage per provider (e.g., "anthropic", "openai")
-   - Displayed in breakdown section when `showBreakdown` is enabled
-   - Stored in `dailyProviderPromptTokens` and `dailyProviderCompletionTokens` dictionaries
-
-7. **`aiTokensShowRate`** (BOOL, default: YES)
-   - Display current token rate (tokens/second) in graph
-   - Shows "Rate: X/s" or "Rate: XK/s" for rates over 1000
-
-8. **`aiTokensShowBreakdown`** (BOOL, default: YES)
-   - Display detailed breakdown by model/provider in graph
-   - Shows "─ By Model ─" and "─ By Provider ─" sections with per-item totals
-
-**Observer Pattern**:
-- `XRGAITokensObserver` is a singleton that manages all token tracking
-- Records events with `recordEventWithPromptTokens:completionTokens:model:provider:`
-- Persists daily counters to NSUserDefaults for crash resilience
-- Provides read-only properties for session and daily totals
-- Supports manual and automatic daily resets
-
-**Notification System**:
-- `XRGAITokensDidResetSessionNotification`: Posted when session counters reset
-- `XRGAITokensDidResetDailyNotification`: Posted when daily counters reset
-- `XRGAITokensBudgetThresholdReachedNotification`: Posted when budget threshold reached
-  - UserInfo contains: `@"progress"` (ratio) and `@"percent"` (0-100)
-
-**Context Menu Features**:
-The AI Token view provides a right-click context menu with:
-- Session statistics (prompt, completion, total tokens)
-- Daily statistics (total, budget progress)
-- Model breakdown (when aggregateByModel enabled)
-- Provider breakdown (when aggregateByProvider enabled)
-- All values formatted with K/M suffixes for readability
-
-**Visual Display**:
-- Stacked area graphs showing Claude Code (FG1 color), Codex (FG2 color), Other (FG3 color)
-- Real-time rate indicator on right side showing proportional breakdown
-- Text labels showing rate, session total, daily total, and optional breakdowns
-- Budget progress shown as "X/Y (Z%)" when budget configured
-- Mini graph mode for compact display
-
-### AI Token Model Breakdown Feature (Nov 2025)
-
-**Status**: ✅ Fully implemented on Linux | ⏳ Pending macOS port
-
-The AI Token module now displays **per-model token usage breakdown**, allowing you to see which AI models (claude-sonnet-4-5, claude-opus-4, etc.) are consuming the most tokens.
-
-**Visual Example**:
-```
-AI Tokens
-Rate: 1234/s
-Total: 4567890
-─ By Model ─
-* claude-sonnet-4-5...: 3456789
-  claude-opus-4...: 1111101
-```
-
-**Bug Fix (Nov 16, 2025)**:
-
-The JSONL parser was looking for the `model` field at the root level of the JSON object, but Claude Code's JSONL format stores it inside the `message` object:
-
-```json
-{
-  "message": {
-    "model": "claude-sonnet-4-5-20250929",
-    "usage": { "input_tokens": 10, "output_tokens": 791 }
-  }
-}
-```
-
-**Solution**:
-Updated the parser to check **both locations** (root and `message.model`):
-
-- **Linux**: `xrg-linux/src/collectors/aitoken_collector.c:73-90`
-- **macOS**: Needs same fix in `Data Miners/XRGAITokenMiner.m` (see `MACOS_AITOKEN_PORT_GUIDE.md`)
-
-**Linux Implementation**:
-- ✅ Model extraction from JSONL files
-- ✅ Per-model token aggregation in `GHashTable`
-- ✅ Visual breakdown in graph (lines 2842-2891 in `main.c`)
-- ✅ User preference: `aitoken_show_model_breakdown`
-- ✅ Active model marked with asterisk (*)
-- ✅ Long model names truncated to 20 chars
-
-**macOS Implementation**:
-The macOS code already has the display logic (`XRGAITokenView.m:232-271`) but needs:
-1. Model extraction in `XRGAITokenMiner.m`'s `parseJSONLFile:` method
-2. Integration with `XRGAITokensObserver` for aggregation
-3. Enable `aiTokensTrackingEnabled` by default
-
-**See**: `MACOS_AITOKEN_PORT_GUIDE.md` for complete porting instructions.
-
-**Settings**:
-- `aiTokensAggregateByModel` (BOOL): Enable per-model tracking
-- `aiTokensShowBreakdown` (BOOL): Display breakdown in view
-- `aiTokensTrackingEnabled` (BOOL): Master toggle (must be YES)
-
-**Testing**:
-```bash
-# Linux
-grep -A 2 "By Model" ~/.config/xrg-linux/settings.conf
-# Should show: show_model_breakdown=true
-
-# macOS (after port)
-defaults read com.gauchosoft.XRG aiTokensAggregateByModel
-# Should show: 1
-```
-
 ## Code Conventions
 
 - **Language**: Objective-C (modern runtime, ARC enabled where applicable)
@@ -1062,106 +738,30 @@ If duplicate files exist, remove them from the Xcode project (not just filesyste
 2. Delete → "Remove Reference" (not "Move to Trash")
 3. Or edit `XRG.xcodeproj/project.pbxproj` to remove PBXBuildFile entries
 
-## AI Token Monitoring - Universal Deployment
+## AI Token Monitoring
 
-XRG includes **universal AI token monitoring** that works on **both macOS and Linux** with any Claude Code installation.
+AI token tracking works on both platforms by parsing `~/.claude/projects/*/sessionid.jsonl`. Zero configuration required.
 
-### Quick Start (Zero Configuration)
+**Data Sources** (auto-detected in priority order):
+1. JSONL transcripts (universal, default)
+2. SQLite database `~/.claude/monitoring/claude_usage.db` (advanced)
+3. OpenTelemetry endpoint (advanced)
 
-**macOS:**
-```bash
-# 1. Build and run XRG (works immediately - no setup required)
-xcodebuild -project XRG.xcodeproj -scheme XRG build
-open ~/Library/Developer/Xcode/DerivedData/XRG-*/Build/Products/Debug/XRG.app
+**Key Files**:
+- macOS: `Data Miners/XRGAITokenMiner.m`, `Graph Views/XRGAITokenView.m`
+- Linux: `xrg-linux/src/collectors/aitoken_collector.c`
 
-# 2. Enable in XRG: Preferences → Graphs → Show AI Tokens
-# That's it! The graph will automatically display your Claude Code usage
+**JSONL Parsing Note**: Model field is in `message.model`, not root level:
+```json
+{"message": {"model": "claude-sonnet-4-5-20250929", "usage": {"input_tokens": 10, "output_tokens": 791}}}
 ```
 
-**Linux:**
-```bash
-# 1. Build and run XRG-Linux
-cd xrg-linux && mkdir -p build && cd build
-cmake .. && make -j$(nproc)
-./xrg-linux
+**Settings** (macOS - `XRGAISettingsKeys.h`):
+- `aiTokensTrackingEnabled`: Master toggle (must be YES for Observer)
+- `aiTokensAggregateByModel`: Per-model breakdown
+- `aiTokensDailyBudget`: Daily limit (0 = unlimited)
 
-# 2. The AI Tokens module is enabled by default
-# Watch live token consumption as you use Claude Code
-```
+## Platform Requirements
 
-### How It Works
-
-The AI Token module automatically detects the best data source:
-
-1. **Default (Everyone)**: Parses JSONL transcripts from `~/.claude/projects/*/sessionid.jsonl`
-   - Works with default Claude Code installation
-   - No setup or configuration needed
-   - Background parsing with intelligent caching
-
-2. **Advanced (Optional)**: Reads from `~/.claude/monitoring/claude_usage.db`
-   - For users with custom monitoring setups
-   - Faster database queries when available
-
-3. **Advanced (Optional)**: Queries OpenTelemetry endpoint if available
-   - For users with OTel configured
-   - Provides additional granular metrics
-
-### Documentation
-
-| Document | Purpose |
-|----------|---------|
-| **UNIVERSAL_AI_TOKEN_MONITORING.md** | Complete universal implementation guide |
-| **AI_OBSERVABILITY_ARCHITECTURE.md** | Technical architecture details (optional advanced setup) |
-
-### What's Tracked
-
-The AI Token module (display order 9) displays:
-- Total tokens used (cumulative across all sessions)
-- Token usage rate (tokens/second, real-time)
-- Estimated cost in USD (when available)
-- Service breakdown (Claude Code, Codex, Other AI)
-
-### Advantages
-
-| Feature | Old System | Universal System |
-|---------|-----------|------------------|
-| Setup Required | Python scripts, OTel config | None |
-| External Dependencies | Yes (bridge, exporter) | No |
-| Works Without OTel | No | Yes |
-| Works With Custom Stacks | No | Yes |
-| Auto-Failover | No | Yes |
-
-For implementation details:
-- **macOS**: `Data Miners/XRGAITokenMiner.m` and `Graph Views/XRGAITokenView.m`
-- **Linux**: `xrg-linux/src/collectors/aitoken_collector.c` and `xrg-linux/src/widgets/aitoken_widget.c`
-
-## Resources
-
-### Project Information
-
-- **Website**: https://gaucho.software/xrg/
-- **Repository**: https://github.com/marc-shade/XRG
-- **License**: GNU GPL v2
-- **Cross-Platform**: macOS and Linux
-
-### Platform Requirements
-
-**macOS:**
-- **Minimum OS**: macOS 10.13 (High Sierra)
-- **Architecture**: Universal (Intel + Apple Silicon)
-- **Build Tools**: Xcode with Command Line Tools
-- **Frameworks**: Cocoa, IOKit, Accelerate
-
-**Linux:**
-- **Minimum Libs**: GTK 3.24, Cairo 1.16, GLib 2.66
-- **Architecture**: x86_64, aarch64
-- **Build Tools**: CMake 3.16+, GCC/Clang
-- **Libraries**: GTK3, Cairo, GLib, SQLite3, libcurl, json-glib
-
-### Documentation
-
-- **Main README**: `README.md` - Cross-platform overview
-- **macOS Guide**: This file (`CLAUDE.md`)
-- **Linux Guide**: `xrg-linux/README.md`
-- **Linux Architecture**: `LINUX_PORT_STRATEGY.md`
-- **AI Token Guide**: `UNIVERSAL_AI_TOKEN_MONITORING.md`
+**macOS**: 10.13+, Xcode, Cocoa/IOKit/Accelerate frameworks
+**Linux**: GTK 3.24+, Cairo 1.16+, GLib 2.66+, SQLite3, libcurl, json-glib, CMake 3.16+

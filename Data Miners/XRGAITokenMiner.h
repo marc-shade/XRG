@@ -43,34 +43,38 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
 
     // Data sets for different AI services
     XRGDataSet *claudeCodeTokens;      // Claude Code API tokens/sec
-    XRGDataSet *codexTokens;            // OpenAI Codex tokens/sec (if available)
-    XRGDataSet *otherAITokens;          // Other AI services tokens/sec
+    XRGDataSet *codexTokens;            // OpenAI Codex CLI tokens/sec
+    XRGDataSet *geminiTokens;           // Google Gemini CLI tokens/sec
 
     // Cumulative counters
     UInt64 totalClaudeTokens;
     UInt64 totalCodexTokens;
-    UInt64 totalOtherTokens;
+    UInt64 totalGeminiTokens;
     double totalCostUSD;
 
     // Rate tracking (for proper delta calculation)
     UInt64 lastClaudeCount;
     UInt64 lastCodexCount;
-    UInt64 lastOtherCount;
+    UInt64 lastGeminiCount;
 
     // Current rates (stored to avoid recalculation bug)
     UInt32 currentClaudeRate;
     UInt32 currentCodexRate;
-    UInt32 currentOtherRate;
+    UInt32 currentGeminiRate;
 
     // Multi-strategy data collection
     XRGAIDataStrategy activeStrategy;
-    NSString *jsonlProjectsPath;        // JSONL transcripts path (universal)
+    NSString *jsonlProjectsPath;        // Claude JSONL transcripts path
+    NSString *codexSessionsPath;        // Codex CLI sessions path
+    NSString *geminiTmpPath;            // Gemini CLI tmp path
     NSString *dbPath;                   // SQLite database path (advanced)
     NSString *otelEndpoint;             // OTel metrics endpoint (advanced)
 
     // JSONL caching for performance (avoid re-parsing every second)
     NSMutableDictionary *jsonlFileModTimes;  // Track file modification times
     UInt64 cachedJSONLTokens;                 // Cached total from last parse
+    UInt64 cachedCodexTokens;                 // Cached Codex tokens
+    UInt64 cachedGeminiTokens;                // Cached Gemini tokens
     NSDate *lastJSONLScanTime;                // Last time we scanned for new files
     dispatch_queue_t jsonlParsingQueue;       // Background queue for file I/O
     dispatch_semaphore_t cacheSemaphore;      // Thread-safe cache access
@@ -79,7 +83,7 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
 // Properties
 @property (nonatomic, assign) UInt64 totalClaudeTokens;
 @property (nonatomic, assign) UInt64 totalCodexTokens;
-@property (nonatomic, assign) UInt64 totalOtherTokens;
+@property (nonatomic, assign) UInt64 totalGeminiTokens;
 @property (nonatomic, assign) double totalCostUSD;
 @property (nonatomic, assign, readonly) XRGAIDataStrategy activeStrategy;
 
@@ -91,23 +95,33 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
 // Accessor methods for current rates (tokens per second)
 - (UInt32)claudeTokenRate;
 - (UInt32)codexTokenRate;
-- (UInt32)otherTokenRate;
+- (UInt32)geminiTokenRate;
 - (UInt32)totalTokenRate;
 
 // Data set accessors for graphing
 - (XRGDataSet *)claudeTokenData;
 - (XRGDataSet *)codexTokenData;
-- (XRGDataSet *)otherTokenData;
+- (XRGDataSet *)geminiTokenData;
 
 // Strategy detection and management
 - (void)detectBestStrategy;
 - (NSString *)strategyName;
 
-// Data collection strategies
+// Data collection strategies - Claude Code
 - (BOOL)fetchFromJSONLTranscripts;
-- (void)updateJSONLCacheInBackground;  // Background thread update
-- (UInt64)parseJSONLFile:(NSString *)filePath;  // Helper for incremental parsing
+- (void)updateJSONLCacheInBackground;
+- (UInt64)parseJSONLFile:(NSString *)filePath;
 - (BOOL)fetchFromSQLiteDatabase;
 - (BOOL)fetchFromOTelEndpoint;
+
+// Data collection strategies - Codex CLI
+- (BOOL)fetchFromCodexCLI;
+- (void)updateCodexCacheInBackground;
+- (UInt64)parseCodexJSONLFile:(NSString *)filePath;
+
+// Data collection strategies - Gemini CLI
+- (BOOL)fetchFromGeminiCLI;
+- (void)updateGeminiCacheInBackground;
+- (UInt64)parseGeminiSessionFile:(NSString *)filePath;
 
 @end

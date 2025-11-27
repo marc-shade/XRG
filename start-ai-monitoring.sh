@@ -8,7 +8,7 @@ echo "=== XRG AI Token Monitoring Setup ==="
 echo ""
 
 # Check if bridge script exists
-BRIDGE_SCRIPT="/Volumes/FILES/code/XRG/claude-otel-bridge.py"
+BRIDGE_SCRIPT="./claude-otel-bridge.py"
 if [ ! -f "$BRIDGE_SCRIPT" ]; then
     echo "❌ Bridge script not found at: $BRIDGE_SCRIPT"
     exit 1

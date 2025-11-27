@@ -5,38 +5,51 @@ echo "  XRG AI Token Monitoring - System Status Check"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# Check 1: OTel Collector
-echo "1️⃣  OpenTelemetry Collector"
+# Check 1: OTel Collector / Bridge
+echo "1️⃣  OpenTelemetry Collector / Bridge"
 if pgrep -f otelcol-contrib > /dev/null; then
     PID=$(pgrep -f otelcol-contrib)
-    echo "   ✅ Running (PID: $PID)"
-    echo "      Config: /Volumes/FILES/code/XRG/otel-collector-xrg.yaml"
+    echo "   ✅ Collector Running (PID: $PID)"
+    echo "      Config: $(pwd)/otel-collector-xrg.yaml"
     echo "      Ports: 4317 (gRPC), 4318 (HTTP), 8889 (Prometheus)"
+elif pgrep -f "claude-otel-bridge.py" > /dev/null; then
+    PID=$(pgrep -f "claude-otel-bridge.py")
+    echo "   ✅ Bridge Running (PID: $PID)"
+    echo "      Script: $(pwd)/claude-otel-bridge.py"
+    echo "      Ports: 4318 (HTTP Input & Prometheus Output)"
 else
     echo "   ❌ NOT RUNNING"
-    echo "      Start: ~/.local/bin/otel/otelcol-contrib --config=/Volumes/FILES/code/XRG/otel-collector-xrg.yaml &"
+    echo "      Start: ./start-ai-monitoring.sh"
 fi
 echo ""
 
 # Check 2: Metrics Endpoint
 echo "2️⃣  Prometheus Metrics Endpoint"
+ENDPOINT_URL=""
 if curl -s -m 2 http://localhost:8889/metrics > /dev/null 2>&1; then
-    echo "   ✅ Responding at http://localhost:8889/metrics"
+    ENDPOINT_URL="http://localhost:8889/metrics"
+elif curl -s -m 2 http://localhost:4318/v1/metrics > /dev/null 2>&1; then
+    ENDPOINT_URL="http://localhost:4318/v1/metrics"
+fi
+
+if [ -n "$ENDPOINT_URL" ]; then
+    echo "   ✅ Responding at $ENDPOINT_URL"
 
     # Check for Claude metrics
-    if curl -s http://localhost:8889/metrics | grep -q claude_code_token_usage; then
+    if curl -s "$ENDPOINT_URL" | grep -q claude_code_token_usage; then
         echo "   ✅ Claude Code metrics detected"
 
         # Show current stats
-        TOKENS=$(curl -s http://localhost:8889/metrics | grep 'claude_code_token_usage.*type="output"' | tail -1 | awk '{print $2}')
-        COST=$(curl -s http://localhost:8889/metrics | grep 'claude_code_cost_usage_USD_total' | awk '{sum += $2} END {print sum}')
-        echo "      Output tokens: $TOKENS"
-        echo "      Total cost: \$$COST"
+        TOKENS=$(curl -s "$ENDPOINT_URL" | grep 'claude_code_token_usage.*type="output"' | tail -1 | awk '{print $2}')
+        COST=$(curl -s "$ENDPOINT_URL" | grep 'claude_code_cost_usage' | awk '{sum += $2} END {print sum}')
+        if [ -z "$COST" ]; then COST="0"; fi
+        echo "      Output tokens: ${TOKENS:-0}"
+        echo "      Total cost: \$${COST:-0}"
     else
         echo "   ⚠️  No Claude Code metrics (start a Claude session)"
     fi
 else
-    echo "   ❌ NOT RESPONDING"
+    echo "   ❌ NOT RESPONDING (Checked ports 8889 and 4318)"
 fi
 echo ""
 
@@ -86,17 +99,17 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 ALL_GOOD=true
 
-if ! pgrep -f otelcol-contrib > /dev/null; then ALL_GOOD=false; fi
-if ! curl -s -m 2 http://localhost:8889/metrics > /dev/null 2>&1; then ALL_GOOD=false; fi
+if ! pgrep -f otelcol-contrib > /dev/null && ! pgrep -f "claude-otel-bridge.py" > /dev/null; then ALL_GOOD=false; fi
+if [ -z "$ENDPOINT_URL" ]; then ALL_GOOD=false; fi
 if [ "$CLAUDE_CODE_ENABLE_TELEMETRY" != "1" ]; then ALL_GOOD=false; fi
-if ! pgrep -f "XRG.app" > /dev/null; then ALL_GOOD=false; fi
+if ! pgrep -f "XRG" > /dev/null; then ALL_GOOD=false; fi
 
 if $ALL_GOOD; then
     echo "  ✅ ALL SYSTEMS OPERATIONAL"
     echo ""
     echo "  📊 View AI token usage in real-time in XRG window"
-    echo "  🔗 Metrics: http://localhost:8889/metrics"
-    echo "  📝 Docs: /Volumes/FILES/code/XRG/OTEL_DEPLOYMENT_COMPLETE.md"
+    echo "  🔗 Metrics: $ENDPOINT_URL"
+    echo "  📝 Docs: $(pwd)/OTEL_DEPLOYMENT_COMPLETE.md"
 else
     echo "  ⚠️  SOME COMPONENTS NOT RUNNING"
     echo ""

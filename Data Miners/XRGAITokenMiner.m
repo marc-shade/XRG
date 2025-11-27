@@ -38,7 +38,7 @@
 
 @synthesize totalClaudeTokens = _totalClaudeTokens;
 @synthesize totalCodexTokens = _totalCodexTokens;
-@synthesize totalOtherTokens = _totalOtherTokens;
+@synthesize totalGeminiTokens = _totalGeminiTokens;
 @synthesize totalCostUSD = _totalCostUSD;
 @synthesize activeStrategy;
 
@@ -48,50 +48,55 @@
         // Initialize data sets
         claudeCodeTokens = [[XRGDataSet alloc] init];
         codexTokens = [[XRGDataSet alloc] init];
-        otherAITokens = [[XRGDataSet alloc] init];
+        geminiTokens = [[XRGDataSet alloc] init];
 
         // Initialize counters
         _totalClaudeTokens = 0;
         _totalCodexTokens = 0;
-        _totalOtherTokens = 0;
+        _totalGeminiTokens = 0;
         _totalCostUSD = 0.0;
         lastClaudeCount = 0;
         lastCodexCount = 0;
-        lastOtherCount = 0;
+        lastGeminiCount = 0;
 
         // Initialize current rates
         currentClaudeRate = 0;
         currentCodexRate = 0;
-        currentOtherRate = 0;
+        currentGeminiRate = 0;
 
         // Initialize paths
         NSString *homeDir = NSHomeDirectory();
         jsonlProjectsPath = [homeDir stringByAppendingPathComponent:@".claude/projects"];
+        codexSessionsPath = [homeDir stringByAppendingPathComponent:@".codex/sessions"];
+        geminiTmpPath = [homeDir stringByAppendingPathComponent:@".gemini/tmp"];
         dbPath = [homeDir stringByAppendingPathComponent:@".claude/monitoring/claude_usage.db"];
         otelEndpoint = @"http://localhost:8889/metrics";
 
-        // Initialize JSONL cache for performance
+        // Initialize caches for performance
         jsonlFileModTimes = [[NSMutableDictionary alloc] init];
         cachedJSONLTokens = 0;
+        cachedCodexTokens = 0;
+        cachedGeminiTokens = 0;
         lastJSONLScanTime = nil;
 
         // Create background queue for non-blocking file operations
         jsonlParsingQueue = dispatch_queue_create("com.xrg.jsonl.parsing", DISPATCH_QUEUE_SERIAL);
         cacheSemaphore = dispatch_semaphore_create(1);
 
-        // Detect best data collection strategy
+        // Detect best data collection strategy (for Claude)
         [self detectBestStrategy];
 
         // DON'T call getLatestTokenInfo during init - it could block!
         // Instead, start with zeros and let the first graphUpdate call handle it
 
-        // If using JSONL strategy, trigger immediate background cache build
-        // This will populate the cache before the first graph update
-        if (activeStrategy == XRGAIDataStrategyJSONL) {
-            dispatch_async(jsonlParsingQueue, ^{
+        // Trigger immediate background cache build for all providers
+        dispatch_async(jsonlParsingQueue, ^{
+            if (activeStrategy == XRGAIDataStrategyJSONL) {
                 [self updateJSONLCacheInBackground];
-            });
-        }
+            }
+            [self updateCodexCacheInBackground];
+            [self updateGeminiCacheInBackground];
+        });
 
 #ifdef XRG_DEBUG
         NSLog(@"[XRGAITokenMiner] Initialized with strategy: %@", [self strategyName]);
@@ -104,19 +109,19 @@
 - (void)setDataSize:(int)newNumSamples {
     if (newNumSamples < 0) return;
 
-    if (claudeCodeTokens && codexTokens && otherAITokens) {
+    if (claudeCodeTokens && codexTokens && geminiTokens) {
         [claudeCodeTokens resize:(size_t)newNumSamples];
         [codexTokens resize:(size_t)newNumSamples];
-        [otherAITokens resize:(size_t)newNumSamples];
+        [geminiTokens resize:(size_t)newNumSamples];
     }
     else {
         claudeCodeTokens = [[XRGDataSet alloc] init];
         codexTokens = [[XRGDataSet alloc] init];
-        otherAITokens = [[XRGDataSet alloc] init];
+        geminiTokens = [[XRGDataSet alloc] init];
 
         [claudeCodeTokens resize:(size_t)newNumSamples];
         [codexTokens resize:(size_t)newNumSamples];
-        [otherAITokens resize:(size_t)newNumSamples];
+        [geminiTokens resize:(size_t)newNumSamples];
     }
 
     numSamples = newNumSamples;
@@ -125,19 +130,19 @@
 - (void)reset {
     [claudeCodeTokens reset];
     [codexTokens reset];
-    [otherAITokens reset];
+    [geminiTokens reset];
 
     _totalClaudeTokens = 0;
     _totalCodexTokens = 0;
-    _totalOtherTokens = 0;
+    _totalGeminiTokens = 0;
     _totalCostUSD = 0.0;
     lastClaudeCount = 0;
     lastCodexCount = 0;
-    lastOtherCount = 0;
+    lastGeminiCount = 0;
 
     currentClaudeRate = 0;
     currentCodexRate = 0;
-    currentOtherRate = 0;
+    currentGeminiRate = 0;
 }
 
 - (void)detectBestStrategy {
@@ -191,7 +196,7 @@
 - (void)getLatestTokenInfo {
     BOOL success = NO;
 
-    // Try active strategy first
+    // === Fetch Claude Code tokens ===
     switch (activeStrategy) {
         case XRGAIDataStrategyJSONL:
             success = [self fetchFromJSONLTranscripts];
@@ -215,20 +220,26 @@
         [self detectBestStrategy];
     }
 
+    // === Fetch Codex CLI tokens ===
+    [self fetchFromCodexCLI];
+
+    // === Fetch Gemini CLI tokens ===
+    [self fetchFromGeminiCLI];
+
     // Calculate rates (delta from last update) - CRITICAL: Calculate BEFORE updating lastCount
     currentClaudeRate = (UInt32)(_totalClaudeTokens - lastClaudeCount);
     currentCodexRate = (UInt32)(_totalCodexTokens - lastCodexCount);
-    currentOtherRate = (UInt32)(_totalOtherTokens - lastOtherCount);
+    currentGeminiRate = (UInt32)(_totalGeminiTokens - lastGeminiCount);
 
     // Update last counts
     lastClaudeCount = _totalClaudeTokens;
     lastCodexCount = _totalCodexTokens;
-    lastOtherCount = _totalOtherTokens;
+    lastGeminiCount = _totalGeminiTokens;
 
     // Store rates in data sets
     if (claudeCodeTokens) [claudeCodeTokens setNextValue:currentClaudeRate];
     if (codexTokens) [codexTokens setNextValue:currentCodexRate];
-    if (otherAITokens) [otherAITokens setNextValue:currentOtherRate];
+    if (geminiTokens) [geminiTokens setNextValue:currentGeminiRate];
 }
 
 #pragma mark - Strategy 1: SQLite Database (Universal)
@@ -528,6 +539,216 @@
     return fileTokens;
 }
 
+#pragma mark - Codex CLI Methods
+
+- (BOOL)fetchFromCodexCLI {
+    // CRITICAL: Return immediately with cached value (non-blocking!)
+    dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+    _totalCodexTokens = cachedCodexTokens;
+    dispatch_semaphore_signal(cacheSemaphore);
+
+    // Trigger background update (non-blocking)
+    dispatch_async(jsonlParsingQueue, ^{
+        [self updateCodexCacheInBackground];
+    });
+
+    return YES;
+}
+
+- (void)updateCodexCacheInBackground {
+    NSFileManager *fm = [NSFileManager defaultManager];
+
+    if (![fm fileExistsAtPath:codexSessionsPath]) {
+        return;
+    }
+
+    UInt64 totalTokens = 0;
+
+    // Traverse YYYY/MM/DD directory structure
+    NSArray *years = [fm contentsOfDirectoryAtPath:codexSessionsPath error:nil];
+    if (!years) return;
+
+    for (NSString *year in years) {
+        NSString *yearPath = [codexSessionsPath stringByAppendingPathComponent:year];
+        BOOL isDir = NO;
+        if (![fm fileExistsAtPath:yearPath isDirectory:&isDir] || !isDir) continue;
+
+        NSArray *months = [fm contentsOfDirectoryAtPath:yearPath error:nil];
+        if (!months) continue;
+
+        for (NSString *month in months) {
+            NSString *monthPath = [yearPath stringByAppendingPathComponent:month];
+            if (![fm fileExistsAtPath:monthPath isDirectory:&isDir] || !isDir) continue;
+
+            NSArray *days = [fm contentsOfDirectoryAtPath:monthPath error:nil];
+            if (!days) continue;
+
+            for (NSString *day in days) {
+                NSString *dayPath = [monthPath stringByAppendingPathComponent:day];
+                if (![fm fileExistsAtPath:dayPath isDirectory:&isDir] || !isDir) continue;
+
+                NSArray *files = [fm contentsOfDirectoryAtPath:dayPath error:nil];
+                if (!files) continue;
+
+                for (NSString *filename in files) {
+                    if ([filename hasPrefix:@"rollout-"] && [filename hasSuffix:@".jsonl"]) {
+                        NSString *filePath = [dayPath stringByAppendingPathComponent:filename];
+                        totalTokens += [self parseCodexJSONLFile:filePath];
+                    }
+                }
+            }
+        }
+    }
+
+    // Thread-safe update of cache
+    dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+    cachedCodexTokens = totalTokens;
+    dispatch_semaphore_signal(cacheSemaphore);
+
+#ifdef XRG_DEBUG
+    if (totalTokens > 0) {
+        NSLog(@"[XRGAITokenMiner] Codex cache updated: tokens=%llu", totalTokens);
+    }
+#endif
+}
+
+- (UInt64)parseCodexJSONLFile:(NSString *)filePath {
+    NSString *content = [NSString stringWithContentsOfFile:filePath
+                                                  encoding:NSUTF8StringEncoding
+                                                     error:nil];
+    if (!content) return 0;
+
+    UInt64 lastTotal = 0;  // Keep track of the last token_count event
+
+    NSArray *lines = [content componentsSeparatedByString:@"\n"];
+    for (NSString *line in lines) {
+        if ([line length] == 0) continue;
+
+        NSData *jsonData = [line dataUsingEncoding:NSUTF8StringEncoding];
+        NSError *parseError = nil;
+        NSDictionary *data = [NSJSONSerialization JSONObjectWithData:jsonData
+                                                            options:0
+                                                              error:&parseError];
+        if (!data) continue;
+
+        // Check for event_msg type with token_count payload
+        if (![data[@"type"] isEqualToString:@"event_msg"]) continue;
+
+        NSDictionary *payload = data[@"payload"];
+        if (!payload || ![payload[@"type"] isEqualToString:@"token_count"]) continue;
+
+        NSDictionary *info = payload[@"info"];
+        if (!info) continue;
+
+        NSDictionary *totalUsage = info[@"total_token_usage"];
+        if (!totalUsage) continue;
+
+        // Use total_tokens if available, otherwise sum input + output
+        if (totalUsage[@"total_tokens"]) {
+            lastTotal = [totalUsage[@"total_tokens"] unsignedLongLongValue];
+        } else {
+            UInt64 input = [totalUsage[@"input_tokens"] unsignedLongLongValue];
+            UInt64 output = [totalUsage[@"output_tokens"] unsignedLongLongValue];
+            lastTotal = input + output;
+        }
+    }
+
+    return lastTotal;  // Return the last total (most recent)
+}
+
+#pragma mark - Gemini CLI Methods
+
+- (BOOL)fetchFromGeminiCLI {
+    // CRITICAL: Return immediately with cached value (non-blocking!)
+    dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+    _totalGeminiTokens = cachedGeminiTokens;
+    dispatch_semaphore_signal(cacheSemaphore);
+
+    // Trigger background update (non-blocking)
+    dispatch_async(jsonlParsingQueue, ^{
+        [self updateGeminiCacheInBackground];
+    });
+
+    return YES;
+}
+
+- (void)updateGeminiCacheInBackground {
+    NSFileManager *fm = [NSFileManager defaultManager];
+
+    if (![fm fileExistsAtPath:geminiTmpPath]) {
+        return;
+    }
+
+    UInt64 totalTokens = 0;
+
+    // Traverse <hash>/chats/ directories
+    NSArray *hashes = [fm contentsOfDirectoryAtPath:geminiTmpPath error:nil];
+    if (!hashes) return;
+
+    for (NSString *hashDir in hashes) {
+        NSString *hashPath = [geminiTmpPath stringByAppendingPathComponent:hashDir];
+        BOOL isDir = NO;
+        if (![fm fileExistsAtPath:hashPath isDirectory:&isDir] || !isDir) continue;
+
+        NSString *chatsPath = [hashPath stringByAppendingPathComponent:@"chats"];
+        if (![fm fileExistsAtPath:chatsPath isDirectory:&isDir] || !isDir) continue;
+
+        NSArray *files = [fm contentsOfDirectoryAtPath:chatsPath error:nil];
+        if (!files) continue;
+
+        for (NSString *filename in files) {
+            if ([filename hasPrefix:@"session-"] && [filename hasSuffix:@".json"]) {
+                NSString *filePath = [chatsPath stringByAppendingPathComponent:filename];
+                totalTokens += [self parseGeminiSessionFile:filePath];
+            }
+        }
+    }
+
+    // Thread-safe update of cache
+    dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+    cachedGeminiTokens = totalTokens;
+    dispatch_semaphore_signal(cacheSemaphore);
+
+#ifdef XRG_DEBUG
+    if (totalTokens > 0) {
+        NSLog(@"[XRGAITokenMiner] Gemini cache updated: tokens=%llu", totalTokens);
+    }
+#endif
+}
+
+- (UInt64)parseGeminiSessionFile:(NSString *)filePath {
+    NSData *jsonData = [NSData dataWithContentsOfFile:filePath];
+    if (!jsonData) return 0;
+
+    NSError *parseError = nil;
+    NSDictionary *data = [NSJSONSerialization JSONObjectWithData:jsonData
+                                                        options:0
+                                                          error:&parseError];
+    if (!data) return 0;
+
+    UInt64 totalTokens = 0;
+
+    // Look for messages array
+    NSArray *messages = data[@"messages"];
+    if (!messages) return 0;
+
+    for (NSDictionary *msg in messages) {
+        NSDictionary *tokens = msg[@"tokens"];
+        if (!tokens) continue;
+
+        // Use "total" if available, otherwise sum input + output
+        if (tokens[@"total"]) {
+            totalTokens += [tokens[@"total"] unsignedLongLongValue];
+        } else {
+            UInt64 input = [tokens[@"input"] unsignedLongLongValue];
+            UInt64 output = [tokens[@"output"] unsignedLongLongValue];
+            totalTokens += input + output;
+        }
+    }
+
+    return totalTokens;
+}
+
 #pragma mark - Accessor Methods
 
 - (UInt32)claudeTokenRate {
@@ -538,12 +759,12 @@
     return currentCodexRate;
 }
 
-- (UInt32)otherTokenRate {
-    return currentOtherRate;
+- (UInt32)geminiTokenRate {
+    return currentGeminiRate;
 }
 
 - (UInt32)totalTokenRate {
-    return currentClaudeRate + currentCodexRate + currentOtherRate;
+    return currentClaudeRate + currentCodexRate + currentGeminiRate;
 }
 
 - (XRGDataSet *)claudeTokenData {
@@ -554,8 +775,8 @@
     return codexTokens;
 }
 
-- (XRGDataSet *)otherTokenData {
-    return otherAITokens;
+- (XRGDataSet *)geminiTokenData {
+    return geminiTokens;
 }
 
 #pragma mark - Private Networking Helper

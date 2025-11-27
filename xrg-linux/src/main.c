@@ -2673,6 +2673,7 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
     /* Get AI Token datasets */
     XRGDataset *input_dataset = xrg_aitoken_collector_get_input_dataset(state->aitoken_collector);
     XRGDataset *output_dataset = xrg_aitoken_collector_get_output_dataset(state->aitoken_collector);
+    XRGDataset *gemini_dataset = xrg_aitoken_collector_get_gemini_dataset(state->aitoken_collector);
 
     gint count = xrg_dataset_get_count(input_dataset);
     if (count < 2) {
@@ -2692,8 +2693,10 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
     for (gint i = 0; i < count; i++) {
         gdouble input = xrg_dataset_get_value(input_dataset, i);
         gdouble output = xrg_dataset_get_value(output_dataset, i);
+        gdouble gemini = xrg_dataset_get_value(gemini_dataset, i);
         if (input > max_rate) max_rate = input;
         if (output > max_rate) max_rate = output;
+        if (gemini > max_rate) max_rate = gemini;
     }
 
     /* Draw input tokens (cyan - FG1) */
@@ -2808,6 +2811,53 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
         }
     }
 
+    /* Draw Gemini tokens (green - FG3) */
+    GdkRGBA *fg3_color = &state->prefs->graph_fg3_color;
+    cairo_set_source_rgba(cr, fg3_color->red, fg3_color->green, fg3_color->blue, fg3_color->alpha * 0.7);
+
+    if (style == XRG_GRAPH_STYLE_SOLID) {
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(gemini_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    } else if (style == XRG_GRAPH_STYLE_PIXEL) {
+        gint dot_spacing = 4;
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(gemini_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y_top = height - (value / max_rate * height);
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
+        }
+    } else if (style == XRG_GRAPH_STYLE_DOT) {
+        gint dot_spacing = 2;
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(gemini_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y_top = height - (value / max_rate * height);
+            for (gdouble y = height; y >= y_top; y -= dot_spacing) {
+                cairo_arc(cr, x, y, 0.6, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
+        }
+    } else if (style == XRG_GRAPH_STYLE_HOLLOW) {
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(gemini_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_arc(cr, x, y, 1.0, 0, 2 * G_PI);
+            cairo_fill(cr);
+        }
+    }
+
     /* Overlay text labels */
     GdkRGBA *text_color = &state->prefs->text_color;
     cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
@@ -2909,7 +2959,8 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
         for (gint i = 0; i < count; i++) {
             gdouble input_val = xrg_dataset_get_value(input_dataset, i);
             gdouble output_val = xrg_dataset_get_value(output_dataset, i);
-            gdouble total_val = input_val + output_val;
+            gdouble gemini_val = xrg_dataset_get_value(gemini_dataset, i);
+            gdouble total_val = input_val + output_val + gemini_val;
             if (total_val > max_rate) {
                 max_rate = total_val;
             }

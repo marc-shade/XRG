@@ -111,20 +111,20 @@
     // Draw the token usage graphs
     NSColor *claudeColor = [appSettings graphFG1Color];
     NSColor *codexColor = [appSettings graphFG2Color];
-    NSColor *otherColor = [appSettings graphFG3Color];
+    NSColor *geminiColor = [appSettings graphFG3Color];
 
     NSRect graphRect = NSMakeRect(0, 0, numSamples, graphSize.height - textRectHeight);
 
     // Create stacked graph data
     XRGDataSet *totalData = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:[tokenMiner claudeTokenData]];
     [totalData addOtherDataSetValues:[tokenMiner codexTokenData]];
-    [totalData addOtherDataSetValues:[tokenMiner otherTokenData]];
+    [totalData addOtherDataSetValues:[tokenMiner geminiTokenData]];
 
     CGFloat maxValue = [totalData max];
     if (maxValue == 0) maxValue = 1000;  // Default scale
 
-    // Draw stacked area graphs (bottom to top: Claude, Codex, Other)
-    [self drawGraphWithDataFromDataSet:totalData maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:otherColor];
+    // Draw stacked area graphs (bottom to top: Claude, Codex, Gemini)
+    [self drawGraphWithDataFromDataSet:totalData maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:geminiColor];
 
     XRGDataSet *claudeCodexData = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:[tokenMiner claudeTokenData]];
     [claudeCodexData addOtherDataSetValues:[tokenMiner codexTokenData]];
@@ -153,10 +153,10 @@
         [codexColor set];
         NSRectFill(indicatorRect);
 
-        // Draw Other rate
+        // Draw Gemini rate
         indicatorRect.origin.y += indicatorRect.size.height;
-        indicatorRect.size.height = (CGFloat)[tokenMiner otherTokenRate] / totalRate * (graphSize.height - textRectHeight);
-        [otherColor set];
+        indicatorRect.size.height = (CGFloat)[tokenMiner geminiTokenRate] / totalRate * (graphSize.height - textRectHeight);
+        [geminiColor set];
         NSRectFill(indicatorRect);
     }
 
@@ -182,8 +182,8 @@
     if (showRate) {
         UInt32 claudeRate = [tokenMiner claudeTokenRate];
         UInt32 codexRate = [tokenMiner codexTokenRate];
-        UInt32 otherRate = [tokenMiner otherTokenRate];
-        UInt32 totalRate = claudeRate + codexRate + otherRate;
+        UInt32 geminiRate = [tokenMiner geminiTokenRate];
+        UInt32 totalRate = claudeRate + codexRate + geminiRate;
 
         if (totalRate >= 1000) {
             [label appendFormat:@"\nRate: %uK/s", totalRate / 1000];
@@ -282,7 +282,7 @@
     NSRect graphRect = NSMakeRect(0, 0, rect.size.width, rect.size.height);
     XRGDataSet *totalData = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:[tokenMiner claudeTokenData]];
     [totalData addOtherDataSetValues:[tokenMiner codexTokenData]];
-    [totalData addOtherDataSetValues:[tokenMiner otherTokenData]];
+    [totalData addOtherDataSetValues:[tokenMiner geminiTokenData]];
 
     CGFloat maxValue = [totalData max];
     if (maxValue == 0) maxValue = 1000;

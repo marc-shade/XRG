@@ -22,6 +22,13 @@ typedef enum {
     AITOKEN_SOURCE_OTEL
 } AITokenSource;
 
+typedef enum {
+    AITOKEN_PROVIDER_CLAUDE,
+    AITOKEN_PROVIDER_CODEX,
+    AITOKEN_PROVIDER_GEMINI,
+    AITOKEN_PROVIDER_OTHER
+} AITokenProvider;
+
 typedef struct {
     guint64 input_tokens;
     guint64 output_tokens;
@@ -41,6 +48,12 @@ typedef struct {
     /* Per-model tracking */
     GHashTable *model_tokens;  /* key: model name (gchar*), value: ModelTokens* */
     gchar *current_model;      /* Most recent model used */
+
+    /* Per-provider tracking */
+    guint64 claude_tokens;     /* Claude Code tokens */
+    guint64 codex_tokens;      /* OpenAI Codex tokens */
+    guint64 gemini_tokens;     /* Google Gemini CLI tokens */
+    guint64 other_tokens;      /* Other AI providers */
 } AITokenStats;
 
 typedef struct _XRGAITokenCollector XRGAITokenCollector;
@@ -49,10 +62,15 @@ struct _XRGAITokenCollector {
     /* Token statistics */
     AITokenStats stats;
 
-    /* Datasets for graphing */
+    /* Datasets for graphing - total */
     XRGDataset *input_tokens_rate;   /* Input tokens per minute */
     XRGDataset *output_tokens_rate;  /* Output tokens per minute */
     XRGDataset *total_tokens_rate;   /* Total tokens per minute */
+
+    /* Datasets for graphing - per provider */
+    XRGDataset *claude_tokens_rate;  /* Claude Code tokens per minute */
+    XRGDataset *codex_tokens_rate;   /* OpenAI Codex tokens per minute */
+    XRGDataset *gemini_tokens_rate;  /* Google Gemini tokens per minute */
 
     /* Configuration */
     gboolean auto_detect;
@@ -63,6 +81,11 @@ struct _XRGAITokenCollector {
     /* Session tracking */
     gchar *current_session_id;       /* Current Claude Code session ID */
     guint64 session_baseline_tokens; /* Token count at session start */
+
+    /* Previous values for rate calculation (per provider) */
+    guint64 prev_claude_tokens;
+    guint64 prev_codex_tokens;
+    guint64 prev_gemini_tokens;
 
     /* Update tracking */
     gint64 last_update_time;
@@ -98,5 +121,13 @@ XRGDataset* xrg_aitoken_collector_get_total_dataset(XRGAITokenCollector *collect
 /* Model tracking */
 const gchar* xrg_aitoken_collector_get_current_model(XRGAITokenCollector *collector);
 GHashTable* xrg_aitoken_collector_get_model_tokens(XRGAITokenCollector *collector);
+
+/* Provider-specific getters */
+guint64 xrg_aitoken_collector_get_claude_tokens(XRGAITokenCollector *collector);
+guint64 xrg_aitoken_collector_get_codex_tokens(XRGAITokenCollector *collector);
+guint64 xrg_aitoken_collector_get_gemini_tokens(XRGAITokenCollector *collector);
+XRGDataset* xrg_aitoken_collector_get_claude_dataset(XRGAITokenCollector *collector);
+XRGDataset* xrg_aitoken_collector_get_codex_dataset(XRGAITokenCollector *collector);
+XRGDataset* xrg_aitoken_collector_get_gemini_dataset(XRGAITokenCollector *collector);
 
 #endif /* XRG_AITOKEN_COLLECTOR_H */
