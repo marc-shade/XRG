@@ -50,6 +50,7 @@ set(COLLECTOR_SOURCES
     src/collectors/sensors_collector.c
     src/collectors/battery_collector.c
     src/collectors/aitoken_collector.c
+    src/collectors/process_collector.c
 )
 
 set(WIDGET_SOURCES
@@ -63,6 +64,7 @@ set(WIDGET_SOURCES
     src/widgets/sensors_widget.c
     src/widgets/battery_widget.c
     src/widgets/aitoken_widget.c
+    src/widgets/process_widget.c
 )
 
 set(CORE_SOURCES

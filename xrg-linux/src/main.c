@@ -14,6 +14,7 @@
 #include "collectors/sensors_collector.h"
 #include "collectors/aitoken_collector.h"
 #include "collectors/aitoken_pricing.h"
+#include "collectors/process_collector.h"
 #include "ui/preferences_window.h"
 
 #define SNAP_DISTANCE 20  /* Pixels from edge to snap */
@@ -41,6 +42,8 @@ typedef struct {
     GtkWidget *sensors_drawing_area;
     GtkWidget *aitoken_box;
     GtkWidget *aitoken_drawing_area;
+    GtkWidget *process_box;
+    GtkWidget *process_drawing_area;
     XRGPreferences *prefs;
     XRGCPUCollector *cpu_collector;
     XRGMemoryCollector *memory_collector;
@@ -50,6 +53,7 @@ typedef struct {
     XRGBatteryCollector *battery_collector;
     XRGSensorsCollector *sensors_collector;
     XRGAITokenCollector *aitoken_collector;
+    XRGProcessCollector *process_collector;
     XRGPreferencesWindow *prefs_window;
     guint update_timer_id;
 
@@ -153,6 +157,12 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
 static gboolean on_aitoken_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
 static gboolean on_aitoken_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
 static void show_aitoken_context_menu(AppState *state, GdkEventButton *event);
+static gboolean on_draw_process(GtkWidget *widget, cairo_t *cr, gpointer user_data);
+static gboolean on_process_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
+static gboolean on_process_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
+static void show_process_context_menu(AppState *state, GdkEventButton *event);
+static void on_process_sort_cpu(GtkMenuItem *item, gpointer user_data);
+static void on_process_sort_memory(GtkMenuItem *item, gpointer user_data);
 static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
 static gboolean on_resize_grip_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
 static gboolean on_resize_grip_button_release(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
@@ -704,6 +714,7 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     state->battery_collector = xrg_battery_collector_new();
     state->sensors_collector = xrg_sensors_collector_new();
     state->aitoken_collector = xrg_aitoken_collector_new(200);
+    state->process_collector = xrg_process_collector_new(10);  /* Top 10 processes */
 
     /* Create main window */
     state->window = gtk_application_window_new(app);
@@ -952,6 +963,31 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
 
     gtk_box_pack_start(GTK_BOX(state->vbox), state->aitoken_box, TRUE, TRUE, 0);
 
+    /* Create Process module container */
+    state->process_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+
+    /* Create Process list */
+    state->process_drawing_area = gtk_drawing_area_new();
+    gint process_height = (state->prefs->layout_orientation == XRG_LAYOUT_HORIZONTAL)
+                          ? state->prefs->graph_width
+                          : state->prefs->graph_height_process;
+    gtk_widget_set_size_request(state->process_drawing_area,
+                                state->prefs->graph_width,
+                                process_height);
+
+    /* Enable tooltips */
+    gtk_widget_set_has_tooltip(state->process_drawing_area, TRUE);
+
+    /* Enable button press and motion events */
+    gtk_widget_add_events(state->process_drawing_area,
+                         GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK);
+    g_signal_connect(state->process_drawing_area, "draw", G_CALLBACK(on_draw_process), state);
+    g_signal_connect(state->process_drawing_area, "button-press-event", G_CALLBACK(on_process_button_press), state);
+    g_signal_connect(state->process_drawing_area, "motion-notify-event", G_CALLBACK(on_process_motion_notify), state);
+    gtk_box_pack_start(GTK_BOX(state->process_box), state->process_drawing_area, TRUE, TRUE, 0);
+
+    gtk_box_pack_start(GTK_BOX(state->vbox), state->process_box, TRUE, TRUE, 0);
+
     /* Set initial visibility based on preferences */
     gtk_widget_set_visible(state->cpu_box, state->prefs->show_cpu);
     gtk_widget_set_visible(state->memory_box, state->prefs->show_memory);
@@ -961,6 +997,7 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     gtk_widget_set_visible(state->battery_box, state->prefs->show_battery);
     gtk_widget_set_visible(state->sensors_box, state->prefs->show_temperature);
     gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
+    gtk_widget_set_visible(state->process_box, state->prefs->show_process);
 
     g_message("Initial module visibility - Battery: %s (prefs value: %d)",
               state->prefs->show_battery ? "SHOWN" : "HIDDEN",
@@ -995,6 +1032,7 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     gtk_widget_set_visible(state->battery_box, state->prefs->show_battery);
     gtk_widget_set_visible(state->sensors_box, state->prefs->show_temperature);
     gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
+    gtk_widget_set_visible(state->process_box, state->prefs->show_process);
 
     g_message("Final module visibility after show_all - Battery: %s (prefs value: %d)",
               state->prefs->show_battery ? "SHOWN" : "HIDDEN",
@@ -4087,6 +4125,254 @@ static gboolean on_draw_network(GtkWidget *widget, cairo_t *cr, gpointer user_da
 }
 
 /**
+ * Process module draw callback
+ */
+static gboolean on_draw_process(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(widget, &allocation);
+
+    gint width = allocation.width;
+    gint height = allocation.height;
+
+    /* Draw background */
+    GdkRGBA *bg_color = &state->prefs->graph_bg_color;
+    cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
+    cairo_rectangle(cr, 0, 0, width, height);
+    cairo_fill(cr);
+
+    /* Draw border */
+    GdkRGBA *border_color = &state->prefs->border_color;
+    cairo_set_source_rgba(cr, border_color->red, border_color->green, border_color->blue, border_color->alpha);
+    cairo_set_line_width(cr, 1.0);
+    cairo_rectangle(cr, 0.5, 0.5, width - 1, height - 1);
+    cairo_stroke(cr);
+
+    /* Get colors */
+    GdkRGBA *text_color = &state->prefs->text_color;
+    GdkRGBA *fg1_color = &state->prefs->graph_fg1_color;
+    GdkRGBA *fg2_color = &state->prefs->graph_fg2_color;
+
+    /* Font setup */
+    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 10);
+
+    /* Calculate layout */
+    gint margin = 4;
+    gint header_height = 14;
+    gint row_height = 14;
+    gint y_offset = margin;
+
+    /* Draw header */
+    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, 0.7);
+
+    XRGProcessSortBy sort_by = xrg_process_collector_get_sort_by(state->process_collector);
+
+    /* Column headers */
+    gint col_name = margin;
+    gint col_cpu = width - 90;
+    gint col_mem = width - 45;
+
+    cairo_move_to(cr, col_name, y_offset + 10);
+    cairo_show_text(cr, "Process");
+
+    cairo_move_to(cr, col_cpu, y_offset + 10);
+    if (sort_by == XRG_PROCESS_SORT_CPU) {
+        cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, 1.0);
+    }
+    cairo_show_text(cr, "CPU%");
+
+    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, 0.7);
+    cairo_move_to(cr, col_mem, y_offset + 10);
+    if (sort_by == XRG_PROCESS_SORT_MEMORY) {
+        cairo_set_source_rgba(cr, fg2_color->red, fg2_color->green, fg2_color->blue, 1.0);
+    }
+    cairo_show_text(cr, "Mem%");
+
+    y_offset += header_height + 2;
+
+    /* Draw separator line */
+    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, 0.3);
+    cairo_set_line_width(cr, 0.5);
+    cairo_move_to(cr, margin, y_offset);
+    cairo_line_to(cr, width - margin, y_offset);
+    cairo_stroke(cr);
+
+    y_offset += 4;
+
+    /* Draw process list */
+    GList *processes = xrg_process_collector_get_processes(state->process_collector);
+
+    /* Calculate how many processes fit */
+    gint available_height = height - y_offset - margin;
+    gint max_rows = available_height / row_height;
+
+    gint row = 0;
+    for (GList *l = processes; l != NULL && row < max_rows; l = l->next, row++) {
+        XRGProcessInfo *proc = l->data;
+        gint row_y = y_offset + row * row_height;
+
+        /* Process name (truncate if needed) */
+        gchar name_buf[24];
+        if (proc->name) {
+            g_snprintf(name_buf, sizeof(name_buf), "%.18s", proc->name);
+        } else {
+            g_snprintf(name_buf, sizeof(name_buf), "%d", proc->pid);
+        }
+
+        cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, 0.9);
+        cairo_move_to(cr, col_name, row_y + row_height - 3);
+        cairo_show_text(cr, name_buf);
+
+        /* CPU bar and percentage */
+        gint bar_width = 30;
+        gint bar_height = row_height - 4;
+        gint bar_x = col_cpu - bar_width - 2;
+        gdouble cpu_ratio = CLAMP(proc->cpu_percent / 100.0, 0.0, 1.0);
+
+        /* CPU bar background */
+        cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, 0.2);
+        cairo_rectangle(cr, bar_x, row_y + 2, bar_width, bar_height);
+        cairo_fill(cr);
+
+        /* CPU bar fill */
+        if (cpu_ratio > 0) {
+            cairo_set_source_rgba(cr, fg1_color->red, fg1_color->green, fg1_color->blue, 0.8);
+            cairo_rectangle(cr, bar_x, row_y + 2, (gint)(cpu_ratio * bar_width), bar_height);
+            cairo_fill(cr);
+        }
+
+        /* CPU text */
+        gchar cpu_str[16];
+        g_snprintf(cpu_str, sizeof(cpu_str), "%4.1f", proc->cpu_percent);
+        cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, 0.9);
+        cairo_move_to(cr, col_cpu, row_y + row_height - 3);
+        cairo_show_text(cr, cpu_str);
+
+        /* Memory bar and percentage */
+        bar_x = col_mem - bar_width - 2;
+        gdouble mem_ratio = CLAMP(proc->mem_percent / 100.0, 0.0, 1.0);
+
+        /* Memory bar background */
+        cairo_set_source_rgba(cr, fg2_color->red, fg2_color->green, fg2_color->blue, 0.2);
+        cairo_rectangle(cr, bar_x, row_y + 2, bar_width, bar_height);
+        cairo_fill(cr);
+
+        /* Memory bar fill */
+        if (mem_ratio > 0) {
+            cairo_set_source_rgba(cr, fg2_color->red, fg2_color->green, fg2_color->blue, 0.8);
+            cairo_rectangle(cr, bar_x, row_y + 2, (gint)(mem_ratio * bar_width), bar_height);
+            cairo_fill(cr);
+        }
+
+        /* Memory text */
+        gchar mem_str[16];
+        g_snprintf(mem_str, sizeof(mem_str), "%4.1f", proc->mem_percent);
+        cairo_move_to(cr, col_mem, row_y + row_height - 3);
+        cairo_show_text(cr, mem_str);
+    }
+
+    /* Draw summary at bottom if space permits */
+    gint summary_y = height - margin - 2;
+    if (summary_y > y_offset + row * row_height + 10) {
+        gint total = xrg_process_collector_get_total_processes(state->process_collector);
+        gint running = xrg_process_collector_get_running_processes(state->process_collector);
+
+        gchar summary[64];
+        g_snprintf(summary, sizeof(summary), "Processes: %d (%d running)", total, running);
+
+        cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, 0.5);
+        cairo_set_font_size(cr, 9);
+        cairo_move_to(cr, margin, summary_y);
+        cairo_show_text(cr, summary);
+    }
+
+    return FALSE;
+}
+
+/**
+ * Process module button press callback
+ */
+static gboolean on_process_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    (void)widget;
+
+    if (event->button == 3) {  /* Right-click */
+        show_process_context_menu(state, event);
+        return TRUE;
+    } else if (event->button == 1) {  /* Left-click */
+        /* Toggle sort between CPU and Memory */
+        XRGProcessSortBy current = xrg_process_collector_get_sort_by(state->process_collector);
+        if (current == XRG_PROCESS_SORT_CPU) {
+            xrg_process_collector_set_sort_by(state->process_collector, XRG_PROCESS_SORT_MEMORY);
+        } else {
+            xrg_process_collector_set_sort_by(state->process_collector, XRG_PROCESS_SORT_CPU);
+        }
+        gtk_widget_queue_draw(state->process_drawing_area);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+/**
+ * Process module motion notify callback (for tooltips)
+ */
+static gboolean on_process_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data) {
+    (void)user_data;
+    (void)event;
+
+    /* Request tooltip update */
+    gtk_widget_trigger_tooltip_query(widget);
+
+    return FALSE;
+}
+
+/**
+ * Process module context menu
+ */
+static void show_process_context_menu(AppState *state, GdkEventButton *event) {
+    GtkWidget *menu = gtk_menu_new();
+
+    /* Sort by CPU */
+    GtkWidget *sort_cpu_item = gtk_check_menu_item_new_with_label("Sort by CPU");
+    gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(sort_cpu_item),
+        xrg_process_collector_get_sort_by(state->process_collector) == XRG_PROCESS_SORT_CPU);
+    g_signal_connect(sort_cpu_item, "activate", G_CALLBACK(on_process_sort_cpu), state);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), sort_cpu_item);
+
+    /* Sort by Memory */
+    GtkWidget *sort_mem_item = gtk_check_menu_item_new_with_label("Sort by Memory");
+    gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(sort_mem_item),
+        xrg_process_collector_get_sort_by(state->process_collector) == XRG_PROCESS_SORT_MEMORY);
+    g_signal_connect(sort_mem_item, "activate", G_CALLBACK(on_process_sort_memory), state);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), sort_mem_item);
+
+    gtk_widget_show_all(menu);
+    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+}
+
+/**
+ * Sort by CPU menu callback
+ */
+static void on_process_sort_cpu(GtkMenuItem *item, gpointer user_data) {
+    (void)item;
+    AppState *state = (AppState *)user_data;
+    xrg_process_collector_set_sort_by(state->process_collector, XRG_PROCESS_SORT_CPU);
+    gtk_widget_queue_draw(state->process_drawing_area);
+}
+
+/**
+ * Sort by Memory menu callback
+ */
+static void on_process_sort_memory(GtkMenuItem *item, gpointer user_data) {
+    (void)item;
+    AppState *state = (AppState *)user_data;
+    xrg_process_collector_set_sort_by(state->process_collector, XRG_PROCESS_SORT_MEMORY);
+    gtk_widget_queue_draw(state->process_drawing_area);
+}
+
+/**
  * Update timer callback (1 second interval)
  */
 static gboolean on_update_timer(gpointer user_data) {
@@ -4101,6 +4387,7 @@ static gboolean on_update_timer(gpointer user_data) {
     xrg_battery_collector_update(state->battery_collector);
     xrg_sensors_collector_update(state->sensors_collector);
     xrg_aitoken_collector_update(state->aitoken_collector);
+    xrg_process_collector_update(state->process_collector);
 
     /* Redraw graphs */
     gtk_widget_queue_draw(state->cpu_drawing_area);
@@ -4111,6 +4398,7 @@ static gboolean on_update_timer(gpointer user_data) {
     gtk_widget_queue_draw(state->battery_drawing_area);
     gtk_widget_queue_draw(state->sensors_drawing_area);
     gtk_widget_queue_draw(state->aitoken_drawing_area);
+    gtk_widget_queue_draw(state->process_drawing_area);
 
     return G_SOURCE_CONTINUE;  /* Keep timer running */
 }

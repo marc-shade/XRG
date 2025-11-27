@@ -91,6 +91,7 @@ void xrg_preferences_set_defaults(XRGPreferences *prefs) {
     prefs->show_temperature = TRUE;
     prefs->show_battery = TRUE;
     prefs->show_aitoken = TRUE;
+    prefs->show_process = TRUE;
     prefs->show_weather = FALSE;  /* Disabled by default (needs API key) */
     prefs->show_stock = FALSE;    /* Disabled by default (needs API key) */
 
@@ -164,6 +165,7 @@ void xrg_preferences_set_defaults(XRGPreferences *prefs) {
     prefs->graph_height_temperature = 60;
     prefs->graph_height_battery = 40;
     prefs->graph_height_aitoken = 60;
+    prefs->graph_height_process = 120;  /* Taller for process list */
 
     /* Graph visual styles (default to SOLID) */
     prefs->cpu_graph_style = XRG_GRAPH_STYLE_SOLID;
@@ -277,10 +279,14 @@ gboolean xrg_preferences_load(XRGPreferences *prefs) {
         prefs->show_aitoken = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_aitoken", &key_error);
         if (key_error) { g_error_free(key_error); key_error = NULL; }
     }
+    if (g_key_file_has_key(prefs->keyfile, "Modules", "show_process", NULL)) {
+        prefs->show_process = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_process", &key_error);
+        if (key_error) { g_error_free(key_error); key_error = NULL; }
+    }
 
-    g_message("Loaded module visibility: CPU=%d, Mem=%d, Net=%d, Disk=%d, GPU=%d, Temp=%d, Bat=%d, AI=%d",
+    g_message("Loaded module visibility: CPU=%d, Mem=%d, Net=%d, Disk=%d, GPU=%d, Temp=%d, Bat=%d, AI=%d, Proc=%d",
               prefs->show_cpu, prefs->show_memory, prefs->show_network, prefs->show_disk,
-              prefs->show_gpu, prefs->show_temperature, prefs->show_battery, prefs->show_aitoken);
+              prefs->show_gpu, prefs->show_temperature, prefs->show_battery, prefs->show_aitoken, prefs->show_process);
 
     /* Load activity bars setting */
     prefs->show_activity_bars = g_key_file_get_boolean(prefs->keyfile, "Display", "show_activity_bars", NULL);
@@ -477,6 +483,7 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
     g_key_file_set_boolean(prefs->keyfile, "Modules", "show_temperature", prefs->show_temperature);
     g_key_file_set_boolean(prefs->keyfile, "Modules", "show_battery", prefs->show_battery);
     g_key_file_set_boolean(prefs->keyfile, "Modules", "show_aitoken", prefs->show_aitoken);
+    g_key_file_set_boolean(prefs->keyfile, "Modules", "show_process", prefs->show_process);
 
     /* Save activity bars setting */
     g_key_file_set_boolean(prefs->keyfile, "Display", "show_activity_bars", prefs->show_activity_bars);

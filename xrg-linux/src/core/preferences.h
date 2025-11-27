@@ -116,6 +116,7 @@ struct _XRGPreferences {
     gboolean show_temperature;
     gboolean show_battery;
     gboolean show_aitoken;
+    gboolean show_process;
     gboolean show_weather;
     gboolean show_stock;
 
@@ -167,6 +168,7 @@ struct _XRGPreferences {
     gint graph_height_temperature;
     gint graph_height_battery;
     gint graph_height_aitoken;
+    gint graph_height_process;
 
     /* Graph visual styles per module */
     XRGGraphStyle cpu_graph_style;
