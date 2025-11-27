@@ -53,6 +53,7 @@ set(COLLECTOR_SOURCES
 )
 
 set(WIDGET_SOURCES
+    src/widgets/base_widget.c
     src/widgets/graph_widget.c
     src/widgets/cpu_widget.c
     src/widgets/memory_widget.c
