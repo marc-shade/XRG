@@ -77,6 +77,10 @@ struct _XRGPreferencesWindow {
     GtkWidget *aitoken_codex_billing_combo;
     GtkWidget *aitoken_gemini_billing_combo;
 
+    /* Process module tab widgets */
+    GtkWidget *process_enabled_check;
+    GtkWidget *process_height_spin;
+
     /* Colors tab widgets */
     GtkWidget *theme_combo;
     GtkWidget *bg_color_button;
@@ -105,6 +109,7 @@ static GtkWidget* create_gpu_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_battery_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_temperature_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_aitoken_tab(XRGPreferencesWindow *win);
+static GtkWidget* create_process_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_colors_tab(XRGPreferencesWindow *win);
 static void load_preferences_to_ui(XRGPreferencesWindow *win);
 static void save_ui_to_preferences(XRGPreferencesWindow *win);
@@ -167,6 +172,10 @@ XRGPreferencesWindow* xrg_preferences_window_new(GtkWindow *parent, XRGPreferenc
     gtk_notebook_append_page(GTK_NOTEBOOK(win->notebook),
                             create_aitoken_tab(win),
                             gtk_label_new("AI Token Module"));
+
+    gtk_notebook_append_page(GTK_NOTEBOOK(win->notebook),
+                            create_process_tab(win),
+                            gtk_label_new("Process Module"));
 
     gtk_notebook_append_page(GTK_NOTEBOOK(win->notebook),
                             create_colors_tab(win),
@@ -858,6 +867,46 @@ static GtkWidget* create_aitoken_tab(XRGPreferencesWindow *win) {
 }
 
 /**
+ * Create Process module settings tab
+ */
+static GtkWidget* create_process_tab(XRGPreferencesWindow *win) {
+    GtkWidget *grid = gtk_grid_new();
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
+    gtk_container_set_border_width(GTK_CONTAINER(grid), 15);
+
+    gint row = 0;
+
+    /* Module enabled */
+    win->process_enabled_check = gtk_check_button_new_with_label("Show Process Module");
+    gtk_grid_attach(GTK_GRID(grid), win->process_enabled_check, 0, row++, 2, 1);
+
+    /* Separator */
+    gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
+
+    /* Display settings */
+    GtkWidget *label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(label), "<b>Display Settings</b>");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+
+    /* Graph height */
+    label = gtk_label_new("Graph Height:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->process_height_spin = gtk_spin_button_new_with_range(80, 400, 10);
+    gtk_grid_attach(GTK_GRID(grid), win->process_height_spin, 1, row++, 1, 1);
+
+    /* Info label */
+    label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(label), "<i>Shows top 10 processes by CPU usage.\nRight-click a process to kill it (coming soon).</i>");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+
+    return grid;
+}
+
+/**
  * Create global colors tab
  */
 static GtkWidget* create_colors_tab(XRGPreferencesWindow *win) {
@@ -1060,15 +1109,12 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     }
     /* Note: AIToken colors removed - use Colors tab instead */
 
+    /* Process module tab */
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->process_enabled_check), prefs->show_process);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->process_height_spin), prefs->graph_height_process);
+
     /* Colors tab */
     /* Load color buttons FIRST (before setting theme combo, to avoid triggering callback) */
-    g_message("Loading colors to UI - BG: (%.3f, %.3f, %.3f, %.3f)",
-              prefs->background_color.red, prefs->background_color.green,
-              prefs->background_color.blue, prefs->background_color.alpha);
-    g_message("Loading colors to UI - Graph FG1: (%.3f, %.3f, %.3f, %.3f)",
-              prefs->graph_fg1_color.red, prefs->graph_fg1_color.green,
-              prefs->graph_fg1_color.blue, prefs->graph_fg1_color.alpha);
-
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->bg_color_button), &prefs->background_color);
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->graph_bg_color_button), &prefs->graph_bg_color);
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->graph_fg1_color_button), &prefs->graph_fg1_color);
@@ -1184,6 +1230,10 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     prefs->aitoken_otel_endpoint = g_strdup(gtk_entry_get_text(GTK_ENTRY(win->aitoken_otel_endpoint_entry)));
     /* Note: AIToken colors removed - use Colors tab instead */
 
+    /* Process module tab */
+    prefs->show_process = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->process_enabled_check));
+    prefs->graph_height_process = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->process_height_spin));
+
     /* Colors tab */
     gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->bg_color_button), &prefs->background_color);
     gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->graph_bg_color_button), &prefs->graph_bg_color);
@@ -1193,13 +1243,6 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->text_color_button), &prefs->text_color);
     gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->border_color_button), &prefs->border_color);
     gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->activity_bar_color_button), &prefs->activity_bar_color);
-
-    g_message("Saving colors from UI - BG: (%.3f, %.3f, %.3f, %.3f)",
-              prefs->background_color.red, prefs->background_color.green,
-              prefs->background_color.blue, prefs->background_color.alpha);
-    g_message("Saving colors from UI - Graph FG1: (%.3f, %.3f, %.3f, %.3f)",
-              prefs->graph_fg1_color.red, prefs->graph_fg1_color.green,
-              prefs->graph_fg1_color.blue, prefs->graph_fg1_color.alpha);
 
     /* Save to file */
     xrg_preferences_save(prefs);

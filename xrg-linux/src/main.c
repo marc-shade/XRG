@@ -74,6 +74,9 @@ typedef struct {
     /* Layout state */
     XRGLayoutOrientation current_layout_orientation;
     GtkWidget *overlay;  /* Parent of vbox for easy recreation */
+
+    /* Debounced save state */
+    guint save_timeout_id;  /* Timer for debounced preferences save */
 } AppState;
 
 /* Forward declarations */
@@ -312,27 +315,49 @@ static gboolean on_draw_title_bar(GtkWidget *widget, cairo_t *cr, gpointer user_
 }
 
 /**
+ * Debounced save callback - actually saves preferences after delay
+ */
+static gboolean debounced_save_preferences(gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    state->save_timeout_id = 0;  /* Mark as no longer pending */
+    xrg_preferences_save(state->prefs);
+    return G_SOURCE_REMOVE;  /* Don't repeat */
+}
+
+/**
  * Window configure event - fired when window is moved or resized
+ * Uses debouncing to avoid saving on every event during drag/resize
  */
 static gboolean on_window_configure(GtkWidget *widget, GdkEventConfigure *event, gpointer user_data) {
     AppState *state = (AppState *)user_data;
+    (void)event;  /* Unused - we query actual position instead */
 
     /* Get actual window position (event->x/y don't work on Wayland) */
     gint x, y, width, height;
     gtk_window_get_position(GTK_WINDOW(widget), &x, &y);
     gtk_window_get_size(GTK_WINDOW(widget), &width, &height);
 
-    /* Save new position and size */
+    /* Only update if changed */
+    gint adj_height = height - TITLE_BAR_HEIGHT;
+    if (state->prefs->window_x == x &&
+        state->prefs->window_y == y &&
+        state->prefs->window_width == width &&
+        state->prefs->window_height == adj_height) {
+        return FALSE;  /* No change */
+    }
+
+    /* Save new position and size to prefs struct */
     state->prefs->window_x = x;
     state->prefs->window_y = y;
     state->prefs->window_width = width;
-    state->prefs->window_height = height - TITLE_BAR_HEIGHT;
+    state->prefs->window_height = adj_height;
 
-    g_message("Window configured: x=%d, y=%d, width=%d, height=%d",
-              x, y, width, height - TITLE_BAR_HEIGHT);
-
-    /* Save immediately so position is always current */
-    xrg_preferences_save(state->prefs);
+    /* Debounce: cancel pending save and schedule a new one */
+    if (state->save_timeout_id > 0) {
+        g_source_remove(state->save_timeout_id);
+    }
+    /* Save after 500ms of inactivity */
+    state->save_timeout_id = g_timeout_add(500, debounced_save_preferences, state);
 
     return FALSE;  /* Let other handlers process this event too */
 }
@@ -352,10 +377,6 @@ static gboolean on_title_bar_button_press(GtkWidget *widget, GdkEventButton *eve
         gtk_window_get_position(GTK_WINDOW(state->window),
                                &state->window_start_x,
                                &state->window_start_y);
-
-        g_message("Drag started at (%.0f, %.0f), window at (%d, %d)",
-                  event->x_root, event->y_root,
-                  state->window_start_x, state->window_start_y);
 
         return TRUE;
     } else if (event->button == 3) {  /* Right click */
@@ -384,7 +405,6 @@ static gboolean on_title_bar_button_release(GtkWidget *widget, GdkEventButton *e
         /* Save new position */
         state->prefs->window_x = x;
         state->prefs->window_y = y;
-        g_message("Saving window position: x=%d, y=%d", x, y);
         xrg_preferences_save(state->prefs);
 
         return TRUE;
@@ -687,23 +707,6 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
         xrg_preferences_apply_theme(state->prefs, "Cyberpunk");
         xrg_preferences_save(state->prefs);  /* Save immediately to fix config file */
     }
-
-    /* Debug: Print loaded colors */
-    g_message("Loaded colors - BG: (%.3f, %.3f, %.3f, %.3f)",
-              state->prefs->background_color.red,
-              state->prefs->background_color.green,
-              state->prefs->background_color.blue,
-              state->prefs->background_color.alpha);
-    g_message("Loaded colors - Graph FG1: (%.3f, %.3f, %.3f, %.3f)",
-              state->prefs->graph_fg1_color.red,
-              state->prefs->graph_fg1_color.green,
-              state->prefs->graph_fg1_color.blue,
-              state->prefs->graph_fg1_color.alpha);
-    g_message("Loaded colors - Graph FG2: (%.3f, %.3f, %.3f, %.3f)",
-              state->prefs->graph_fg2_color.red,
-              state->prefs->graph_fg2_color.green,
-              state->prefs->graph_fg2_color.blue,
-              state->prefs->graph_fg2_color.alpha);
 
     /* Initialize collectors */
     state->cpu_collector = xrg_cpu_collector_new(200);  /* 200 data points */
@@ -1033,10 +1036,6 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     gtk_widget_set_visible(state->sensors_box, state->prefs->show_temperature);
     gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
     gtk_widget_set_visible(state->process_box, state->prefs->show_process);
-
-    g_message("Final module visibility after show_all - Battery: %s (prefs value: %d)",
-              state->prefs->show_battery ? "SHOWN" : "HIDDEN",
-              state->prefs->show_battery);
 
     g_message("XRG-Linux started - Monitoring %d CPU cores",
               xrg_cpu_collector_get_num_cpus(state->cpu_collector));
@@ -3192,7 +3191,6 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
         state->prefs->show_cpu = !state->prefs->show_cpu;
         gtk_widget_set_visible(state->cpu_box, state->prefs->show_cpu);
         xrg_preferences_save(state->prefs);
-        g_message("CPU module %s", state->prefs->show_cpu ? "shown" : "hidden");
         return TRUE;
     }
 
@@ -3201,7 +3199,6 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
         state->prefs->show_memory = !state->prefs->show_memory;
         gtk_widget_set_visible(state->memory_box, state->prefs->show_memory);
         xrg_preferences_save(state->prefs);
-        g_message("Memory module %s", state->prefs->show_memory ? "shown" : "hidden");
         return TRUE;
     }
 
@@ -3210,7 +3207,6 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
         state->prefs->show_network = !state->prefs->show_network;
         gtk_widget_set_visible(state->network_box, state->prefs->show_network);
         xrg_preferences_save(state->prefs);
-        g_message("Network module %s", state->prefs->show_network ? "shown" : "hidden");
         return TRUE;
     }
 
@@ -3219,7 +3215,6 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
         state->prefs->show_disk = !state->prefs->show_disk;
         gtk_widget_set_visible(state->disk_box, state->prefs->show_disk);
         xrg_preferences_save(state->prefs);
-        g_message("Disk module %s", state->prefs->show_disk ? "shown" : "hidden");
         return TRUE;
     }
 
@@ -3228,7 +3223,6 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
         state->prefs->show_aitoken = !state->prefs->show_aitoken;
         gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
         xrg_preferences_save(state->prefs);
-        g_message("AI Token module %s", state->prefs->show_aitoken ? "shown" : "hidden");
         return TRUE;
     }
 
@@ -3237,7 +3231,6 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
         state->prefs->show_gpu = !state->prefs->show_gpu;
         gtk_widget_set_visible(state->gpu_box, state->prefs->show_gpu);
         xrg_preferences_save(state->prefs);
-        g_message("GPU module %s", state->prefs->show_gpu ? "shown" : "hidden");
         return TRUE;
     }
 
@@ -3246,7 +3239,6 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
         state->prefs->show_battery = !state->prefs->show_battery;
         gtk_widget_set_visible(state->battery_box, state->prefs->show_battery);
         xrg_preferences_save(state->prefs);
-        g_message("Battery module %s", state->prefs->show_battery ? "shown" : "hidden");
         return TRUE;
     }
 
@@ -3255,7 +3247,6 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
         state->prefs->show_temperature = !state->prefs->show_temperature;
         gtk_widget_set_visible(state->sensors_box, state->prefs->show_temperature);
         xrg_preferences_save(state->prefs);
-        g_message("Temperature module %s", state->prefs->show_temperature ? "shown" : "hidden");
         return TRUE;
     }
 

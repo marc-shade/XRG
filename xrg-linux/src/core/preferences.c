@@ -477,9 +477,6 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
     g_key_file_set_double(prefs->keyfile, "Window", "opacity", prefs->window_opacity);
 
     /* Save module visibility */
-    g_message("Saving module visibility: CPU=%d, Mem=%d, Net=%d, Disk=%d, GPU=%d, Temp=%d, Bat=%d, AI=%d",
-              prefs->show_cpu, prefs->show_memory, prefs->show_network, prefs->show_disk,
-              prefs->show_gpu, prefs->show_temperature, prefs->show_battery, prefs->show_aitoken);
     g_key_file_set_boolean(prefs->keyfile, "Modules", "show_cpu", prefs->show_cpu);
     g_key_file_set_boolean(prefs->keyfile, "Modules", "show_memory", prefs->show_memory);
     g_key_file_set_boolean(prefs->keyfile, "Modules", "show_network", prefs->show_network);
@@ -635,14 +632,12 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
 
     /* Write to file */
     GError *error = NULL;
-    g_message("Saving preferences to: %s", prefs->config_path);
     if (!g_key_file_save_to_file(prefs->keyfile, prefs->config_path, &error)) {
         g_warning("Failed to save preferences to %s: %s", prefs->config_path, error->message);
         g_error_free(error);
         return FALSE;
     }
 
-    g_message("Preferences saved successfully to %s", prefs->config_path);
     return TRUE;
 }
 
