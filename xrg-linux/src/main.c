@@ -3250,6 +3250,28 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
         return TRUE;
     }
 
+    /* Ctrl+9 = Toggle Process */
+    if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_9) {
+        state->prefs->show_process = !state->prefs->show_process;
+        gtk_widget_set_visible(state->process_box, state->prefs->show_process);
+        xrg_preferences_save(state->prefs);
+        return TRUE;
+    }
+
+    /* Ctrl+0 = Toggle Always on Top */
+    if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_0) {
+        state->prefs->window_always_on_top = !state->prefs->window_always_on_top;
+        gtk_window_set_keep_above(GTK_WINDOW(state->window), state->prefs->window_always_on_top);
+        xrg_preferences_save(state->prefs);
+        return TRUE;
+    }
+
+    /* Escape = Close preferences dialog (if open) */
+    if (event->keyval == GDK_KEY_Escape) {
+        /* The preferences dialog handles its own escape key */
+        return FALSE;
+    }
+
     return FALSE;
 }
 

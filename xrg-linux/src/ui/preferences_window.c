@@ -899,7 +899,7 @@ static GtkWidget* create_process_tab(XRGPreferencesWindow *win) {
 
     /* Info label */
     label = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(label), "<i>Shows top 10 processes by CPU usage.\nRight-click a process to kill it (coming soon).</i>");
+    gtk_label_set_markup(GTK_LABEL(label), "<i>Shows top 10 processes by CPU usage.\nRight-click a process to terminate, force kill, pause, or resume it.</i>");
     gtk_widget_set_halign(label, GTK_ALIGN_START);
     gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
 
@@ -956,7 +956,7 @@ static GtkWidget* create_colors_tab(XRGPreferencesWindow *win) {
     gtk_widget_set_halign(label, GTK_ALIGN_END);
     gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
     win->bg_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->bg_color_button), TRUE);
+    gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(win->bg_color_button), TRUE);
     gtk_grid_attach(GTK_GRID(grid), win->bg_color_button, 1, row++, 1, 1);
 
     /* Graph background */
@@ -964,7 +964,7 @@ static GtkWidget* create_colors_tab(XRGPreferencesWindow *win) {
     gtk_widget_set_halign(label, GTK_ALIGN_END);
     gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
     win->graph_bg_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->graph_bg_color_button), TRUE);
+    gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(win->graph_bg_color_button), TRUE);
     gtk_grid_attach(GTK_GRID(grid), win->graph_bg_color_button, 1, row++, 1, 1);
 
     /* FG1 color (cyan) */
@@ -972,7 +972,7 @@ static GtkWidget* create_colors_tab(XRGPreferencesWindow *win) {
     gtk_widget_set_halign(label, GTK_ALIGN_END);
     gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
     win->graph_fg1_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->graph_fg1_color_button), TRUE);
+    gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(win->graph_fg1_color_button), TRUE);
     gtk_grid_attach(GTK_GRID(grid), win->graph_fg1_color_button, 1, row++, 1, 1);
 
     /* FG2 color (purple) */
@@ -980,7 +980,7 @@ static GtkWidget* create_colors_tab(XRGPreferencesWindow *win) {
     gtk_widget_set_halign(label, GTK_ALIGN_END);
     gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
     win->graph_fg2_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->graph_fg2_color_button), TRUE);
+    gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(win->graph_fg2_color_button), TRUE);
     gtk_grid_attach(GTK_GRID(grid), win->graph_fg2_color_button, 1, row++, 1, 1);
 
     /* FG3 color (amber) */
@@ -988,7 +988,7 @@ static GtkWidget* create_colors_tab(XRGPreferencesWindow *win) {
     gtk_widget_set_halign(label, GTK_ALIGN_END);
     gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
     win->graph_fg3_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->graph_fg3_color_button), TRUE);
+    gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(win->graph_fg3_color_button), TRUE);
     gtk_grid_attach(GTK_GRID(grid), win->graph_fg3_color_button, 1, row++, 1, 1);
 
     /* Text color */
@@ -996,7 +996,7 @@ static GtkWidget* create_colors_tab(XRGPreferencesWindow *win) {
     gtk_widget_set_halign(label, GTK_ALIGN_END);
     gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
     win->text_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->text_color_button), TRUE);
+    gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(win->text_color_button), TRUE);
     gtk_grid_attach(GTK_GRID(grid), win->text_color_button, 1, row++, 1, 1);
 
     /* Border color */
@@ -1004,7 +1004,7 @@ static GtkWidget* create_colors_tab(XRGPreferencesWindow *win) {
     gtk_widget_set_halign(label, GTK_ALIGN_END);
     gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
     win->border_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->border_color_button), TRUE);
+    gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(win->border_color_button), TRUE);
     gtk_grid_attach(GTK_GRID(grid), win->border_color_button, 1, row++, 1, 1);
 
     /* Activity bar color */
@@ -1012,7 +1012,7 @@ static GtkWidget* create_colors_tab(XRGPreferencesWindow *win) {
     gtk_widget_set_halign(label, GTK_ALIGN_END);
     gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
     win->activity_bar_color_button = gtk_color_button_new();
-    gtk_color_button_set_use_alpha(GTK_COLOR_BUTTON(win->activity_bar_color_button), TRUE);
+    gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(win->activity_bar_color_button), TRUE);
     gtk_grid_attach(GTK_GRID(grid), win->activity_bar_color_button, 1, row++, 1, 1);
 
     return grid;
@@ -1272,14 +1272,13 @@ static void on_theme_changed(GtkComboBox *combo, gpointer user_data) {
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->border_color_button), &win->prefs->border_color);
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->activity_bar_color_button), &win->prefs->activity_bar_color);
 
-    g_message("Applied theme: %s", theme_name);
     g_free(theme_name);
 }
 
 /**
  * Dialog response callback
  */
-static void on_response(GtkDialog *dialog, gint response_id, gpointer user_data) {
+static void on_response(GtkDialog *dialog G_GNUC_UNUSED, gint response_id, gpointer user_data) {
     XRGPreferencesWindow *win = (XRGPreferencesWindow *)user_data;
 
     if (response_id == GTK_RESPONSE_OK || response_id == GTK_RESPONSE_APPLY) {
