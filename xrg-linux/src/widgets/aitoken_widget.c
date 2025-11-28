@@ -387,19 +387,6 @@ static void aitoken_widget_draw(XRGBaseWidget *base, cairo_t *cr, int width, int
         }
     }
 
-    /* Show alert if triggered */
-    if (xrg_aitoken_collector_has_alert(widget->collector)) {
-        const gchar *alert_msg = xrg_aitoken_collector_get_alert_message(widget->collector);
-        if (alert_msg) {
-            /* Draw alert in warning color (orange) */
-            cairo_set_source_rgba(cr, 1.0, 0.6, 0.0, 1.0);
-            cairo_move_to(cr, 5, next_y);
-            cairo_show_text(cr, "\342\232\240 ALERT");  /* ⚠ in UTF-8 */
-            next_y += 12;
-            /* Reset color */
-            cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
-        }
-    }
 
     /* Show per-model breakdown if enabled */
     if (prefs->aitoken_show_model_breakdown) {
@@ -407,10 +394,6 @@ static void aitoken_widget_draw(XRGBaseWidget *base, cairo_t *cr, int width, int
         const gchar *current_model = xrg_aitoken_collector_get_current_model(widget->collector);
 
         if (model_tokens && g_hash_table_size(model_tokens) > 0) {
-            /* Draw separator */
-            cairo_move_to(cr, 5, next_y);
-            cairo_show_text(cr, "--- By Model ---");
-            next_y += 12;
 
             /* Display each model */
             GHashTableIter iter;

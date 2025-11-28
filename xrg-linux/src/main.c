@@ -3022,32 +3022,12 @@ static gboolean on_draw_aitoken(GtkWidget *widget, cairo_t *cr, gpointer user_da
         }
     }
 
-    /* Show alert if triggered */
-    if (xrg_aitoken_collector_has_alert(state->aitoken_collector)) {
-        const gchar *alert_msg = xrg_aitoken_collector_get_alert_message(state->aitoken_collector);
-        if (alert_msg) {
-            /* Draw alert in warning color (orange) */
-            cairo_set_source_rgba(cr, 1.0, 0.6, 0.0, 1.0);
-            cairo_move_to(cr, 5, next_y);
-            cairo_show_text(cr, "⚠ ALERT");
-            next_y += 12;
-            /* Reset color */
-            cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
-        }
-    }
-
     /* Show per-model breakdown if enabled */
     if (state->prefs->aitoken_show_model_breakdown) {
         GHashTable *model_tokens = xrg_aitoken_collector_get_model_tokens(state->aitoken_collector);
         const gchar *current_model = xrg_aitoken_collector_get_current_model(state->aitoken_collector);
 
         if (model_tokens && g_hash_table_size(model_tokens) > 0) {
-            /* Draw separator */
-            gchar *separator = g_strdup("--- By Model ---");
-            cairo_move_to(cr, 5, next_y);
-            cairo_show_text(cr, separator);
-            g_free(separator);
-            next_y += 12;
 
             /* Helper function to display each model */
             GHashTableIter iter;
