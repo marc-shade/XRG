@@ -4463,10 +4463,6 @@ static void on_preferences_applied(gpointer user_data) {
     gtk_widget_set_visible(state->sensors_box, state->prefs->show_temperature);
     gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
 
-    g_message("Preferences applied - Battery: %s (prefs value: %d)",
-              state->prefs->show_battery ? "SHOWN" : "HIDDEN",
-              state->prefs->show_battery);
-
     /* Update module heights */
     gtk_widget_set_size_request(state->cpu_drawing_area, state->prefs->graph_width, state->prefs->graph_height_cpu);
     gtk_widget_set_size_request(state->memory_drawing_area, state->prefs->graph_width, state->prefs->graph_height_memory);
@@ -4519,6 +4515,4 @@ static void on_preferences_applied(gpointer user_data) {
             }
         }
     }
-
-    g_message("Preferences applied - window properties, visibility, sizes, and colors updated");
 }

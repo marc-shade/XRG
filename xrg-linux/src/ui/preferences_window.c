@@ -1287,9 +1287,7 @@ static void on_response(GtkDialog *dialog, gint response_id, gpointer user_data)
         save_ui_to_preferences(win);
 
         /* Persist preferences to disk */
-        if (xrg_preferences_save(win->prefs)) {
-            g_message("Preferences saved to disk successfully");
-        } else {
+        if (!xrg_preferences_save(win->prefs)) {
             g_warning("Failed to save preferences to disk");
         }
 

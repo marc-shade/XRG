@@ -8,11 +8,15 @@
 #include "base_widget.h"
 #include <cairo.h>
 #include <string.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <errno.h>
 
 /* Forward declarations */
 static void process_widget_draw(XRGBaseWidget *base, cairo_t *cr, int width, int height);
 static gchar* process_widget_tooltip(XRGBaseWidget *base, int x, int y);
 static void process_widget_update(XRGBaseWidget *base);
+static void process_widget_menu(XRGBaseWidget *base, GdkEventButton *event);
 
 struct _XRGProcessWidget {
     XRGBaseWidget base;             /* Must be first for casting */
@@ -47,6 +51,7 @@ XRGProcessWidget* xrg_process_widget_new(XRGPreferences *prefs, XRGProcessCollec
     xrg_base_widget_set_draw_func(&widget->base, process_widget_draw);
     xrg_base_widget_set_tooltip_func(&widget->base, process_widget_tooltip);
     xrg_base_widget_set_update_func(&widget->base, process_widget_update);
+    xrg_base_widget_set_menu_func(&widget->base, process_widget_menu);
 
     return widget;
 }
@@ -361,4 +366,189 @@ static gchar* process_widget_tooltip(XRGBaseWidget *base, int x, int y) {
 static void process_widget_update(XRGBaseWidget *base) {
     (void)base;
     /* Data is updated by collector, just trigger redraw */
+}
+
+/*============================================================================
+ * Context Menu Implementation
+ *============================================================================*/
+
+/* Data passed to menu item callbacks */
+typedef struct {
+    XRGProcessWidget *widget;
+    pid_t pid;
+    gchar *name;
+} ProcessMenuData;
+
+static void free_menu_data(gpointer data, GClosure *closure) {
+    (void)closure;
+    ProcessMenuData *menu_data = data;
+    if (menu_data) {
+        g_free(menu_data->name);
+        g_free(menu_data);
+    }
+}
+
+static void on_kill_process(GtkMenuItem *item, gpointer data) {
+    (void)item;
+    ProcessMenuData *menu_data = data;
+
+    if (kill(menu_data->pid, SIGTERM) == 0) {
+        g_message("Sent SIGTERM to process %d (%s)", menu_data->pid, menu_data->name);
+    } else {
+        g_warning("Failed to kill process %d (%s): %s",
+                  menu_data->pid, menu_data->name, g_strerror(errno));
+
+        /* Show error dialog */
+        GtkWidget *dialog = gtk_message_dialog_new(
+            NULL, GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK,
+            "Failed to terminate process %d (%s):\n%s\n\nYou may need root privileges.",
+            menu_data->pid, menu_data->name, g_strerror(errno));
+        gtk_dialog_run(GTK_DIALOG(dialog));
+        gtk_widget_destroy(dialog);
+    }
+}
+
+static void on_force_kill_process(GtkMenuItem *item, gpointer data) {
+    (void)item;
+    ProcessMenuData *menu_data = data;
+
+    if (kill(menu_data->pid, SIGKILL) == 0) {
+        g_message("Sent SIGKILL to process %d (%s)", menu_data->pid, menu_data->name);
+    } else {
+        g_warning("Failed to force kill process %d (%s): %s",
+                  menu_data->pid, menu_data->name, g_strerror(errno));
+
+        /* Show error dialog */
+        GtkWidget *dialog = gtk_message_dialog_new(
+            NULL, GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK,
+            "Failed to force kill process %d (%s):\n%s\n\nYou may need root privileges.",
+            menu_data->pid, menu_data->name, g_strerror(errno));
+        gtk_dialog_run(GTK_DIALOG(dialog));
+        gtk_widget_destroy(dialog);
+    }
+}
+
+static void on_send_sigstop(GtkMenuItem *item, gpointer data) {
+    (void)item;
+    ProcessMenuData *menu_data = data;
+
+    if (kill(menu_data->pid, SIGSTOP) == 0) {
+        g_message("Sent SIGSTOP to process %d (%s)", menu_data->pid, menu_data->name);
+    } else {
+        g_warning("Failed to stop process %d (%s): %s",
+                  menu_data->pid, menu_data->name, g_strerror(errno));
+    }
+}
+
+static void on_send_sigcont(GtkMenuItem *item, gpointer data) {
+    (void)item;
+    ProcessMenuData *menu_data = data;
+
+    if (kill(menu_data->pid, SIGCONT) == 0) {
+        g_message("Sent SIGCONT to process %d (%s)", menu_data->pid, menu_data->name);
+    } else {
+        g_warning("Failed to continue process %d (%s): %s",
+                  menu_data->pid, menu_data->name, g_strerror(errno));
+    }
+}
+
+static gint get_row_at_position(XRGProcessWidget *widget, gint y) {
+    int margin = 4;
+    int header_height = 14;
+    int y_offset = margin + header_height + 6;
+
+    int rel_y = y - y_offset;
+    if (rel_y < 0) {
+        return -1;  /* Click in header area */
+    }
+
+    return rel_y / widget->row_height;
+}
+
+static void process_widget_menu(XRGBaseWidget *base, GdkEventButton *event) {
+    XRGProcessWidget *widget = (XRGProcessWidget *)base;
+
+    /* Calculate which row was clicked */
+    gint row = get_row_at_position(widget, (gint)event->y);
+    if (row < 0) {
+        return;  /* Clicked on header, no menu */
+    }
+
+    /* Find the process at this row */
+    GList *processes = xrg_process_collector_get_processes(widget->collector);
+    XRGProcessInfo *proc = g_list_nth_data(processes, row);
+
+    if (!proc) {
+        return;  /* No process at this row */
+    }
+
+    /* Create context menu */
+    GtkWidget *menu = gtk_menu_new();
+
+    /* Process name header (non-clickable) */
+    GtkWidget *header = gtk_menu_item_new_with_label(
+        g_strdup_printf("%s (PID %d)", proc->name, proc->pid));
+    gtk_widget_set_sensitive(header, FALSE);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), header);
+
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu),
+                          gtk_separator_menu_item_new());
+
+    /* Create menu data for callbacks */
+    ProcessMenuData *menu_data = g_new0(ProcessMenuData, 1);
+    menu_data->widget = widget;
+    menu_data->pid = proc->pid;
+    menu_data->name = g_strdup(proc->name);
+
+    /* Kill Process (SIGTERM) */
+    GtkWidget *kill_item = gtk_menu_item_new_with_label("Terminate (SIGTERM)");
+    g_signal_connect_data(kill_item, "activate",
+                          G_CALLBACK(on_kill_process), menu_data,
+                          NULL, 0);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), kill_item);
+
+    /* Force Kill Process (SIGKILL) */
+    ProcessMenuData *kill_data = g_new0(ProcessMenuData, 1);
+    kill_data->widget = widget;
+    kill_data->pid = proc->pid;
+    kill_data->name = g_strdup(proc->name);
+
+    GtkWidget *force_kill_item = gtk_menu_item_new_with_label("Force Kill (SIGKILL)");
+    g_signal_connect_data(force_kill_item, "activate",
+                          G_CALLBACK(on_force_kill_process), kill_data,
+                          free_menu_data, 0);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), force_kill_item);
+
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu),
+                          gtk_separator_menu_item_new());
+
+    /* Stop/Continue submenu */
+    ProcessMenuData *stop_data = g_new0(ProcessMenuData, 1);
+    stop_data->widget = widget;
+    stop_data->pid = proc->pid;
+    stop_data->name = g_strdup(proc->name);
+
+    GtkWidget *stop_item = gtk_menu_item_new_with_label("Pause (SIGSTOP)");
+    g_signal_connect_data(stop_item, "activate",
+                          G_CALLBACK(on_send_sigstop), stop_data,
+                          free_menu_data, 0);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), stop_item);
+
+    ProcessMenuData *cont_data = g_new0(ProcessMenuData, 1);
+    cont_data->widget = widget;
+    cont_data->pid = proc->pid;
+    cont_data->name = g_strdup(proc->name);
+
+    GtkWidget *cont_item = gtk_menu_item_new_with_label("Resume (SIGCONT)");
+    g_signal_connect_data(cont_item, "activate",
+                          G_CALLBACK(on_send_sigcont), cont_data,
+                          free_menu_data, 0);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), cont_item);
+
+    /* Free menu_data when menu is destroyed */
+    g_signal_connect_swapped(menu, "destroy",
+                             G_CALLBACK(free_menu_data), menu_data);
+
+    gtk_widget_show_all(menu);
+    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
 }

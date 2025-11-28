@@ -9,9 +9,6 @@ static gboolean parse_color(const gchar *str, GdkRGBA *color) {
     gboolean result = gdk_rgba_parse(color, str);
     if (!result) {
         g_warning("Failed to parse color string: '%s'", str);
-    } else {
-        g_message("Parsed color '%s' -> (%.3f, %.3f, %.3f, %.3f)",
-                  str, color->red, color->green, color->blue, color->alpha);
     }
     return result;
 }
