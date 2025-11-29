@@ -204,6 +204,11 @@ void xrg_battery_collector_update(XRGBatteryCollector *collector) {
     while ((entry = readdir(dir)) != NULL) {
         if (entry->d_name[0] == '.') continue;
 
+        /* Skip HID batteries (Bluetooth devices) - they can hang when queried */
+        if (strncmp(entry->d_name, "hid-", 4) == 0) {
+            continue;
+        }
+
         XRGBatteryInfo *info = xrg_battery_info_read(entry->d_name);
         if (info) {
             collector->batteries = g_slist_append(collector->batteries, info);

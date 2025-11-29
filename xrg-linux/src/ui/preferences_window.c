@@ -81,6 +81,11 @@ struct _XRGPreferencesWindow {
     GtkWidget *process_enabled_check;
     GtkWidget *process_height_spin;
 
+    /* TPU module tab widgets */
+    GtkWidget *tpu_enabled_check;
+    GtkWidget *tpu_height_spin;
+    GtkWidget *tpu_style_combo;
+
     /* Colors tab widgets */
     GtkWidget *theme_combo;
     GtkWidget *bg_color_button;
@@ -109,6 +114,7 @@ static GtkWidget* create_gpu_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_battery_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_temperature_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_aitoken_tab(XRGPreferencesWindow *win);
+static GtkWidget* create_tpu_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_process_tab(XRGPreferencesWindow *win);
 static GtkWidget* create_colors_tab(XRGPreferencesWindow *win);
 static void load_preferences_to_ui(XRGPreferencesWindow *win);
@@ -172,6 +178,10 @@ XRGPreferencesWindow* xrg_preferences_window_new(GtkWindow *parent, XRGPreferenc
     gtk_notebook_append_page(GTK_NOTEBOOK(win->notebook),
                             create_aitoken_tab(win),
                             gtk_label_new("AI Token Module"));
+
+    gtk_notebook_append_page(GTK_NOTEBOOK(win->notebook),
+                            create_tpu_tab(win),
+                            gtk_label_new("TPU Module"));
 
     gtk_notebook_append_page(GTK_NOTEBOOK(win->notebook),
                             create_process_tab(win),
@@ -907,6 +917,71 @@ static GtkWidget* create_process_tab(XRGPreferencesWindow *win) {
 }
 
 /**
+ * Create TPU module settings tab
+ */
+static GtkWidget* create_tpu_tab(XRGPreferencesWindow *win) {
+    GtkWidget *grid = gtk_grid_new();
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
+    gtk_container_set_border_width(GTK_CONTAINER(grid), 15);
+
+    gint row = 0;
+
+    /* Module enabled */
+    win->tpu_enabled_check = gtk_check_button_new_with_label("Show TPU Module");
+    gtk_grid_attach(GTK_GRID(grid), win->tpu_enabled_check, 0, row++, 2, 1);
+
+    /* Separator */
+    gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
+
+    /* Display settings */
+    GtkWidget *label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(label), "<b>Display Settings</b>");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+
+    /* Graph height */
+    label = gtk_label_new("Graph Height:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->tpu_height_spin = gtk_spin_button_new_with_range(40, 300, 10);
+    gtk_grid_attach(GTK_GRID(grid), win->tpu_height_spin, 1, row++, 1, 1);
+
+    /* Visual Style */
+    label = gtk_label_new("Visual Style:");
+    gtk_widget_set_halign(label, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
+    win->tpu_style_combo = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->tpu_style_combo), "Solid (Filled)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->tpu_style_combo), "Pixel (Chunky)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->tpu_style_combo), "Dot (Fine)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(win->tpu_style_combo), "Hollow (Outline)");
+    gtk_grid_attach(GTK_GRID(grid), win->tpu_style_combo, 1, row++, 1, 1);
+
+    /* Separator */
+    gtk_grid_attach(GTK_GRID(grid), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), 0, row++, 2, 1);
+
+    /* Info about TPU */
+    label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(label), "<b>About TPU Monitoring</b>");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+
+    label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(label),
+        "<i>Monitors Google Coral Edge TPU accelerators.\n"
+        "Shows inference operations per second and temperature.\n"
+        "Requires a Coral USB or PCIe TPU device.</i>");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+    gtk_grid_attach(GTK_GRID(grid), label, 0, row++, 2, 1);
+
+    /* Note: Colors are managed in the Colors tab */
+
+    return grid;
+}
+
+/**
  * Create global colors tab
  */
 static GtkWidget* create_colors_tab(XRGPreferencesWindow *win) {
@@ -1113,6 +1188,11 @@ static void load_preferences_to_ui(XRGPreferencesWindow *win) {
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->process_enabled_check), prefs->show_process);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->process_height_spin), prefs->graph_height_process);
 
+    /* TPU module tab */
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(win->tpu_enabled_check), prefs->show_tpu);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(win->tpu_height_spin), prefs->graph_height_tpu);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(win->tpu_style_combo), prefs->tpu_graph_style);
+
     /* Colors tab */
     /* Load color buttons FIRST (before setting theme combo, to avoid triggering callback) */
     gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(win->bg_color_button), &prefs->background_color);
@@ -1234,6 +1314,11 @@ static void save_ui_to_preferences(XRGPreferencesWindow *win) {
     prefs->show_process = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->process_enabled_check));
     prefs->graph_height_process = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->process_height_spin));
 
+    /* TPU module tab */
+    prefs->show_tpu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(win->tpu_enabled_check));
+    prefs->graph_height_tpu = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(win->tpu_height_spin));
+    prefs->tpu_graph_style = gtk_combo_box_get_active(GTK_COMBO_BOX(win->tpu_style_combo));
+
     /* Colors tab */
     gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->bg_color_button), &prefs->background_color);
     gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(win->graph_bg_color_button), &prefs->graph_bg_color);
@@ -1308,6 +1393,16 @@ void xrg_preferences_window_show(XRGPreferencesWindow *win) {
     g_return_if_fail(win != NULL);
     load_preferences_to_ui(win);
     gtk_widget_show_all(win->window);
+}
+
+/**
+ * Show preferences window and navigate to specific tab
+ */
+void xrg_preferences_window_show_tab(XRGPreferencesWindow *win, XRGPrefsTab tab) {
+    g_return_if_fail(win != NULL);
+    load_preferences_to_ui(win);
+    gtk_widget_show_all(win->window);
+    gtk_notebook_set_current_page(GTK_NOTEBOOK(win->notebook), (gint)tab);
 }
 
 /**

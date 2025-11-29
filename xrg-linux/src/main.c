@@ -15,6 +15,7 @@
 #include "collectors/aitoken_collector.h"
 #include "collectors/aitoken_pricing.h"
 #include "collectors/process_collector.h"
+#include "collectors/tpu_collector.h"
 #include "ui/preferences_window.h"
 
 #define SNAP_DISTANCE 20  /* Pixels from edge to snap */
@@ -44,6 +45,8 @@ typedef struct {
     GtkWidget *aitoken_drawing_area;
     GtkWidget *process_box;
     GtkWidget *process_drawing_area;
+    GtkWidget *tpu_box;
+    GtkWidget *tpu_drawing_area;
     XRGPreferences *prefs;
     XRGCPUCollector *cpu_collector;
     XRGMemoryCollector *memory_collector;
@@ -54,6 +57,7 @@ typedef struct {
     XRGSensorsCollector *sensors_collector;
     XRGAITokenCollector *aitoken_collector;
     XRGProcessCollector *process_collector;
+    XRGTPUCollector *tpu_collector;
     XRGPreferencesWindow *prefs_window;
     guint update_timer_id;
 
@@ -91,6 +95,8 @@ static gboolean on_title_bar_button_release(GtkWidget *widget, GdkEventButton *e
 static gboolean on_title_bar_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
 static void show_title_bar_context_menu(AppState *state, GdkEventButton *event);
 static void on_menu_preferences(GtkMenuItem *item, gpointer user_data);
+static void on_menu_aitoken_settings(GtkMenuItem *item, gpointer user_data);
+static void on_menu_tpu_settings(GtkMenuItem *item, gpointer user_data);
 static void on_menu_always_on_top(GtkCheckMenuItem *item, gpointer user_data);
 static void on_menu_reset_position(GtkMenuItem *item, gpointer user_data);
 static void on_menu_about(GtkMenuItem *item, gpointer user_data);
@@ -166,6 +172,10 @@ static gboolean on_process_motion_notify(GtkWidget *widget, GdkEventMotion *even
 static void show_process_context_menu(AppState *state, GdkEventButton *event);
 static void on_process_sort_cpu(GtkMenuItem *item, gpointer user_data);
 static void on_process_sort_memory(GtkMenuItem *item, gpointer user_data);
+static gboolean on_draw_tpu(GtkWidget *widget, cairo_t *cr, gpointer user_data);
+static gboolean on_tpu_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
+static gboolean on_tpu_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
+static void show_tpu_context_menu(AppState *state, GdkEventButton *event);
 static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
 static gboolean on_resize_grip_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
 static gboolean on_resize_grip_button_release(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
@@ -440,6 +450,16 @@ static gboolean on_title_bar_motion_notify(GtkWidget *widget, GdkEventMotion *ev
 static void on_menu_preferences(GtkMenuItem *item, gpointer user_data) {
     AppState *state = (AppState *)user_data;
     xrg_preferences_window_show(state->prefs_window);
+}
+
+static void on_menu_aitoken_settings(GtkMenuItem *item, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    xrg_preferences_window_show_tab(state->prefs_window, XRG_PREFS_TAB_AITOKEN);
+}
+
+static void on_menu_tpu_settings(GtkMenuItem *item, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    xrg_preferences_window_show_tab(state->prefs_window, XRG_PREFS_TAB_TPU);
 }
 
 static void on_menu_always_on_top(GtkCheckMenuItem *item, gpointer user_data) {
@@ -718,6 +738,7 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     state->sensors_collector = xrg_sensors_collector_new();
     state->aitoken_collector = xrg_aitoken_collector_new(200);
     state->process_collector = xrg_process_collector_new(10);  /* Top 10 processes */
+    state->tpu_collector = xrg_tpu_collector_new(200);  /* TPU/Coral monitoring */
 
     /* Create main window */
     state->window = gtk_application_window_new(app);
@@ -991,6 +1012,31 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
 
     gtk_box_pack_start(GTK_BOX(state->vbox), state->process_box, TRUE, TRUE, 0);
 
+    /* Create TPU module container */
+    state->tpu_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+
+    /* Create TPU drawing area */
+    state->tpu_drawing_area = gtk_drawing_area_new();
+    gint tpu_height = (state->prefs->layout_orientation == XRG_LAYOUT_HORIZONTAL)
+                      ? state->prefs->graph_width
+                      : state->prefs->graph_height_tpu;
+    gtk_widget_set_size_request(state->tpu_drawing_area,
+                                state->prefs->graph_width,
+                                tpu_height);
+
+    /* Enable tooltips */
+    gtk_widget_set_has_tooltip(state->tpu_drawing_area, TRUE);
+
+    /* Enable button press and motion events */
+    gtk_widget_add_events(state->tpu_drawing_area,
+                         GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK);
+    g_signal_connect(state->tpu_drawing_area, "draw", G_CALLBACK(on_draw_tpu), state);
+    g_signal_connect(state->tpu_drawing_area, "button-press-event", G_CALLBACK(on_tpu_button_press), state);
+    g_signal_connect(state->tpu_drawing_area, "motion-notify-event", G_CALLBACK(on_tpu_motion_notify), state);
+    gtk_box_pack_start(GTK_BOX(state->tpu_box), state->tpu_drawing_area, TRUE, TRUE, 0);
+
+    gtk_box_pack_start(GTK_BOX(state->vbox), state->tpu_box, TRUE, TRUE, 0);
+
     /* Set initial visibility based on preferences */
     gtk_widget_set_visible(state->cpu_box, state->prefs->show_cpu);
     gtk_widget_set_visible(state->memory_box, state->prefs->show_memory);
@@ -1001,6 +1047,7 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     gtk_widget_set_visible(state->sensors_box, state->prefs->show_temperature);
     gtk_widget_set_visible(state->aitoken_box, state->prefs->show_aitoken);
     gtk_widget_set_visible(state->process_box, state->prefs->show_process);
+    gtk_widget_set_visible(state->tpu_box, state->prefs->show_tpu);
 
     g_message("Initial module visibility - Battery: %s (prefs value: %d)",
               state->prefs->show_battery ? "SHOWN" : "HIDDEN",
@@ -2002,8 +2049,8 @@ static void show_aitoken_context_menu(AppState *state, GdkEventButton *event) {
 
     /* AI Token Settings */
     GtkWidget *settings_item = gtk_menu_item_new_with_label("AI Token Settings...");
-    g_signal_connect_swapped(settings_item, "activate",
-                             G_CALLBACK(xrg_preferences_window_show), state->prefs_window);
+    g_signal_connect(settings_item, "activate",
+                     G_CALLBACK(on_menu_aitoken_settings), state);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), settings_item);
 
     /* Separator */
@@ -4365,6 +4412,229 @@ static void on_process_sort_memory(GtkMenuItem *item, gpointer user_data) {
     gtk_widget_queue_draw(state->process_drawing_area);
 }
 
+/* ============================================================ */
+/* TPU Module Functions                                          */
+/* ============================================================ */
+
+/* Coral brand colors */
+#define CORAL_ORANGE_R 1.0
+#define CORAL_ORANGE_G 0.45
+#define CORAL_ORANGE_B 0.2
+
+#define CORAL_TEAL_R 0.0
+#define CORAL_TEAL_G 0.7
+#define CORAL_TEAL_B 0.7
+
+/**
+ * Get TPU status text
+ */
+static const gchar* get_tpu_status_text(XRGTPUStatus status) {
+    switch (status) {
+        case XRG_TPU_STATUS_CONNECTED:  return "Connected";
+        case XRG_TPU_STATUS_BUSY:       return "Inferencing";
+        case XRG_TPU_STATUS_ERROR:      return "Error";
+        case XRG_TPU_STATUS_DISCONNECTED:
+        default:                        return "Disconnected";
+    }
+}
+
+/**
+ * Draw TPU graph
+ */
+static gboolean on_draw_tpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    XRGPreferences *prefs = state->prefs;
+    XRGTPUCollector *collector = state->tpu_collector;
+
+    gint width = gtk_widget_get_allocated_width(widget);
+    gint height = gtk_widget_get_allocated_height(widget);
+
+    /* Draw background */
+    GdkRGBA *bg_color = &prefs->graph_bg_color;
+    cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
+    cairo_rectangle(cr, 0, 0, width, height);
+    cairo_fill(cr);
+
+    /* Draw border */
+    GdkRGBA *border_color = &prefs->border_color;
+    cairo_set_source_rgba(cr, border_color->red, border_color->green, border_color->blue, border_color->alpha);
+    cairo_set_line_width(cr, 1.0);
+    cairo_rectangle(cr, 0.5, 0.5, width - 1, height - 1);
+    cairo_stroke(cr);
+
+    /* Get TPU data */
+    XRGTPUStatus status = xrg_tpu_collector_get_status(collector);
+    const gchar *name = xrg_tpu_collector_get_name(collector);
+    gdouble inf_per_sec = xrg_tpu_collector_get_inferences_per_second(collector);
+    gdouble latency = xrg_tpu_collector_get_last_latency_ms(collector);
+    guint64 total_inf = xrg_tpu_collector_get_total_inferences(collector);
+
+    /* Get dataset for graph */
+    XRGDataset *rate_dataset = xrg_tpu_collector_get_inference_rate_dataset(collector);
+    gint count = xrg_dataset_get_count(rate_dataset);
+
+    /* Draw inference rate graph (coral orange) */
+    if (count >= 2) {
+        /* Find max value for scaling */
+        gdouble max_rate = 1.0;
+        for (gint i = 0; i < count; i++) {
+            gdouble val = xrg_dataset_get_value(rate_dataset, i);
+            if (val > max_rate) max_rate = val;
+        }
+        max_rate = max_rate * 1.2;  /* Add 20% headroom */
+
+        /* Draw inference rate (coral orange) */
+        cairo_set_source_rgba(cr, CORAL_ORANGE_R, CORAL_ORANGE_G, CORAL_ORANGE_B, 0.8);
+
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble value = xrg_dataset_get_value(rate_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (value / max_rate * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+    }
+
+    /* Draw status indicator (top-left circle) */
+    gdouble sr, sg, sb;
+    switch (status) {
+        case XRG_TPU_STATUS_CONNECTED:
+            sr = 0.2; sg = 0.8; sb = 0.3;  /* Green */
+            break;
+        case XRG_TPU_STATUS_BUSY:
+            sr = CORAL_ORANGE_R; sg = CORAL_ORANGE_G; sb = CORAL_ORANGE_B;
+            break;
+        case XRG_TPU_STATUS_ERROR:
+            sr = 0.9; sg = 0.2; sb = 0.2;  /* Red */
+            break;
+        default:
+            sr = 0.5; sg = 0.5; sb = 0.5;  /* Gray */
+            break;
+    }
+    cairo_set_source_rgba(cr, sr, sg, sb, 1.0);
+    cairo_arc(cr, 8, 8, 4, 0, 2 * G_PI);
+    cairo_fill(cr);
+
+    /* Overlay text labels */
+    GdkRGBA *text_color = &prefs->text_color;
+    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
+    cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 10.0);
+
+    /* Line 1: Device name */
+    cairo_move_to(cr, 16, 12);
+    cairo_show_text(cr, name);
+
+    /* Line 2: Inference rate or status */
+    gchar *rate_text;
+    if (inf_per_sec > 0) {
+        rate_text = g_strdup_printf("Rate: %.1f inf/s", inf_per_sec);
+    } else {
+        rate_text = g_strdup_printf("Status: %s", get_tpu_status_text(status));
+    }
+    cairo_move_to(cr, 5, 26);
+    cairo_show_text(cr, rate_text);
+    g_free(rate_text);
+
+    /* Line 3: Latency */
+    gchar *latency_text;
+    if (latency > 0) {
+        latency_text = g_strdup_printf("Latency: %.1f ms", latency);
+    } else {
+        latency_text = g_strdup_printf("Latency: --");
+    }
+    cairo_move_to(cr, 5, 38);
+    cairo_show_text(cr, latency_text);
+    g_free(latency_text);
+
+    /* Line 4: Total inferences */
+    gchar *total_text;
+    if (total_inf > 1000000) {
+        total_text = g_strdup_printf("Total: %.2fM inf", total_inf / 1000000.0);
+    } else if (total_inf > 1000) {
+        total_text = g_strdup_printf("Total: %.1fK inf", total_inf / 1000.0);
+    } else {
+        total_text = g_strdup_printf("Total: %lu inf", (unsigned long)total_inf);
+    }
+    cairo_move_to(cr, 5, 50);
+    cairo_show_text(cr, total_text);
+    g_free(total_text);
+
+    return FALSE;
+}
+
+/**
+ * TPU button press handler
+ */
+static gboolean on_tpu_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+    (void)widget;
+    AppState *state = (AppState *)user_data;
+
+    if (event->button == 3) {  /* Right click */
+        show_tpu_context_menu(state, event);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+/**
+ * TPU motion notify handler (for tooltips)
+ */
+static gboolean on_tpu_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data) {
+    (void)event;
+    AppState *state = (AppState *)user_data;
+    XRGTPUCollector *collector = state->tpu_collector;
+
+    const gchar *name = xrg_tpu_collector_get_name(collector);
+    XRGTPUStatus status = xrg_tpu_collector_get_status(collector);
+    gdouble inf_per_sec = xrg_tpu_collector_get_inferences_per_second(collector);
+    gdouble avg_latency = xrg_tpu_collector_get_avg_latency_ms(collector);
+    guint64 total_inf = xrg_tpu_collector_get_total_inferences(collector);
+
+    gchar *tooltip = g_strdup_printf("%s\n─────────────\nStatus: %s\nRate: %.2f inf/s\nAvg Latency: %.2f ms\nTotal: %lu inferences",
+                                     name, get_tpu_status_text(status),
+                                     inf_per_sec, avg_latency, (unsigned long)total_inf);
+    gtk_widget_set_tooltip_text(widget, tooltip);
+    g_free(tooltip);
+
+    return FALSE;
+}
+
+/**
+ * TPU context menu
+ */
+static void show_tpu_context_menu(AppState *state, GdkEventButton *event) {
+    GtkWidget *menu = gtk_menu_new();
+
+    /* TPU Settings */
+    GtkWidget *settings_item = gtk_menu_item_new_with_label("TPU Settings...");
+    g_signal_connect(settings_item, "activate",
+                     G_CALLBACK(on_menu_tpu_settings), state);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), settings_item);
+
+    /* Toggle visibility item */
+    GtkWidget *toggle_item = gtk_check_menu_item_new_with_label("Show TPU");
+    gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(toggle_item), state->prefs->show_tpu);
+    g_signal_connect(toggle_item, "toggled", G_CALLBACK(on_menu_preferences), state);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), toggle_item);
+
+    /* Stats file path info */
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+    const gchar *stats_path = xrg_tpu_collector_get_stats_file_path();
+    gchar *path_label = g_strdup_printf("Stats: %s", stats_path);
+    GtkWidget *path_item = gtk_menu_item_new_with_label(path_label);
+    gtk_widget_set_sensitive(path_item, FALSE);  /* Informational only */
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), path_item);
+    g_free(path_label);
+
+    gtk_widget_show_all(menu);
+    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+}
+
 /**
  * Update timer callback (1 second interval)
  */
@@ -4381,6 +4651,7 @@ static gboolean on_update_timer(gpointer user_data) {
     xrg_sensors_collector_update(state->sensors_collector);
     xrg_aitoken_collector_update(state->aitoken_collector);
     xrg_process_collector_update(state->process_collector);
+    xrg_tpu_collector_update(state->tpu_collector);
 
     /* Redraw graphs */
     gtk_widget_queue_draw(state->cpu_drawing_area);
@@ -4392,6 +4663,7 @@ static gboolean on_update_timer(gpointer user_data) {
     gtk_widget_queue_draw(state->sensors_drawing_area);
     gtk_widget_queue_draw(state->aitoken_drawing_area);
     gtk_widget_queue_draw(state->process_drawing_area);
+    gtk_widget_queue_draw(state->tpu_drawing_area);
 
     return G_SOURCE_CONTINUE;  /* Keep timer running */
 }

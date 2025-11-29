@@ -94,41 +94,107 @@ void xrg_gpu_collector_free(XRGGPUCollector *collector) {
 }
 
 /**
+ * Check if nvidia proprietary driver is in use (not nouveau)
+ * Returns TRUE if nvidia driver is found for any GPU
+ */
+static gboolean check_nvidia_proprietary_driver(void) {
+    DIR *dir = opendir(DRM_PATH);
+    if (!dir) return FALSE;
+
+    struct dirent *entry;
+    gboolean found_nvidia_driver = FALSE;
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strncmp(entry->d_name, "card", 4) != 0)
+            continue;
+        if (strchr(entry->d_name, '-') != NULL)
+            continue;
+
+        gchar *card_path = g_strdup_printf("%s/%s/device", DRM_PATH, entry->d_name);
+
+        /* Check vendor ID for NVIDIA (0x10de) */
+        gchar *vendor_path = g_strdup_printf("%s/vendor", card_path);
+        gchar *vendor_str = read_sysfs_string(vendor_path);
+        g_free(vendor_path);
+
+        if (vendor_str) {
+            guint16 vendor_id = (guint16)strtol(vendor_str, NULL, 16);
+            g_free(vendor_str);
+
+            if (vendor_id == 0x10de) {
+                /* Found NVIDIA card - check driver */
+                gchar *driver_link = g_strdup_printf("%s/driver", card_path);
+                gchar *driver_path = g_file_read_link(driver_link, NULL);
+                g_free(driver_link);
+
+                if (driver_path) {
+                    gchar *driver_name = g_path_get_basename(driver_path);
+                    g_free(driver_path);
+
+                    /* nvidia driver (not nouveau) means proprietary */
+                    if (driver_name && g_strcmp0(driver_name, "nvidia") == 0) {
+                        found_nvidia_driver = TRUE;
+                    }
+                    g_free(driver_name);
+                }
+            }
+        }
+        g_free(card_path);
+
+        if (found_nvidia_driver) break;
+    }
+    closedir(dir);
+    return found_nvidia_driver;
+}
+
+/**
+ * Try to initialize NVML backend via nvidia-smi
+ * Returns TRUE if successful
+ */
+static gboolean try_nvml_backend(XRGGPUCollector *collector) {
+    FILE *fp = popen("nvidia-smi --query-gpu=name --format=csv,noheader,nounits 2>/dev/null", "r");
+    if (!fp) return FALSE;
+
+    char buffer[256];
+    if (fgets(buffer, sizeof(buffer), fp) != NULL) {
+        int status = pclose(fp);
+        fp = NULL;
+
+        /* Check for nvidia-smi error messages */
+        if (status == 0 && strncmp(buffer, "NVIDIA-SMI", 10) != 0) {
+            collector->backend = XRG_GPU_BACKEND_NVML;
+            collector->gpu_name = g_strdup(g_strstrip(buffer));
+
+            /* Get memory total */
+            fp = popen("nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null", "r");
+            if (fp) {
+                if (fgets(buffer, sizeof(buffer), fp) != NULL) {
+                    collector->memory_total_mb = atof(buffer);
+                }
+                pclose(fp);
+            }
+            g_message("GPU: Using NVML backend for %s", collector->gpu_name);
+            return TRUE;
+        }
+    }
+    if (fp) pclose(fp);
+    return FALSE;
+}
+
+/**
  * Detect available GPU and select appropriate backend
  */
 static void detect_gpu_backend(XRGGPUCollector *collector) {
     DIR *dir;
     struct dirent *entry;
 
-    /* First, check for nvidia-smi (NVML backend) */
-    FILE *fp = popen("nvidia-smi --query-gpu=name --format=csv,noheader,nounits 2>/dev/null", "r");
-    if (fp) {
-        char buffer[256];
-        if (fgets(buffer, sizeof(buffer), fp) != NULL) {
-            int status = pclose(fp);
-            fp = NULL;  /* Mark as closed */
-
-            /* Check for nvidia-smi error messages (output to stdout, not stderr!) */
-            /* Error messages start with "NVIDIA-SMI" */
-            if (status == 0 && strncmp(buffer, "NVIDIA-SMI", 10) != 0) {
-                /* nvidia-smi works - use NVML backend */
-                collector->backend = XRG_GPU_BACKEND_NVML;
-                collector->gpu_name = g_strdup(g_strstrip(buffer));
-
-                /* Get memory total */
-                fp = popen("nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null", "r");
-                if (fp) {
-                    if (fgets(buffer, sizeof(buffer), fp) != NULL) {
-                        collector->memory_total_mb = atof(buffer);
-                    }
-                    pclose(fp);
-                }
-                g_message("GPU: Using NVML backend for %s", collector->gpu_name);
-                return;
-            }
-            /* nvidia-smi failed or returned error - fall through to DRM scan */
+    /* Only try nvidia-smi if proprietary nvidia driver is in use.
+     * This avoids blocking popen() calls when nouveau driver is active,
+     * as nvidia-smi hangs/times out without proprietary driver. */
+    if (check_nvidia_proprietary_driver()) {
+        if (try_nvml_backend(collector)) {
+            return;  /* Successfully using NVML */
         }
-        if (fp) pclose(fp);
     }
 
     /* Scan DRM devices for GPU hardware */

@@ -12,6 +12,22 @@ XRG is a **cross-platform** system resource monitoring application with native i
 - macOS: `Controllers/`, `Data Miners/`, `Graph Views/`, `Utility/`
 - Linux: `xrg-linux/src/collectors/`, `xrg-linux/src/widgets/`, `xrg-linux/src/core/`
 
+**Current Module Display Order** (must be sequential, no gaps):
+| Order | Module | macOS View | Linux Widget |
+|-------|--------|------------|--------------|
+| 0 | CPU | `XRGCPUView` | `cpu_widget` |
+| 1 | GPU | `XRGGPUView` | `gpu_widget` |
+| 2 | Memory | `XRGMemoryView` | `memory_widget` |
+| 3 | Battery | `XRGBatteryView` | `battery_widget` |
+| 4 | Temperature | `XRGTemperatureView` | `sensors_widget` |
+| 5 | Network | `XRGNetView` | `network_widget` |
+| 6 | Disk | `XRGDiskView` | `disk_widget` |
+| 7 | Weather | `XRGWeatherView` | (not ported) |
+| 8 | Stock | `XRGStockView` | (not ported) |
+| 9 | AI Tokens | `XRGAITokenView` | `aitoken_widget` |
+| 10 | Process | (not implemented) | `process_widget` |
+| 11 | TPU | (not implemented) | `tpu_widget` |
+
 ## Building and Running
 
 ### macOS Build Commands
@@ -227,243 +243,43 @@ m.alwaysDoesGraphUpdate = YES; // Updates even when window minimized
 
 ## Adding a New Module
 
-### macOS Module Implementation
+**Reference Implementation**: Use `XRGAITokenMiner.m` / `XRGAITokenView.m` (macOS) or `aitoken_collector.c` / `aitoken_widget.c` (Linux) as templates.
 
-Follow these steps to add a monitoring module (refer to AI Token implementation as example):
+### macOS Module Checklist
 
-### 1. Create Data Miner
+1. **Data Miner** (`Data Miners/XRGYourModuleMiner.{h,m}`)
+   - Inherit from `NSObject`, store data in `XRGDataSet` ring buffers
+   - Implement `graphUpdate:`, `setDataSize:` methods
 
-File: `Data Miners/XRGYourModuleMiner.h`
-```objc
-@interface XRGYourModuleMiner : NSObject
-@property NSMutableArray<XRGDataSet *> *dataValues;
-- (void)graphUpdate:(NSTimer *)aTimer;
-- (void)setDataSize:(NSInteger)numSamples;
-@end
-```
+2. **Graph View** (`Graph Views/XRGYourModuleView.{h,m}`)
+   - Inherit from `XRGGenericView`, own the miner instance
+   - In `awakeFromNib`: create miner, register `XRGModule` with **next sequential displayOrder**
+   - Implement `drawRect:` using miner data
 
-File: `Data Miners/XRGYourModuleMiner.m`
-```objc
-- (void)graphUpdate:(NSTimer *)aTimer {
-    // Collect metrics
-    // Store in XRGDataSet
-    [self.dataValues addValue:newValue];
-}
-```
+3. **Configuration** (`Other Sources/definitions.h`)
+   - Add `XRG_showYourModuleGraph` and `XRG_YourModuleOrder` keys
 
-### 2. Create Graph View
+4. **Window Controller** (`Controllers/XRGGraphWindow.{h,m}`)
+   - Add property and `setShowYourModuleGraph:` action
 
-File: `Graph Views/XRGYourModuleView.h`
-```objc
-#import "XRGGenericView.h"
-@interface XRGYourModuleView : XRGGenericView
-@end
-```
+5. **Xcode Project**: Add files to `Data Miners` and `Graph Views` groups
 
-File: `Graph Views/XRGYourModuleView.m`
-```objc
-- (void)awakeFromNib {
-    // Create miner
-    self.miner = [[XRGYourModuleMiner alloc] init];
+6. **NIB Files**: Add view to `MainMenu.nib`, checkbox to `Preferences.nib`
 
-    // Register module
-    XRGModule *m = [[XRGModule alloc] initWithName:@"YourModule" andReference:self];
-    m.displayOrder = 10;  // Sequential order: 0-9 already used (CPU through AI Tokens)
-    m.isDisplayed = [appSettings showYourModuleGraph];
-    m.doesGraphUpdate = YES;
-    [moduleManager addModule:m];
-}
+### Linux Module Checklist
 
-- (void)drawRect:(NSRect)rect {
-    // Draw graph using [self.miner dataValues]
-}
-```
+1. **Collector** (`xrg-linux/src/collectors/yourmodule_collector.{c,h}`)
+   - Define struct with `XRGDataSet`, implement `_new()`, `_update()`, `_free()`
 
-**Important**: Display order must be sequential (0-9 currently used). Gaps in numbering can cause layout issues and overlapping modules.
+2. **Widget** (`xrg-linux/src/widgets/yourmodule_widget.{c,h}`)
+   - Create `GtkDrawingArea`, connect `draw` signal, render with Cairo
 
-### 3. Update Configuration
+3. **Registration** (`xrg-linux/src/ui/main_window.c`)
+   - Create collector, widget, add to modules box, set up timer
 
-In `Other Sources/definitions.h`:
-```objc
-#define XRG_showYourModuleGraph    @"showYourModuleGraph"
-#define XRG_YourModuleOrder        @"YourModuleOrder"
-```
+4. **CMakeLists.txt**: Add to `COLLECTOR_SOURCES` and `WIDGET_SOURCES`
 
-### 4. Wire Up Window Controller
-
-In `Controllers/XRGGraphWindow.h`:
-```objc
-#import "XRGYourModuleView.h"
-@property XRGYourModuleView *yourModuleView;
-- (IBAction)setShowYourModuleGraph:(id)sender;
-```
-
-In `Controllers/XRGGraphWindow.m`:
-```objc
-- (IBAction)setShowYourModuleGraph:(id)sender {
-    [self.backgroundView expandWindow];
-    [self.moduleManager setModule:@"YourModule" isDisplayed:([sender state] == NSOnState)];
-    [self setMinSize:[self.moduleManager getMinSize]];
-    [self checkWindowSize];
-    [self.moduleManager windowChangedToSize:[self frame].size];
-}
-```
-
-### 5. Add to Xcode Project
-
-1. Right-click `Data Miners` group → Add Files
-2. Right-click `Graph Views` group → Add Files
-3. Ensure target `XRG` is checked
-4. Build to verify
-
-### 6. Update NIB Files
-
-**MainMenu.nib**:
-- Add Custom View with class `XRGYourModuleView`
-- Connect outlet from `XRGGraphWindow` to view
-
-**Preferences.nib**:
-- Add checkbox "Show Your Module"
-- Bind to `NSUserDefaults.showYourModuleGraph`
-- Connect action to `setShowYourModuleGraph:`
-
-### Linux Module Implementation
-
-Follow these steps to add a monitoring module to the Linux port:
-
-**1. Create Data Collector**
-
-File: `xrg-linux/src/collectors/yourmodule_collector.h`
-```c
-#ifndef YOURMODULE_COLLECTOR_H
-#define YOURMODULE_COLLECTOR_H
-
-#include "core/dataset.h"
-
-typedef struct {
-    XRGDataSet *dataset;
-    // Add fields for metric tracking
-} YourModuleCollector;
-
-YourModuleCollector* yourmodule_collector_new(void);
-void yourmodule_collector_update(YourModuleCollector *collector);
-void yourmodule_collector_free(YourModuleCollector *collector);
-
-#endif
-```
-
-File: `xrg-linux/src/collectors/yourmodule_collector.c`
-```c
-#include "yourmodule_collector.h"
-#include <stdio.h>
-
-YourModuleCollector* yourmodule_collector_new(void) {
-    YourModuleCollector *collector = g_new0(YourModuleCollector, 1);
-    collector->dataset = xrg_dataset_new(300); // 300 samples = 5 minutes at 1Hz
-    return collector;
-}
-
-void yourmodule_collector_update(YourModuleCollector *collector) {
-    // Read from /proc or /sys
-    // Parse data
-    // Add to dataset
-    xrg_dataset_add_value(collector->dataset, new_value);
-}
-
-void yourmodule_collector_free(YourModuleCollector *collector) {
-    if (collector->dataset) xrg_dataset_free(collector->dataset);
-    g_free(collector);
-}
-```
-
-**2. Create Graph Widget**
-
-File: `xrg-linux/src/widgets/yourmodule_widget.h`
-```c
-#ifndef YOURMODULE_WIDGET_H
-#define YOURMODULE_WIDGET_H
-
-#include <gtk/gtk.h>
-#include "collectors/yourmodule_collector.h"
-
-GtkWidget* yourmodule_widget_new(YourModuleCollector *collector);
-
-#endif
-```
-
-File: `xrg-linux/src/widgets/yourmodule_widget.c`
-```c
-#include "yourmodule_widget.h"
-#include <cairo.h>
-
-typedef struct {
-    YourModuleCollector *collector;
-} YourModuleWidgetPrivate;
-
-static gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
-    YourModuleWidgetPrivate *priv = user_data;
-
-    // Draw background
-    cairo_set_source_rgba(cr, 0.05, 0.08, 0.15, 0.95);
-    cairo_paint(cr);
-
-    // Draw graph using Cairo (similar to macOS Quartz)
-    // See graph_widget.c for helper functions
-
-    return FALSE;
-}
-
-GtkWidget* yourmodule_widget_new(YourModuleCollector *collector) {
-    GtkWidget *widget = gtk_drawing_area_new();
-    gtk_widget_set_size_request(widget, 200, 60);
-
-    YourModuleWidgetPrivate *priv = g_new0(YourModuleWidgetPrivate, 1);
-    priv->collector = collector;
-
-    g_signal_connect(widget, "draw", G_CALLBACK(on_draw), priv);
-
-    return widget;
-}
-```
-
-**3. Register Module**
-
-In `xrg-linux/src/ui/main_window.c`:
-```c
-// Add collector
-YourModuleCollector *yourmodule_collector = yourmodule_collector_new();
-
-// Add widget
-GtkWidget *yourmodule_widget = yourmodule_widget_new(yourmodule_collector);
-gtk_box_pack_start(GTK_BOX(modules_box), yourmodule_widget, FALSE, FALSE, 0);
-
-// Add update timer
-g_timeout_add(1000, (GSourceFunc)yourmodule_update_callback, yourmodule_collector);
-```
-
-**4. Update CMakeLists.txt**
-
-Add to `xrg-linux/CMakeLists.txt`:
-```cmake
-set(COLLECTOR_SOURCES
-    # ... existing collectors ...
-    src/collectors/yourmodule_collector.c
-)
-
-set(WIDGET_SOURCES
-    # ... existing widgets ...
-    src/widgets/yourmodule_widget.c
-)
-```
-
-**5. Build and Test**
-
-```bash
-cd xrg-linux/build
-cmake ..
-make -j$(nproc)
-./xrg-linux
-```
+5. **Build**: `cd xrg-linux/build && cmake .. && make -j$(nproc)`
 
 ## Common Development Tasks
 
@@ -606,23 +422,6 @@ int main() {
 - **Comments**: License header in all files (GPL v2), inline comments for complex logic
 - **Indentation**: 4 spaces (not tabs in source, tabs in NIB XML)
 
-## Key Files Reference
-
-| File | Purpose |
-|------|---------|
-| `Controllers/XRGAppDelegate.{h,m}` | App lifecycle, preferences window |
-| `Controllers/XRGGraphWindow.{h,m}` | Main window, module hosting |
-| `Controllers/XRGPrefController.{h,m}` | Preferences UI controller |
-| `Utility/XRGModuleManager.{h,m}` | Module orchestration, layout |
-| `Utility/XRGSettings.{h,m}` | User defaults wrapper |
-| `Utility/XRGDataSet.{h,m}` | Ring buffer for time series |
-| `Utility/XRGModule.{h,m}` | Module metadata container |
-| `Graph Views/XRGGenericView.{h,m}` | Base view class, drawing helpers |
-| `Other Sources/definitions.h` | Constants, preference keys |
-| `Resources/MainMenu.nib` | Main UI layout |
-| `Resources/Preferences.nib` | Preferences UI layout |
-| `XRG-Info.plist` | Bundle metadata |
-
 ## Common Issues
 
 ### Network Interface Changes
@@ -655,8 +454,7 @@ If XRG uses excessive CPU:
 ### Module Display Order Issues
 
 If modules overlap or have incorrect positioning:
-- Display order must be **sequential** (0, 1, 2, 3...)
-- Current assignments: CPU(0), GPU(1), Memory(2), Battery(3), Temperature(4), Network(5), Disk(6), Weather(7), Stock(8), AI Tokens(9)
+- Display order must be **sequential** (0, 1, 2, 3...) - see table in Overview section
 - Gaps in numbering cause layout problems - use next sequential number when adding modules
 - Check `m.displayOrder` in each view's `awakeFromNib` method
 
@@ -737,6 +535,154 @@ If duplicate files exist, remove them from the Xcode project (not just filesyste
 1. Select file in Xcode Project Navigator
 2. Delete → "Remove Reference" (not "Move to Trash")
 3. Or edit `XRG.xcodeproj/project.pbxproj` to remove PBXBuildFile entries
+
+### Linux: Preferences Window Tab Navigation
+
+The preferences window supports direct navigation to specific module tabs via `xrg_preferences_window_show_tab()`. Tab indices are defined in `preferences_window.h`:
+
+```c
+typedef enum {
+    XRG_PREFS_TAB_WINDOW = 0,
+    XRG_PREFS_TAB_CPU = 1,
+    XRG_PREFS_TAB_MEMORY = 2,
+    XRG_PREFS_TAB_NETWORK = 3,
+    XRG_PREFS_TAB_DISK = 4,
+    XRG_PREFS_TAB_GPU = 5,
+    XRG_PREFS_TAB_BATTERY = 6,
+    XRG_PREFS_TAB_TEMPERATURE = 7,
+    XRG_PREFS_TAB_AITOKEN = 8,
+    XRG_PREFS_TAB_TPU = 9,
+    XRG_PREFS_TAB_PROCESS = 10,
+    XRG_PREFS_TAB_COLORS = 11
+} XRGPrefsTab;
+```
+
+Use this to implement "Settings..." context menu items that navigate directly to the module's tab:
+
+```c
+static void on_menu_module_settings(GtkMenuItem *item, gpointer user_data) {
+    AppState *state = (AppState *)user_data;
+    xrg_preferences_window_show_tab(state->prefs_window, XRG_PREFS_TAB_MODULE);
+}
+```
+
+### Linux: TPU Module (Coral Edge TPU)
+
+The TPU module monitors Google Coral Edge TPU accelerators via USB. Files:
+- `xrg-linux/src/collectors/tpu_collector.{c,h}` - Detects USB TPU devices at `/sys/bus/usb/devices/`
+- `xrg-linux/src/widgets/tpu_widget.{c,h}` - Graph widget for TPU status
+
+The TPU settings panel includes enable/disable, graph height, and visual style options.
+
+### Linux: GPU Collector nvidia-smi Blocking
+
+**Symptom**: XRG takes 10+ seconds to start, or hangs completely during initialization.
+
+**Cause**: The GPU collector calls `popen("nvidia-smi ...")` to detect NVIDIA GPUs. When the nouveau driver is active (instead of proprietary nvidia), nvidia-smi either times out or blocks indefinitely.
+
+**Diagnosis**:
+```bash
+# Check which driver is in use
+cat /sys/class/drm/card*/device/driver/module/drivers
+
+# If you see "pci:nouveau" instead of "pci:nvidia", that's the issue
+```
+
+**Solution** (implemented Nov 2025): The `detect_gpu_backend()` function now checks for the proprietary nvidia driver via sysfs BEFORE calling nvidia-smi:
+
+```c
+// gpu_collector.c - check_nvidia_proprietary_driver()
+// Scans /sys/class/drm/card*/device/ for vendor=0x10de (NVIDIA)
+// AND driver/module/drivers containing "pci:nvidia" (not "pci:nouveau")
+// Only returns TRUE if proprietary driver is confirmed
+```
+
+**Key insight**: Always use non-blocking sysfs checks before calling external tools like nvidia-smi that may hang.
+
+### Linux: Battery Collector HID Device Blocking
+
+**Symptom**: XRG opens but shows "Not Responding" dialog. Window appears but graphs never render.
+
+**Cause**: Bluetooth HID devices (keyboards, mice, trackpads) appear in `/sys/class/power_supply/` as `hid-XX:XX:XX:XX:XX:XX-battery`. Reading certain sysfs files for these devices (especially `status`) can block indefinitely if the Bluetooth device is disconnected, sleeping, or has communication issues.
+
+**Diagnosis**:
+```bash
+# List power supply devices
+ls /sys/class/power_supply/
+
+# Look for hid-* entries like:
+# hid-d0:81:7a:ee:1f:c6-battery  (Apple Magic Trackpad, etc.)
+
+# Test if it blocks:
+timeout 2 cat /sys/class/power_supply/hid-*/status
+# If this times out, that device blocks reads
+```
+
+**Solution** (implemented Nov 2025): Skip all HID batteries in the battery collector:
+
+```c
+// battery_collector.c - xrg_battery_collector_update()
+while ((entry = readdir(dir)) != NULL) {
+    if (entry->d_name[0] == '.') continue;
+
+    /* Skip HID batteries (Bluetooth devices) - they can hang when queried */
+    if (strncmp(entry->d_name, "hid-", 4) == 0) {
+        continue;
+    }
+    // ... process non-HID batteries
+}
+```
+
+### Linux: Debugging GTK Application Hangs
+
+When the GTK main loop blocks, use this debugging approach:
+
+**1. Add timing to the update timer callback**:
+```c
+// main.c - temporarily add to on_update_timer()
+static gboolean on_update_timer(gpointer data) {
+    gint64 start, end;
+
+    start = g_get_monotonic_time();
+    xrg_cpu_collector_update(app->cpu_collector);
+    end = g_get_monotonic_time();
+    g_message("CPU update: %ldμs", end - start);
+
+    start = g_get_monotonic_time();
+    xrg_battery_collector_update(app->battery_collector);
+    end = g_get_monotonic_time();
+    g_message("Battery update: %ldμs", end - start);
+
+    // ... repeat for each collector
+}
+```
+
+**2. Run with strace to trace blocking syscalls**:
+```bash
+# Trace file operations with timing
+timeout 15 strace -ttt -f -e trace=open,openat,read ./xrg-linux 2>&1 | tee trace.log
+
+# Look for long gaps between timestamps - indicates blocking
+```
+
+**3. Test individual collectors via CLI test utility**:
+```bash
+# Build and run CLI test (if available)
+./xrg-cli-test -l -n 1  # List collectors, run 1 iteration
+
+# Or write a minimal test that calls only one collector
+```
+
+**Key patterns that cause hangs**:
+- `popen()` to external tools that may not exist or timeout
+- Reading sysfs files for hardware that's disconnected/sleeping
+- Network operations without timeouts
+- Blocking D-Bus calls
+
+**Prevention**: Always test on systems with diverse hardware configurations, especially:
+- Systems with nouveau instead of proprietary nvidia
+- Systems with Bluetooth peripherals
+- Laptops vs desktops (different power supply configurations)
 
 ## AI Token Monitoring
 

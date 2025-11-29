@@ -21,6 +21,24 @@ void xrg_preferences_window_set_applied_callback(XRGPreferencesWindow *win,
 void xrg_preferences_window_show(XRGPreferencesWindow *win);
 void xrg_preferences_window_hide(XRGPreferencesWindow *win);
 
+/* Show window and navigate to specific module tab */
+typedef enum {
+    XRG_PREFS_TAB_WINDOW = 0,
+    XRG_PREFS_TAB_CPU = 1,
+    XRG_PREFS_TAB_MEMORY = 2,
+    XRG_PREFS_TAB_NETWORK = 3,
+    XRG_PREFS_TAB_DISK = 4,
+    XRG_PREFS_TAB_GPU = 5,
+    XRG_PREFS_TAB_BATTERY = 6,
+    XRG_PREFS_TAB_TEMPERATURE = 7,
+    XRG_PREFS_TAB_AITOKEN = 8,
+    XRG_PREFS_TAB_TPU = 9,
+    XRG_PREFS_TAB_PROCESS = 10,
+    XRG_PREFS_TAB_COLORS = 11
+} XRGPrefsTab;
+
+void xrg_preferences_window_show_tab(XRGPreferencesWindow *win, XRGPrefsTab tab);
+
 /* Cleanup */
 void xrg_preferences_window_free(XRGPreferencesWindow *win);
 

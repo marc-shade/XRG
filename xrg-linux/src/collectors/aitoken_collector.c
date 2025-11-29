@@ -1,6 +1,8 @@
 #include "aitoken_collector.h"
 #include "aitoken_pricing.h"
+#ifndef XRG_CLI_TEST
 #include "../core/preferences.h"
+#endif
 #include <glib/gstdio.h>
 #include <json-glib/json-glib.h>
 #include <string.h>
@@ -1178,6 +1180,7 @@ void xrg_aitoken_collector_clear_alert(XRGAITokenCollector *collector) {
     collector->alert_message = NULL;
 }
 
+#ifndef XRG_CLI_TEST
 /**
  * Update cost calculations based on preferences
  */
@@ -1357,3 +1360,4 @@ void xrg_aitoken_collector_update_costs(XRGAITokenCollector *collector,
         g_free(new_alert);
     }
 }
+#endif /* XRG_CLI_TEST */

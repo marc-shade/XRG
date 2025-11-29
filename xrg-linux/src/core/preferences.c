@@ -94,6 +94,7 @@ void xrg_preferences_set_defaults(XRGPreferences *prefs) {
     prefs->show_battery = TRUE;
     prefs->show_aitoken = TRUE;
     prefs->show_process = TRUE;
+    prefs->show_tpu = TRUE;  /* TPU/Coral monitoring */
     prefs->show_weather = FALSE;  /* Disabled by default (needs API key) */
     prefs->show_stock = FALSE;    /* Disabled by default (needs API key) */
 
@@ -168,6 +169,7 @@ void xrg_preferences_set_defaults(XRGPreferences *prefs) {
     prefs->graph_height_battery = 40;
     prefs->graph_height_aitoken = 60;
     prefs->graph_height_process = 120;  /* Taller for process list */
+    prefs->graph_height_tpu = 70;  /* TPU inference monitoring */
 
     /* Graph visual styles (default to SOLID) */
     prefs->cpu_graph_style = XRG_GRAPH_STYLE_SOLID;
@@ -178,6 +180,7 @@ void xrg_preferences_set_defaults(XRGPreferences *prefs) {
     prefs->battery_graph_style = XRG_GRAPH_STYLE_SOLID;
     prefs->temperature_graph_style = XRG_GRAPH_STYLE_SOLID;
     prefs->aitoken_graph_style = XRG_GRAPH_STYLE_SOLID;
+    prefs->tpu_graph_style = XRG_GRAPH_STYLE_SOLID;
 
     /* Temperature settings */
     prefs->temperature_units = XRG_TEMP_CELSIUS;  /* Default to Celsius */
@@ -285,10 +288,14 @@ gboolean xrg_preferences_load(XRGPreferences *prefs) {
         prefs->show_process = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_process", &key_error);
         if (key_error) { g_error_free(key_error); key_error = NULL; }
     }
+    if (g_key_file_has_key(prefs->keyfile, "Modules", "show_tpu", NULL)) {
+        prefs->show_tpu = g_key_file_get_boolean(prefs->keyfile, "Modules", "show_tpu", &key_error);
+        if (key_error) { g_error_free(key_error); key_error = NULL; }
+    }
 
-    g_message("Loaded module visibility: CPU=%d, Mem=%d, Net=%d, Disk=%d, GPU=%d, Temp=%d, Bat=%d, AI=%d, Proc=%d",
+    g_message("Loaded module visibility: CPU=%d, Mem=%d, Net=%d, Disk=%d, GPU=%d, Temp=%d, Bat=%d, AI=%d, Proc=%d, TPU=%d",
               prefs->show_cpu, prefs->show_memory, prefs->show_network, prefs->show_disk,
-              prefs->show_gpu, prefs->show_temperature, prefs->show_battery, prefs->show_aitoken, prefs->show_process);
+              prefs->show_gpu, prefs->show_temperature, prefs->show_battery, prefs->show_aitoken, prefs->show_process, prefs->show_tpu);
 
     /* Load activity bars setting */
     prefs->show_activity_bars = g_key_file_get_boolean(prefs->keyfile, "Display", "show_activity_bars", NULL);
@@ -381,6 +388,7 @@ gboolean xrg_preferences_load(XRGPreferences *prefs) {
     prefs->battery_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "battery_style", NULL);
     prefs->temperature_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "temperature_style", NULL);
     prefs->aitoken_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "aitoken_style", NULL);
+    prefs->tpu_graph_style = g_key_file_get_integer(prefs->keyfile, "GraphStyles", "tpu_style", NULL);
 
     /* Load Temperature settings */
     prefs->temperature_units = g_key_file_get_integer(prefs->keyfile, "Temperature", "units", NULL);
@@ -483,6 +491,7 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
     g_key_file_set_boolean(prefs->keyfile, "Modules", "show_battery", prefs->show_battery);
     g_key_file_set_boolean(prefs->keyfile, "Modules", "show_aitoken", prefs->show_aitoken);
     g_key_file_set_boolean(prefs->keyfile, "Modules", "show_process", prefs->show_process);
+    g_key_file_set_boolean(prefs->keyfile, "Modules", "show_tpu", prefs->show_tpu);
 
     /* Save activity bars setting */
     g_key_file_set_boolean(prefs->keyfile, "Display", "show_activity_bars", prefs->show_activity_bars);
@@ -594,6 +603,7 @@ gboolean xrg_preferences_save(XRGPreferences *prefs) {
     g_key_file_set_integer(prefs->keyfile, "GraphStyles", "battery_style", prefs->battery_graph_style);
     g_key_file_set_integer(prefs->keyfile, "GraphStyles", "temperature_style", prefs->temperature_graph_style);
     g_key_file_set_integer(prefs->keyfile, "GraphStyles", "aitoken_style", prefs->aitoken_graph_style);
+    g_key_file_set_integer(prefs->keyfile, "GraphStyles", "tpu_style", prefs->tpu_graph_style);
 
     /* Save temperature settings */
     g_key_file_set_integer(prefs->keyfile, "Temperature", "units", prefs->temperature_units);

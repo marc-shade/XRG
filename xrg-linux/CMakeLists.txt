@@ -51,6 +51,7 @@ set(COLLECTOR_SOURCES
     src/collectors/battery_collector.c
     src/collectors/aitoken_collector.c
     src/collectors/process_collector.c
+    src/collectors/tpu_collector.c
 )
 
 set(WIDGET_SOURCES
@@ -65,6 +66,7 @@ set(WIDGET_SOURCES
     src/widgets/battery_widget.c
     src/widgets/aitoken_widget.c
     src/widgets/process_widget.c
+    src/widgets/tpu_widget.c
 )
 
 set(CORE_SOURCES
@@ -112,8 +114,46 @@ if(UPOWER_FOUND)
     target_compile_definitions(xrg-linux PRIVATE HAVE_UPOWER)
 endif()
 
+# Core sources without GTK-dependent preferences for CLI test
+set(CLI_CORE_SOURCES
+    src/core/module_manager.c
+    src/core/dataset.c
+    src/core/utils.c
+)
+
+# CLI Test utility (no GTK GUI, just collectors)
+add_executable(xrg-cli-test
+    src/tests/cli_test.c
+    ${COLLECTOR_SOURCES}
+    ${CLI_CORE_SOURCES}
+)
+
+# Define to skip preferences in collectors for CLI test
+target_compile_definitions(xrg-cli-test PRIVATE XRG_CLI_TEST)
+
+target_link_libraries(xrg-cli-test
+    ${GLIB_LIBRARIES}
+    ${SQLITE3_LIBRARIES}
+    ${CURL_LIBRARIES}
+    ${JSON_GLIB_LIBRARIES}
+    m
+)
+
+# Optional libraries for CLI test
+if(SENSORS_FOUND)
+    target_include_directories(xrg-cli-test PRIVATE ${SENSORS_INCLUDE_DIRS})
+    target_link_libraries(xrg-cli-test ${SENSORS_LIBRARIES})
+    target_compile_definitions(xrg-cli-test PRIVATE HAVE_SENSORS)
+endif()
+
+if(UPOWER_FOUND)
+    target_include_directories(xrg-cli-test PRIVATE ${UPOWER_INCLUDE_DIRS})
+    target_link_libraries(xrg-cli-test ${UPOWER_LIBRARIES})
+    target_compile_definitions(xrg-cli-test PRIVATE HAVE_UPOWER)
+endif()
+
 # Installation
-install(TARGETS xrg-linux DESTINATION bin)
+install(TARGETS xrg-linux xrg-cli-test DESTINATION bin)
 install(FILES data/xrg-linux.desktop DESTINATION share/applications)
 install(FILES data/icons/xrg-linux.svg DESTINATION share/icons/hicolor/scalable/apps)
 
