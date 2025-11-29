@@ -574,6 +574,24 @@ The TPU module monitors Google Coral Edge TPU accelerators via USB. Files:
 
 The TPU settings panel includes enable/disable, graph height, and visual style options.
 
+**Stats File Integration**: The TPU collector reads inference statistics from `/tmp/xrg-coral-tpu-stats.json`. This file must be written by the TPU inference engine (e.g., Coral MCP server) in the following format:
+
+```json
+{
+  "total_inferences": 123,
+  "last_latency_ms": 18.5,
+  "avg_latency_ms": 19.2,
+  "model_name": "mobilenet_v2_edgetpu.tflite",
+  "timestamp": 1234567890.123
+}
+```
+
+For the Coral TPU MCP server, use the `xrg_tpu_stats` Python module:
+```python
+from xrg_tpu_stats import record_inference
+record_inference(latency_ms=18.5, model_name="mobilenet_v2")
+```
+
 ### Linux: GPU Collector nvidia-smi Blocking
 
 **Symptom**: XRG takes 10+ seconds to start, or hangs completely during initialization.
