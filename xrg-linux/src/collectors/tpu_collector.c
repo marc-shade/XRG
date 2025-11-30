@@ -38,6 +38,11 @@ struct _XRGTPUCollector {
     XRGDataset *inference_rate_dataset;
     XRGDataset *latency_dataset;
 
+    /* Category-specific rate datasets for 3-color display */
+    XRGDataset *direct_rate_dataset;
+    XRGDataset *hooked_rate_dataset;
+    XRGDataset *logged_rate_dataset;
+
     /* Device info */
     XRGTPUStatus status;
     XRGTPUType type;
@@ -52,6 +57,14 @@ struct _XRGTPUCollector {
     gdouble last_latency_ms;
     gdouble temperature;
     gboolean has_temperature;
+
+    /* Category breakdown (direct/hooked/logged) */
+    guint64 direct_inferences;
+    guint64 hooked_inferences;
+    guint64 logged_inferences;
+    guint64 prev_direct;
+    guint64 prev_hooked;
+    guint64 prev_logged;
 
     /* Timing for rate calculation */
     gint64 last_update_time;
@@ -72,6 +85,11 @@ XRGTPUCollector* xrg_tpu_collector_new(gint history_size) {
     collector->inference_rate_dataset = xrg_dataset_new(history_size);
     collector->latency_dataset = xrg_dataset_new(history_size);
 
+    /* Category-specific datasets for 3-color display */
+    collector->direct_rate_dataset = xrg_dataset_new(history_size);
+    collector->hooked_rate_dataset = xrg_dataset_new(history_size);
+    collector->logged_rate_dataset = xrg_dataset_new(history_size);
+
     collector->status = XRG_TPU_STATUS_DISCONNECTED;
     collector->type = XRG_TPU_TYPE_NONE;
     collector->device_path = NULL;
@@ -85,6 +103,14 @@ XRGTPUCollector* xrg_tpu_collector_new(gint history_size) {
     collector->last_latency_ms = 0.0;
     collector->temperature = 0.0;
     collector->has_temperature = FALSE;
+
+    /* Category breakdown */
+    collector->direct_inferences = 0;
+    collector->hooked_inferences = 0;
+    collector->logged_inferences = 0;
+    collector->prev_direct = 0;
+    collector->prev_hooked = 0;
+    collector->prev_logged = 0;
 
     collector->last_update_time = g_get_monotonic_time();
 
@@ -100,6 +126,9 @@ void xrg_tpu_collector_free(XRGTPUCollector *collector) {
 
     xrg_dataset_free(collector->inference_rate_dataset);
     xrg_dataset_free(collector->latency_dataset);
+    xrg_dataset_free(collector->direct_rate_dataset);
+    xrg_dataset_free(collector->hooked_rate_dataset);
+    xrg_dataset_free(collector->logged_rate_dataset);
     g_free(collector->device_path);
     g_free(collector->device_name);
     g_free(collector->model_name);
@@ -255,6 +284,27 @@ static void read_stats_file(XRGTPUCollector *collector) {
         collector->has_temperature = TRUE;
     }
 
+    /* Parse by_category breakdown for 3-color display */
+    if (json_object_has_member(obj, "by_category")) {
+        JsonObject *by_category = json_object_get_object_member(obj, "by_category");
+        if (by_category) {
+            if (json_object_has_member(by_category, "direct")) {
+                collector->direct_inferences = json_object_get_int_member(by_category, "direct");
+            }
+            if (json_object_has_member(by_category, "hooked")) {
+                collector->hooked_inferences = json_object_get_int_member(by_category, "hooked");
+            }
+            if (json_object_has_member(by_category, "logged")) {
+                collector->logged_inferences = json_object_get_int_member(by_category, "logged");
+            }
+        }
+    } else {
+        /* Fallback: If no by_category, all are "direct" */
+        collector->direct_inferences = collector->total_inferences;
+        collector->hooked_inferences = 0;
+        collector->logged_inferences = 0;
+    }
+
     g_object_unref(parser);
 }
 
@@ -290,11 +340,39 @@ void xrg_tpu_collector_update(XRGTPUCollector *collector) {
         }
     }
 
+    /* Calculate category-specific rates (per second) */
+    gdouble direct_rate = 0.0;
+    gdouble hooked_rate = 0.0;
+    gdouble logged_rate = 0.0;
+
+    if (elapsed_seconds > 0) {
+        guint64 direct_delta = collector->direct_inferences > collector->prev_direct ?
+                               collector->direct_inferences - collector->prev_direct : 0;
+        guint64 hooked_delta = collector->hooked_inferences > collector->prev_hooked ?
+                               collector->hooked_inferences - collector->prev_hooked : 0;
+        guint64 logged_delta = collector->logged_inferences > collector->prev_logged ?
+                               collector->logged_inferences - collector->prev_logged : 0;
+
+        direct_rate = (gdouble)direct_delta / elapsed_seconds;
+        hooked_rate = (gdouble)hooked_delta / elapsed_seconds;
+        logged_rate = (gdouble)logged_delta / elapsed_seconds;
+    }
+
+    /* Update previous values for next rate calculation */
+    collector->prev_direct = collector->direct_inferences;
+    collector->prev_hooked = collector->hooked_inferences;
+    collector->prev_logged = collector->logged_inferences;
+
     collector->last_update_time = current_time;
 
     /* Add to datasets */
     xrg_dataset_add_value(collector->inference_rate_dataset, collector->inferences_per_second);
     xrg_dataset_add_value(collector->latency_dataset, collector->last_latency_ms);
+
+    /* Category-specific datasets for 3-color display */
+    xrg_dataset_add_value(collector->direct_rate_dataset, direct_rate);
+    xrg_dataset_add_value(collector->hooked_rate_dataset, hooked_rate);
+    xrg_dataset_add_value(collector->logged_rate_dataset, logged_rate);
 }
 
 /* Getter implementations */
@@ -349,4 +427,30 @@ gboolean xrg_tpu_collector_has_temperature(XRGTPUCollector *collector) {
 
 const gchar* xrg_tpu_collector_get_stats_file_path(void) {
     return TPU_STATS_FILE;
+}
+
+/* Category breakdown getters for 3-color display */
+
+guint64 xrg_tpu_collector_get_direct_inferences(XRGTPUCollector *collector) {
+    return collector ? collector->direct_inferences : 0;
+}
+
+guint64 xrg_tpu_collector_get_hooked_inferences(XRGTPUCollector *collector) {
+    return collector ? collector->hooked_inferences : 0;
+}
+
+guint64 xrg_tpu_collector_get_logged_inferences(XRGTPUCollector *collector) {
+    return collector ? collector->logged_inferences : 0;
+}
+
+XRGDataset* xrg_tpu_collector_get_direct_dataset(XRGTPUCollector *collector) {
+    return collector ? collector->direct_rate_dataset : NULL;
+}
+
+XRGDataset* xrg_tpu_collector_get_hooked_dataset(XRGTPUCollector *collector) {
+    return collector ? collector->hooked_rate_dataset : NULL;
+}
+
+XRGDataset* xrg_tpu_collector_get_logged_dataset(XRGTPUCollector *collector) {
+    return collector ? collector->logged_rate_dataset : NULL;
 }

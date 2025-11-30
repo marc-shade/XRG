@@ -4439,7 +4439,7 @@ static const gchar* get_tpu_status_text(XRGTPUStatus status) {
 }
 
 /**
- * Draw TPU graph
+ * Draw TPU graph with 3-color stacked display for usage categories
  */
 static gboolean on_draw_tpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
     AppState *state = (AppState *)user_data;
@@ -4469,28 +4469,68 @@ static gboolean on_draw_tpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
     gdouble latency = xrg_tpu_collector_get_last_latency_ms(collector);
     guint64 total_inf = xrg_tpu_collector_get_total_inferences(collector);
 
-    /* Get dataset for graph */
-    XRGDataset *rate_dataset = xrg_tpu_collector_get_inference_rate_dataset(collector);
-    gint count = xrg_dataset_get_count(rate_dataset);
+    /* Get category breakdown */
+    guint64 direct_inf = xrg_tpu_collector_get_direct_inferences(collector);
+    guint64 hooked_inf = xrg_tpu_collector_get_hooked_inferences(collector);
+    guint64 logged_inf = xrg_tpu_collector_get_logged_inferences(collector);
 
-    /* Draw inference rate graph (coral orange) */
+    /* Get 3-color datasets for stacked graph */
+    XRGDataset *direct_dataset = xrg_tpu_collector_get_direct_dataset(collector);
+    XRGDataset *hooked_dataset = xrg_tpu_collector_get_hooked_dataset(collector);
+    XRGDataset *logged_dataset = xrg_tpu_collector_get_logged_dataset(collector);
+    gint count = xrg_dataset_get_count(direct_dataset);
+
+    /* Draw 3-color stacked inference rate graph */
     if (count >= 2) {
-        /* Find max value for scaling */
+        /* Find max stacked value for scaling */
         gdouble max_rate = 1.0;
         for (gint i = 0; i < count; i++) {
-            gdouble val = xrg_dataset_get_value(rate_dataset, i);
-            if (val > max_rate) max_rate = val;
+            gdouble direct = xrg_dataset_get_value(direct_dataset, i);
+            gdouble hooked = xrg_dataset_get_value(hooked_dataset, i);
+            gdouble logged = xrg_dataset_get_value(logged_dataset, i);
+            gdouble total = direct + hooked + logged;
+            if (total > max_rate) max_rate = total;
         }
         max_rate = max_rate * 1.2;  /* Add 20% headroom */
 
-        /* Draw inference rate (coral orange) */
+        /* Layer 1 (bottom): Logged - Orange */
         cairo_set_source_rgba(cr, CORAL_ORANGE_R, CORAL_ORANGE_G, CORAL_ORANGE_B, 0.8);
-
         cairo_move_to(cr, 0, height);
         for (gint i = 0; i < count; i++) {
-            gdouble value = xrg_dataset_get_value(rate_dataset, i);
+            gdouble direct = xrg_dataset_get_value(direct_dataset, i);
+            gdouble hooked = xrg_dataset_get_value(hooked_dataset, i);
+            gdouble logged = xrg_dataset_get_value(logged_dataset, i);
+            gdouble stacked = direct + hooked + logged;  /* Full stack */
             gdouble x = (gdouble)i / count * width;
-            gdouble y = height - (value / max_rate * height);
+            gdouble y = height - (stacked / max_rate * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+
+        /* Layer 2 (middle): Hooked - Green */
+        cairo_set_source_rgba(cr, 0.2, 0.85, 0.4, 0.85);  /* Bright green */
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble direct = xrg_dataset_get_value(direct_dataset, i);
+            gdouble hooked = xrg_dataset_get_value(hooked_dataset, i);
+            gdouble stacked = direct + hooked;  /* Direct + hooked (no logged) */
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (stacked / max_rate * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+
+        /* Layer 3 (top): Direct - Cyan */
+        cairo_set_source_rgba(cr, 0.0, 0.8, 0.9, 0.9);  /* Cyan */
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble direct = xrg_dataset_get_value(direct_dataset, i);
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (direct / max_rate * height);
             cairo_line_to(cr, x, y);
         }
         cairo_line_to(cr, width, height);
@@ -4550,7 +4590,7 @@ static gboolean on_draw_tpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
     cairo_show_text(cr, latency_text);
     g_free(latency_text);
 
-    /* Line 4: Total inferences */
+    /* Line 4: Total inferences with breakdown */
     gchar *total_text;
     if (total_inf > 1000000) {
         total_text = g_strdup_printf("Total: %.2fM inf", total_inf / 1000000.0);
@@ -4562,6 +4602,41 @@ static gboolean on_draw_tpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
     cairo_move_to(cr, 5, 50);
     cairo_show_text(cr, total_text);
     g_free(total_text);
+
+    /* Color legend (bottom-right corner) */
+    cairo_set_font_size(cr, 8.0);
+    gint legend_x = width - 75;
+    gint legend_y = height - 35;
+
+    /* Cyan - Direct */
+    cairo_set_source_rgba(cr, 0.0, 0.8, 0.9, 1.0);
+    cairo_rectangle(cr, legend_x, legend_y, 8, 8);
+    cairo_fill(cr);
+    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
+    cairo_move_to(cr, legend_x + 11, legend_y + 7);
+    gchar *direct_txt = g_strdup_printf("Direct %lu", (unsigned long)direct_inf);
+    cairo_show_text(cr, direct_txt);
+    g_free(direct_txt);
+
+    /* Green - Hooked */
+    cairo_set_source_rgba(cr, 0.2, 0.85, 0.4, 1.0);
+    cairo_rectangle(cr, legend_x, legend_y + 11, 8, 8);
+    cairo_fill(cr);
+    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
+    cairo_move_to(cr, legend_x + 11, legend_y + 18);
+    gchar *hooked_txt = g_strdup_printf("Hooked %lu", (unsigned long)hooked_inf);
+    cairo_show_text(cr, hooked_txt);
+    g_free(hooked_txt);
+
+    /* Orange - Logged */
+    cairo_set_source_rgba(cr, CORAL_ORANGE_R, CORAL_ORANGE_G, CORAL_ORANGE_B, 1.0);
+    cairo_rectangle(cr, legend_x, legend_y + 22, 8, 8);
+    cairo_fill(cr);
+    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
+    cairo_move_to(cr, legend_x + 11, legend_y + 29);
+    gchar *logged_txt = g_strdup_printf("Logged %lu", (unsigned long)logged_inf);
+    cairo_show_text(cr, logged_txt);
+    g_free(logged_txt);
 
     return FALSE;
 }
