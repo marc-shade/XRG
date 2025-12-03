@@ -58,13 +58,15 @@ gdouble xrg_tpu_collector_get_inferences_per_second(XRGTPUCollector *collector);
 gdouble xrg_tpu_collector_get_avg_latency_ms(XRGTPUCollector *collector);
 gdouble xrg_tpu_collector_get_last_latency_ms(XRGTPUCollector *collector);
 
-/* Category breakdown (direct/hooked/logged) for multi-color display */
+/* Category breakdown (direct/hooked/logged/warming) for multi-color display */
 guint64 xrg_tpu_collector_get_direct_inferences(XRGTPUCollector *collector);
 guint64 xrg_tpu_collector_get_hooked_inferences(XRGTPUCollector *collector);
 guint64 xrg_tpu_collector_get_logged_inferences(XRGTPUCollector *collector);
+guint64 xrg_tpu_collector_get_warming_inferences(XRGTPUCollector *collector);
 XRGDataset* xrg_tpu_collector_get_direct_dataset(XRGTPUCollector *collector);
 XRGDataset* xrg_tpu_collector_get_hooked_dataset(XRGTPUCollector *collector);
 XRGDataset* xrg_tpu_collector_get_logged_dataset(XRGTPUCollector *collector);
+XRGDataset* xrg_tpu_collector_get_warming_dataset(XRGTPUCollector *collector);
 
 /* Temperature (if available) */
 gdouble xrg_tpu_collector_get_temperature(XRGTPUCollector *collector);

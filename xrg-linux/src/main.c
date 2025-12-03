@@ -4473,14 +4473,16 @@ static gboolean on_draw_tpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
     guint64 direct_inf = xrg_tpu_collector_get_direct_inferences(collector);
     guint64 hooked_inf = xrg_tpu_collector_get_hooked_inferences(collector);
     guint64 logged_inf = xrg_tpu_collector_get_logged_inferences(collector);
+    guint64 warming_inf = xrg_tpu_collector_get_warming_inferences(collector);
 
-    /* Get 3-color datasets for stacked graph */
+    /* Get 4-color datasets for stacked graph */
     XRGDataset *direct_dataset = xrg_tpu_collector_get_direct_dataset(collector);
     XRGDataset *hooked_dataset = xrg_tpu_collector_get_hooked_dataset(collector);
     XRGDataset *logged_dataset = xrg_tpu_collector_get_logged_dataset(collector);
+    XRGDataset *warming_dataset = xrg_tpu_collector_get_warming_dataset(collector);
     gint count = xrg_dataset_get_count(direct_dataset);
 
-    /* Draw 3-color stacked inference rate graph */
+    /* Draw 4-color stacked inference rate graph */
     if (count >= 2) {
         /* Find max stacked value for scaling */
         gdouble max_rate = 1.0;
@@ -4488,19 +4490,21 @@ static gboolean on_draw_tpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
             gdouble direct = xrg_dataset_get_value(direct_dataset, i);
             gdouble hooked = xrg_dataset_get_value(hooked_dataset, i);
             gdouble logged = xrg_dataset_get_value(logged_dataset, i);
-            gdouble total = direct + hooked + logged;
+            gdouble warming = xrg_dataset_get_value(warming_dataset, i);
+            gdouble total = direct + hooked + logged + warming;
             if (total > max_rate) max_rate = total;
         }
         max_rate = max_rate * 1.2;  /* Add 20% headroom */
 
-        /* Layer 1 (bottom): Logged - Orange */
-        cairo_set_source_rgba(cr, CORAL_ORANGE_R, CORAL_ORANGE_G, CORAL_ORANGE_B, 0.8);
+        /* Layer 1 (bottom): Warming - Gold */
+        cairo_set_source_rgba(cr, 1.0, 0.8, 0.2, 0.8);  /* Gold */
         cairo_move_to(cr, 0, height);
         for (gint i = 0; i < count; i++) {
             gdouble direct = xrg_dataset_get_value(direct_dataset, i);
             gdouble hooked = xrg_dataset_get_value(hooked_dataset, i);
             gdouble logged = xrg_dataset_get_value(logged_dataset, i);
-            gdouble stacked = direct + hooked + logged;  /* Full stack */
+            gdouble warming = xrg_dataset_get_value(warming_dataset, i);
+            gdouble stacked = direct + hooked + logged + warming;  /* Full stack */
             gdouble x = (gdouble)i / count * width;
             gdouble y = height - (stacked / max_rate * height);
             cairo_line_to(cr, x, y);
@@ -4509,13 +4513,29 @@ static gboolean on_draw_tpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
         cairo_close_path(cr);
         cairo_fill(cr);
 
-        /* Layer 2 (middle): Hooked - Green */
+        /* Layer 2: Logged - Orange */
+        cairo_set_source_rgba(cr, CORAL_ORANGE_R, CORAL_ORANGE_G, CORAL_ORANGE_B, 0.8);
+        cairo_move_to(cr, 0, height);
+        for (gint i = 0; i < count; i++) {
+            gdouble direct = xrg_dataset_get_value(direct_dataset, i);
+            gdouble hooked = xrg_dataset_get_value(hooked_dataset, i);
+            gdouble logged = xrg_dataset_get_value(logged_dataset, i);
+            gdouble stacked = direct + hooked + logged;  /* Without warming */
+            gdouble x = (gdouble)i / count * width;
+            gdouble y = height - (stacked / max_rate * height);
+            cairo_line_to(cr, x, y);
+        }
+        cairo_line_to(cr, width, height);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+
+        /* Layer 3: Hooked - Green */
         cairo_set_source_rgba(cr, 0.2, 0.85, 0.4, 0.85);  /* Bright green */
         cairo_move_to(cr, 0, height);
         for (gint i = 0; i < count; i++) {
             gdouble direct = xrg_dataset_get_value(direct_dataset, i);
             gdouble hooked = xrg_dataset_get_value(hooked_dataset, i);
-            gdouble stacked = direct + hooked;  /* Direct + hooked (no logged) */
+            gdouble stacked = direct + hooked;  /* Direct + hooked only */
             gdouble x = (gdouble)i / count * width;
             gdouble y = height - (stacked / max_rate * height);
             cairo_line_to(cr, x, y);
@@ -4605,8 +4625,8 @@ static gboolean on_draw_tpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
 
     /* Color legend (bottom-right corner) */
     cairo_set_font_size(cr, 8.0);
-    gint legend_x = width - 75;
-    gint legend_y = height - 35;
+    gint legend_x = width - 80;
+    gint legend_y = height - 46;
 
     /* Cyan - Direct */
     cairo_set_source_rgba(cr, 0.0, 0.8, 0.9, 1.0);
@@ -4637,6 +4657,85 @@ static gboolean on_draw_tpu(GtkWidget *widget, cairo_t *cr, gpointer user_data) 
     gchar *logged_txt = g_strdup_printf("Logged %lu", (unsigned long)logged_inf);
     cairo_show_text(cr, logged_txt);
     g_free(logged_txt);
+
+    /* Gold - Warming */
+    cairo_set_source_rgba(cr, 1.0, 0.8, 0.2, 1.0);  /* Gold */
+    cairo_rectangle(cr, legend_x, legend_y + 33, 8, 8);
+    cairo_fill(cr);
+    cairo_set_source_rgba(cr, text_color->red, text_color->green, text_color->blue, text_color->alpha);
+    cairo_move_to(cr, legend_x + 11, legend_y + 40);
+    gchar *warming_txt = g_strdup_printf("Warming %lu", (unsigned long)warming_inf);
+    cairo_show_text(cr, warming_txt);
+    g_free(warming_txt);
+
+    /* Draw activity bar on the right (if enabled) */
+    if (state->prefs->show_activity_bars) {
+        gint bar_x = width - 20;  /* 20px from right edge */
+        gint bar_width = 20;
+
+        /* Draw bar background */
+        cairo_set_source_rgba(cr, bg_color->red, bg_color->green, bg_color->blue, bg_color->alpha);
+        cairo_rectangle(cr, bar_x, 0, bar_width, height);
+        cairo_fill(cr);
+
+        /* Draw bar border */
+        cairo_set_source_rgba(cr, border_color->red, border_color->green, border_color->blue, border_color->alpha);
+        cairo_set_line_width(cr, 1.0);
+        cairo_rectangle(cr, bar_x + 0.5, 0.5, bar_width - 1, height - 1);
+        cairo_stroke(cr);
+
+        /* Draw filled bar representing current inference rate */
+        gdouble max_inf_rate = 100.0;  /* Max inferences per second for scaling */
+        gdouble current_value = inf_per_sec / max_inf_rate;
+        if (current_value > 1.0) current_value = 1.0;  /* Cap at 100% */
+        gdouble fill_height = current_value * height;
+        gdouble bar_y = height - fill_height;
+
+        XRGGraphStyle bar_style = state->prefs->activity_bar_style;
+        GdkRGBA gradient_color;
+
+        if (bar_style == XRG_GRAPH_STYLE_SOLID) {
+            /* Draw gradient by slicing horizontally */
+            for (gdouble y = height; y >= bar_y; y -= 1.0) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
+                cairo_rectangle(cr, bar_x, y, bar_width, 1.0);
+                cairo_fill(cr);
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_PIXEL) {
+            /* Chunky pixels with gradient colors */
+            for (gdouble y = height; y >= bar_y; y -= 4) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 4) {
+                    cairo_arc(cr, x + 2, y, 1.5, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_DOT) {
+            /* Fine dots with gradient colors */
+            for (gdouble y = height; y >= bar_y; y -= 2) {
+                gdouble position = (height - y) / height;
+                get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+                cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
+                for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                    cairo_arc(cr, x + 1, y, 0.6, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+            }
+        } else if (bar_style == XRG_GRAPH_STYLE_HOLLOW) {
+            /* Outline only - draw dots at top of fill level with gradient color */
+            gdouble position = (height - bar_y) / height;
+            get_activity_bar_gradient_color(position, state->prefs, &gradient_color);
+            cairo_set_source_rgba(cr, gradient_color.red, gradient_color.green, gradient_color.blue, gradient_color.alpha);
+            for (gdouble x = bar_x; x < bar_x + bar_width; x += 2) {
+                cairo_arc(cr, x, bar_y, 1.0, 0, 2 * G_PI);
+                cairo_fill(cr);
+            }
+        }
+    }
 
     return FALSE;
 }

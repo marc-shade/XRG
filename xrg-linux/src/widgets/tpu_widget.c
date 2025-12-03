@@ -19,6 +19,23 @@
 #define CORAL_TEAL_G 0.7
 #define CORAL_TEAL_B 0.7
 
+/* Category colors for 4-color display */
+#define DIRECT_R 1.0    /* Coral orange for direct MCP calls */
+#define DIRECT_G 0.45
+#define DIRECT_B 0.2
+
+#define HOOKED_R 0.7    /* Purple for Claude Code hooks */
+#define HOOKED_G 0.3
+#define HOOKED_B 0.9
+
+#define LOGGED_R 0.3    /* Blue for logged/other calls */
+#define LOGGED_G 0.6
+#define LOGGED_B 0.9
+
+#define WARMING_R 1.0   /* Gold for warming service */
+#define WARMING_G 0.8
+#define WARMING_B 0.2
+
 struct _XRGTPUWidget {
     XRGBaseWidget base;
     XRGTPUCollector *collector;
@@ -185,40 +202,155 @@ static void tpu_widget_draw(XRGBaseWidget *base, cairo_t *cr, int width, int hei
 
     gint count = xrg_dataset_get_count(rate_dataset);
 
-    /* Draw inference rate graph (coral orange) */
+    /* Get category-specific datasets for 4-color display */
+    XRGDataset *direct_dataset = xrg_tpu_collector_get_direct_dataset(collector);
+    XRGDataset *hooked_dataset = xrg_tpu_collector_get_hooked_dataset(collector);
+    XRGDataset *logged_dataset = xrg_tpu_collector_get_logged_dataset(collector);
+    XRGDataset *warming_dataset = xrg_tpu_collector_get_warming_dataset(collector);
+
+    /* Draw 4-color stacked inference rate graph */
     if (count >= 2) {
-        /* Find max value for scaling */
+        /* Find max value for scaling across all categories */
         gdouble max_rate = 1.0;
         for (gint i = 0; i < count; i++) {
-            gdouble val = xrg_dataset_get_value(rate_dataset, i);
-            if (val > max_rate) max_rate = val;
+            gdouble total = xrg_dataset_get_value(direct_dataset, i) +
+                           xrg_dataset_get_value(hooked_dataset, i) +
+                           xrg_dataset_get_value(logged_dataset, i) +
+                           xrg_dataset_get_value(warming_dataset, i);
+            if (total > max_rate) max_rate = total;
         }
         max_rate = max_rate * 1.2;  /* Add 20% headroom */
 
         XRGGraphStyle style = prefs->gpu_graph_style;  /* Reuse GPU style setting */
 
-        /* Draw inference rate (coral orange) */
-        cairo_set_source_rgba(cr, CORAL_ORANGE_R, CORAL_ORANGE_G, CORAL_ORANGE_B, 0.8);
-
+        /* Draw stacked areas (bottom to top: direct, hooked, logged, warming) */
         if (style == XRG_GRAPH_STYLE_SOLID) {
+            /* Layer 1: Direct (coral orange) at bottom */
+            cairo_set_source_rgba(cr, DIRECT_R, DIRECT_G, DIRECT_B, 0.8);
             cairo_move_to(cr, 0, height);
             for (gint i = 0; i < count; i++) {
-                gdouble value = xrg_dataset_get_value(rate_dataset, i);
+                gdouble direct = xrg_dataset_get_value(direct_dataset, i);
                 gdouble x = (gdouble)i / count * width;
-                gdouble y = height - (value / max_rate * height);
+                gdouble y = height - (direct / max_rate * height);
                 cairo_line_to(cr, x, y);
             }
             cairo_line_to(cr, width, height);
             cairo_close_path(cr);
             cairo_fill(cr);
-        } else {
-            /* Dots for other styles */
+
+            /* Layer 2: Hooked (purple) stacked on direct */
+            cairo_set_source_rgba(cr, HOOKED_R, HOOKED_G, HOOKED_B, 0.8);
+            cairo_move_to(cr, 0, height);
+            gdouble prev_y = height;
             for (gint i = 0; i < count; i++) {
-                gdouble value = xrg_dataset_get_value(rate_dataset, i);
+                gdouble direct = xrg_dataset_get_value(direct_dataset, i);
+                gdouble hooked = xrg_dataset_get_value(hooked_dataset, i);
                 gdouble x = (gdouble)i / count * width;
-                gdouble y = height - (value / max_rate * height);
-                cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
-                cairo_fill(cr);
+                gdouble base_y = height - (direct / max_rate * height);
+                gdouble y = base_y - (hooked / max_rate * height);
+                if (i == 0) {
+                    cairo_move_to(cr, x, base_y);
+                } else {
+                    cairo_line_to(cr, x, prev_y);  /* baseline */
+                }
+                prev_y = base_y;
+            }
+            /* Draw top line backwards */
+            for (gint i = count - 1; i >= 0; i--) {
+                gdouble direct = xrg_dataset_get_value(direct_dataset, i);
+                gdouble hooked = xrg_dataset_get_value(hooked_dataset, i);
+                gdouble x = (gdouble)i / count * width;
+                gdouble y = height - ((direct + hooked) / max_rate * height);
+                cairo_line_to(cr, x, y);
+            }
+            cairo_close_path(cr);
+            cairo_fill(cr);
+
+            /* Layer 3: Logged (blue) stacked on hooked */
+            cairo_set_source_rgba(cr, LOGGED_R, LOGGED_G, LOGGED_B, 0.8);
+            for (gint i = 0; i < count; i++) {
+                gdouble direct = xrg_dataset_get_value(direct_dataset, i);
+                gdouble hooked = xrg_dataset_get_value(hooked_dataset, i);
+                gdouble logged = xrg_dataset_get_value(logged_dataset, i);
+                gdouble x = (gdouble)i / count * width;
+                gdouble base_y = height - ((direct + hooked) / max_rate * height);
+                gdouble top_y = height - ((direct + hooked + logged) / max_rate * height);
+                if (i == 0) cairo_move_to(cr, x, base_y);
+                else cairo_line_to(cr, x, base_y);
+            }
+            for (gint i = count - 1; i >= 0; i--) {
+                gdouble direct = xrg_dataset_get_value(direct_dataset, i);
+                gdouble hooked = xrg_dataset_get_value(hooked_dataset, i);
+                gdouble logged = xrg_dataset_get_value(logged_dataset, i);
+                gdouble x = (gdouble)i / count * width;
+                gdouble y = height - ((direct + hooked + logged) / max_rate * height);
+                cairo_line_to(cr, x, y);
+            }
+            cairo_close_path(cr);
+            cairo_fill(cr);
+
+            /* Layer 4: Warming (gold) at top */
+            cairo_set_source_rgba(cr, WARMING_R, WARMING_G, WARMING_B, 0.8);
+            for (gint i = 0; i < count; i++) {
+                gdouble direct = xrg_dataset_get_value(direct_dataset, i);
+                gdouble hooked = xrg_dataset_get_value(hooked_dataset, i);
+                gdouble logged = xrg_dataset_get_value(logged_dataset, i);
+                gdouble x = (gdouble)i / count * width;
+                gdouble base_y = height - ((direct + hooked + logged) / max_rate * height);
+                if (i == 0) cairo_move_to(cr, x, base_y);
+                else cairo_line_to(cr, x, base_y);
+            }
+            for (gint i = count - 1; i >= 0; i--) {
+                gdouble direct = xrg_dataset_get_value(direct_dataset, i);
+                gdouble hooked = xrg_dataset_get_value(hooked_dataset, i);
+                gdouble logged = xrg_dataset_get_value(logged_dataset, i);
+                gdouble warming = xrg_dataset_get_value(warming_dataset, i);
+                gdouble x = (gdouble)i / count * width;
+                gdouble y = height - ((direct + hooked + logged + warming) / max_rate * height);
+                cairo_line_to(cr, x, y);
+            }
+            cairo_close_path(cr);
+            cairo_fill(cr);
+        } else {
+            /* Dots mode - draw each category with different colors */
+            for (gint i = 0; i < count; i++) {
+                gdouble x = (gdouble)i / count * width;
+
+                /* Direct dots (coral orange) */
+                gdouble direct = xrg_dataset_get_value(direct_dataset, i);
+                if (direct > 0) {
+                    cairo_set_source_rgba(cr, DIRECT_R, DIRECT_G, DIRECT_B, 0.8);
+                    gdouble y = height - (direct / max_rate * height);
+                    cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+
+                /* Hooked dots (purple) */
+                gdouble hooked = xrg_dataset_get_value(hooked_dataset, i);
+                if (hooked > 0) {
+                    cairo_set_source_rgba(cr, HOOKED_R, HOOKED_G, HOOKED_B, 0.8);
+                    gdouble y = height - ((direct + hooked) / max_rate * height);
+                    cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+
+                /* Logged dots (blue) */
+                gdouble logged = xrg_dataset_get_value(logged_dataset, i);
+                if (logged > 0) {
+                    cairo_set_source_rgba(cr, LOGGED_R, LOGGED_G, LOGGED_B, 0.8);
+                    gdouble y = height - ((direct + hooked + logged) / max_rate * height);
+                    cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
+
+                /* Warming dots (gold) */
+                gdouble warming = xrg_dataset_get_value(warming_dataset, i);
+                if (warming > 0) {
+                    cairo_set_source_rgba(cr, WARMING_R, WARMING_G, WARMING_B, 0.8);
+                    gdouble y = height - ((direct + hooked + logged + warming) / max_rate * height);
+                    cairo_arc(cr, x, y, 1.5, 0, 2 * G_PI);
+                    cairo_fill(cr);
+                }
             }
         }
 
@@ -376,6 +508,20 @@ static gchar* tpu_widget_tooltip(XRGBaseWidget *base, int x, int y) {
 
     /* Total inferences */
     g_string_append_printf(tooltip, "   Total: %lu inferences\n", (unsigned long)total_inf);
+
+    /* Category breakdown */
+    guint64 direct_inf = xrg_tpu_collector_get_direct_inferences(collector);
+    guint64 hooked_inf = xrg_tpu_collector_get_hooked_inferences(collector);
+    guint64 logged_inf = xrg_tpu_collector_get_logged_inferences(collector);
+    guint64 warming_inf = xrg_tpu_collector_get_warming_inferences(collector);
+
+    if (direct_inf + hooked_inf + logged_inf + warming_inf > 0) {
+        g_string_append(tooltip, "\nBy Category\n");
+        g_string_append_printf(tooltip, "   Direct: %lu\n", (unsigned long)direct_inf);
+        g_string_append_printf(tooltip, "   Hooked: %lu\n", (unsigned long)hooked_inf);
+        g_string_append_printf(tooltip, "   Logged: %lu\n", (unsigned long)logged_inf);
+        g_string_append_printf(tooltip, "   Warming: %lu\n", (unsigned long)warming_inf);
+    }
 
     /* Temperature if available */
     if (xrg_tpu_collector_has_temperature(collector)) {
