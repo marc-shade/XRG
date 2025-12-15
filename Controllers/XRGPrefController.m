@@ -379,6 +379,21 @@
         if (showBreakdown) {
             [defs setBool:([showBreakdown state] == NSControlStateValueOn) forKey:@"aiTokensShowBreakdown"];
         }
+
+        // Save cyberpunk visual effects settings
+        NSButton *showScanlines = (NSButton *)[AIPrefView viewWithTag:1010];
+        NSButton *showPixelGrid = (NSButton *)[AIPrefView viewWithTag:1011];
+        NSButton *showPixelDots = (NSButton *)[AIPrefView viewWithTag:1012];
+
+        if (showScanlines) {
+            [defs setBool:([showScanlines state] == NSControlStateValueOn) forKey:@"showScanlines"];
+        }
+        if (showPixelGrid) {
+            [defs setBool:([showPixelGrid state] == NSControlStateValueOn) forKey:@"showPixelGrid"];
+        }
+        if (showPixelDots) {
+            [defs setBool:([showPixelDots state] == NSControlStateValueOn) forKey:@"showPixelDots"];
+        }
     }
 
     // CPU graph checkboxes
@@ -1021,7 +1036,10 @@
             @"aiTokensAggregateByModel": @YES,
             @"aiTokensAggregateByProvider": @NO,
             @"aiTokensShowRate": @YES,
-            @"aiTokensShowBreakdown": @YES
+            @"aiTokensShowBreakdown": @YES,
+            @"showScanlines": @YES,
+            @"showPixelGrid": @YES,
+            @"showPixelDots": @YES
         };
         [[NSUserDefaults standardUserDefaults] registerDefaults:defaults];
     });
@@ -1130,6 +1148,45 @@
         [showBreakdown setState:self.xrgGraphWindow.appSettings.aiTokensShowBreakdown ? NSControlStateValueOn : NSControlStateValueOff];
         [showBreakdown setTag:1007];
         [AIPrefView addSubview:showBreakdown];
+
+        yPos -= 40;
+
+        // Cyberpunk visual effects section
+        NSTextField *effectsLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(leftMargin, yPos, 460, 24)];
+        [effectsLabel setStringValue:@"Cyberpunk Visual Effects"];
+        [effectsLabel setBezeled:NO];
+        [effectsLabel setDrawsBackground:NO];
+        [effectsLabel setEditable:NO];
+        [effectsLabel setSelectable:NO];
+        [effectsLabel setFont:[NSFont boldSystemFontOfSize:14]];
+        [AIPrefView addSubview:effectsLabel];
+
+        yPos -= 30;
+
+        // Scanlines checkbox
+        NSButton *showScanlines = [NSButton checkboxWithTitle:@"Show CRT scanlines" target:nil action:nil];
+        [showScanlines setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
+        [showScanlines setState:self.xrgGraphWindow.appSettings.showScanlines ? NSControlStateValueOn : NSControlStateValueOff];
+        [showScanlines setTag:1010];
+        [AIPrefView addSubview:showScanlines];
+
+        yPos -= 30;
+
+        // Pixel grid checkbox
+        NSButton *showPixelGrid = [NSButton checkboxWithTitle:@"Show pixel grid background" target:nil action:nil];
+        [showPixelGrid setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
+        [showPixelGrid setState:self.xrgGraphWindow.appSettings.showPixelGrid ? NSControlStateValueOn : NSControlStateValueOff];
+        [showPixelGrid setTag:1011];
+        [AIPrefView addSubview:showPixelGrid];
+
+        yPos -= 30;
+
+        // Pixel dots checkbox
+        NSButton *showPixelDots = [NSButton checkboxWithTitle:@"Show pixel dots on graphs" target:nil action:nil];
+        [showPixelDots setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
+        [showPixelDots setState:self.xrgGraphWindow.appSettings.showPixelDots ? NSControlStateValueOn : NSControlStateValueOff];
+        [showPixelDots setTag:1012];
+        [AIPrefView addSubview:showPixelDots];
 
         yPos -= 50;
 

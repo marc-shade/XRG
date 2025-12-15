@@ -37,6 +37,9 @@
 @dynamic aiTokensAggregateByProvider;
 @dynamic aiTokensShowRate;
 @dynamic aiTokensShowBreakdown;
+@dynamic showScanlines;
+@dynamic showPixelGrid;
+@dynamic showPixelDots;
 
 + (instancetype)sharedSettings {
     static XRGSettings *sharedInstance = nil;
@@ -361,6 +364,32 @@
 
 - (void)setAiTokensShowBreakdown:(BOOL)value {
     [[NSUserDefaults standardUserDefaults] setBool:value forKey:@"aiTokensShowBreakdown"];
+}
+
+#pragma mark - Cyberpunk Visual Effects (Dynamic Properties)
+
+- (BOOL)showScanlines {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"showScanlines"];
+}
+
+- (BOOL)showPixelGrid {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"showPixelGrid"];
+}
+
+- (BOOL)showPixelDots {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"showPixelDots"];
+}
+
+- (void)setShowScanlines:(BOOL)value {
+    [[NSUserDefaults standardUserDefaults] setBool:value forKey:@"showScanlines"];
+}
+
+- (void)setShowPixelGrid:(BOOL)value {
+    [[NSUserDefaults standardUserDefaults] setBool:value forKey:@"showPixelGrid"];
+}
+
+- (void)setShowPixelDots:(BOOL)value {
+    [[NSUserDefaults standardUserDefaults] setBool:value forKey:@"showPixelDots"];
 }
 
 @end

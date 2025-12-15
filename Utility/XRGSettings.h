@@ -119,6 +119,11 @@ typedef NS_ENUM(NSInteger, XRGTemperatureUnits) {
 @property BOOL          aiTokensShowRate;
 @property BOOL          aiTokensShowBreakdown;
 
+// Cyberpunk visual effects
+@property BOOL          showScanlines;
+@property BOOL          showPixelGrid;
+@property BOOL          showPixelDots;
+
 - (void) readXTFDictionary:(NSDictionary *)xtfD;
 
 @end

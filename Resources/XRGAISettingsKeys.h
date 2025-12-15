@@ -13,4 +13,9 @@
 #define XRGDefaultsKeyAITokensShowRate @"aiTokensShowRate"
 #define XRGDefaultsKeyAITokensShowBreakdown @"aiTokensShowBreakdown"
 
+// Cyberpunk visual effects
+#define XRGDefaultsKeyShowScanlines @"showScanlines"
+#define XRGDefaultsKeyShowPixelGrid @"showPixelGrid"
+#define XRGDefaultsKeyShowPixelDots @"showPixelDots"
+
 #endif /* XRGAISettingsKeys_h */

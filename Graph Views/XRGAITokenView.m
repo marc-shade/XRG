@@ -115,8 +115,10 @@
 
     NSRect graphRect = NSMakeRect(0, 0, numSamples, graphSize.height - textRectHeight);
 
-    // Draw cyberpunk pixel grid background
-    [self drawPixelGrid:graphRect withSpacing:4.0 color:[appSettings borderColor]];
+    // Draw cyberpunk pixel grid background (if enabled)
+    if ([appSettings showPixelGrid]) {
+        [self drawPixelGrid:graphRect withSpacing:4.0 color:[appSettings borderColor]];
+    }
 
     // Create stacked graph data
     XRGDataSet *totalData = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:[tokenMiner claudeTokenData]];
@@ -135,13 +137,17 @@
 
     [self drawGraphWithDataFromDataSet:[tokenMiner claudeTokenData] maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:claudeColor];
 
-    // Add pixel dots on top of the graphs for cyberpunk effect
-    [self drawPixelDotsWithDataFromDataSet:totalData maxValue:maxValue inRect:graphRect color:geminiColor dotSize:2.0];
-    [self drawPixelDotsWithDataFromDataSet:claudeCodexData maxValue:maxValue inRect:graphRect color:codexColor dotSize:2.0];
-    [self drawPixelDotsWithDataFromDataSet:[tokenMiner claudeTokenData] maxValue:maxValue inRect:graphRect color:claudeColor dotSize:2.0];
+    // Add pixel dots on top of the graphs for cyberpunk effect (if enabled)
+    if ([appSettings showPixelDots]) {
+        [self drawPixelDotsWithDataFromDataSet:totalData maxValue:maxValue inRect:graphRect color:geminiColor dotSize:2.0];
+        [self drawPixelDotsWithDataFromDataSet:claudeCodexData maxValue:maxValue inRect:graphRect color:codexColor dotSize:2.0];
+        [self drawPixelDotsWithDataFromDataSet:[tokenMiner claudeTokenData] maxValue:maxValue inRect:graphRect color:claudeColor dotSize:2.0];
+    }
 
-    // Draw CRT scanlines overlay
-    [self drawScanlines:graphRect];
+    // Draw CRT scanlines overlay (if enabled)
+    if ([appSettings showScanlines]) {
+        [self drawScanlines:graphRect];
+    }
 
     // Draw current rate indicator on the right side
     NSRect indicatorRect = NSMakeRect(numSamples, 0, 2, graphSize.height - textRectHeight);
