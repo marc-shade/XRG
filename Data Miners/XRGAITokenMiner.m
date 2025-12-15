@@ -522,8 +522,11 @@
                                                               error:&parseError];
 
         // Extract token usage from message.usage
-        if (data && data[@"message"] && data[@"message"][@"usage"]) {
-            NSDictionary *usage = data[@"message"][@"usage"];
+        if (!data || [data isKindOfClass:[NSNull class]]) continue;
+        NSDictionary *message = data[@"message"];
+        if (!message || [message isKindOfClass:[NSNull class]]) continue;
+        NSDictionary *usage = message[@"usage"];
+        if (usage && ![usage isKindOfClass:[NSNull class]]) {
 
             // Calculate prompt and completion tokens
             UInt64 promptTokens = [usage[@"input_tokens"] unsignedLongLongValue] +
@@ -635,13 +638,14 @@
         if (![data[@"type"] isEqualToString:@"event_msg"]) continue;
 
         NSDictionary *payload = data[@"payload"];
-        if (!payload || ![payload[@"type"] isEqualToString:@"token_count"]) continue;
+        if (!payload || [payload isKindOfClass:[NSNull class]]) continue;
+        if (![payload[@"type"] isEqualToString:@"token_count"]) continue;
 
         NSDictionary *info = payload[@"info"];
-        if (!info) continue;
+        if (!info || [info isKindOfClass:[NSNull class]]) continue;
 
         NSDictionary *totalUsage = info[@"total_token_usage"];
-        if (!totalUsage) continue;
+        if (!totalUsage || [totalUsage isKindOfClass:[NSNull class]]) continue;
 
         // Use total_tokens if available, otherwise sum input + output
         if (totalUsage[@"total_tokens"]) {
@@ -730,11 +734,12 @@
 
     // Look for messages array
     NSArray *messages = data[@"messages"];
-    if (!messages) return 0;
+    if (!messages || [messages isKindOfClass:[NSNull class]]) return 0;
 
     for (NSDictionary *msg in messages) {
+        if (!msg || [msg isKindOfClass:[NSNull class]]) continue;
         NSDictionary *tokens = msg[@"tokens"];
-        if (!tokens) continue;
+        if (!tokens || [tokens isKindOfClass:[NSNull class]]) continue;
 
         // Use "total" if available, otherwise sum input + output
         if (tokens[@"total"]) {
