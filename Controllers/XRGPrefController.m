@@ -1046,9 +1046,9 @@
 
     // Create the AI preferences panel programmatically if it doesn't exist
     if (!AIPrefView) {
-        AIPrefView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 500, 400)];
+        AIPrefView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 500, 550)];
 
-        CGFloat yPos = 350;
+        CGFloat yPos = 500;
         CGFloat leftMargin = 20;
         CGFloat labelWidth = 200;
         CGFloat controlWidth = 250;
