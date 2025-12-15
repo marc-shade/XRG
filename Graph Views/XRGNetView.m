@@ -228,6 +228,9 @@
         [rightText drawInRect:tmpRect withAttributes:[appSettings alignRightAttributes]];
     }
 
+    // Draw cyberpunk visual effects overlay
+    [self drawCyberpunkEffectsInRect:self.bounds];
+
     [gc setShouldAntialias:YES];
 }
 

@@ -197,12 +197,33 @@
 
 #pragma mark - Cyberpunk Visual Effects
 
+- (void)drawCyberpunkEffectsInRect:(NSRect)rect {
+    // Apply the selected graph visual style
+    // 0 = Normal (no effects), 1 = Scanlines, 2 = Pixel Grid, 3 = Retro Dots
+
+    NSInteger style = [appSettings graphStyle];
+
+    switch (style) {
+        case 1:  // Scanlines
+            [self drawScanlines:rect];
+            break;
+        case 2:  // Pixel Grid
+            [self drawPixelGrid:rect withSpacing:4.0 color:[appSettings borderColor]];
+            break;
+        case 3:  // Retro Dots
+            [self drawRetroDots:rect];
+            break;
+        default:  // 0 = Normal, no effects
+            break;
+    }
+}
+
 - (void)drawScanlines:(NSRect)rect {
-    // Draw CRT-style scanlines for cyberpunk effect
-    NSColor *scanlineColor = [[NSColor blackColor] colorWithAlphaComponent:0.15];
+    // Draw CRT-style scanlines - high contrast effect
+    NSColor *scanlineColor = [[NSColor blackColor] colorWithAlphaComponent:0.5];
     [scanlineColor set];
 
-    CGFloat scanlineSpacing = 2.0;  // Pixels between scanlines
+    CGFloat scanlineSpacing = 2.0;  // Every other pixel row
     NSBezierPath *scanlines = [NSBezierPath bezierPath];
     [scanlines setLineWidth:1.0];
 
@@ -214,11 +235,11 @@
 }
 
 - (void)drawPixelGrid:(NSRect)rect withSpacing:(CGFloat)spacing color:(NSColor *)color {
-    // Draw subtle pixel grid for retro effect
-    [[color colorWithAlphaComponent:0.1] set];
+    // Draw high-contrast pixel grid for retro LCD effect
+    [[color colorWithAlphaComponent:0.4] set];
 
     NSBezierPath *grid = [NSBezierPath bezierPath];
-    [grid setLineWidth:0.5];
+    [grid setLineWidth:1.0];
 
     // Vertical lines
     for (CGFloat x = rect.origin.x; x < rect.origin.x + rect.size.width; x += spacing) {
@@ -233,6 +254,23 @@
     }
 
     [grid stroke];
+}
+
+- (void)drawRetroDots:(NSRect)rect {
+    // Draw high-contrast retro LED-style dot matrix overlay
+    CGFloat dotSpacing = 3.0;
+    CGFloat dotRadius = 1.0;
+
+    NSColor *dotColor = [[appSettings borderColor] colorWithAlphaComponent:0.5];
+    [dotColor set];
+
+    for (CGFloat x = rect.origin.x + dotSpacing; x < rect.origin.x + rect.size.width; x += dotSpacing) {
+        for (CGFloat y = rect.origin.y + dotSpacing; y < rect.origin.y + rect.size.height; y += dotSpacing) {
+            NSRect dotRect = NSMakeRect(x - dotRadius, y - dotRadius, dotRadius * 2, dotRadius * 2);
+            NSBezierPath *dot = [NSBezierPath bezierPathWithOvalInRect:dotRect];
+            [dot fill];
+        }
+    }
 }
 
 - (void)drawPixelDotsWithData:(CGFloat *)samples size:(NSInteger)nSamples currentIndex:(NSInteger)cIndex maxValue:(CGFloat)max inRect:(NSRect)rect color:(NSColor *)color dotSize:(CGFloat)dotSize {

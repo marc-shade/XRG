@@ -204,6 +204,9 @@
     else {
         [self drawGraph];
     }
+
+    // Draw cyberpunk visual effects overlay
+    [self drawCyberpunkEffectsInRect:self.bounds];
 }
 
 - (void)drawMiniGraph {

@@ -380,20 +380,12 @@
             [defs setBool:([showBreakdown state] == NSControlStateValueOn) forKey:@"aiTokensShowBreakdown"];
         }
 
-        // Save cyberpunk visual effects settings
-        NSButton *showScanlines = (NSButton *)[AIPrefView viewWithTag:1010];
-        NSButton *showPixelGrid = (NSButton *)[AIPrefView viewWithTag:1011];
-        NSButton *showPixelDots = (NSButton *)[AIPrefView viewWithTag:1012];
+    }
 
-        if (showScanlines) {
-            [defs setBool:([showScanlines state] == NSControlStateValueOn) forKey:@"showScanlines"];
-        }
-        if (showPixelGrid) {
-            [defs setBool:([showPixelGrid state] == NSControlStateValueOn) forKey:@"showPixelGrid"];
-        }
-        if (showPixelDots) {
-            [defs setBool:([showPixelDots state] == NSControlStateValueOn) forKey:@"showPixelDots"];
-        }
+    // Save graph style setting (from Appearance panel)
+    NSPopUpButton *graphStylePopup = (NSPopUpButton *)[ColorPrefView viewWithTag:1010];
+    if (graphStylePopup) {
+        [defs setInteger:[graphStylePopup indexOfSelectedItem] forKey:@"graphStyle"];
     }
 
     // CPU graph checkboxes
@@ -700,9 +692,50 @@
     [self setUpWell:graphFG3ColorWell   withTransparency:graphFG3Transparency];
     [self setUpWell:borderColorWell     withTransparency:borderTransparency];
     [self setUpWell:textColorWell       withTransparency:textTransparency];
-    
+
     [font setTarget:self];
     [font setAction:@selector(setFont:)];
+
+    // Resize ColorPrefView to make space for Graph Style controls
+    CGFloat extraHeight = 60;  // Extra space for the new controls
+    NSRect currentFrame = [ColorPrefView frame];
+    NSRect newFrame = NSMakeRect(currentFrame.origin.x,
+                                 currentFrame.origin.y,
+                                 currentFrame.size.width,
+                                 currentFrame.size.height + extraHeight);
+    [ColorPrefView setFrame:newFrame];
+
+    // Move all existing subviews up by extraHeight to make room at the bottom
+    for (NSView *subview in [ColorPrefView subviews]) {
+        NSRect subviewFrame = [subview frame];
+        subviewFrame.origin.y += extraHeight;
+        [subview setFrame:subviewFrame];
+    }
+
+    // Add graph style selector at the bottom of the Appearance panel
+    CGFloat yPos = 15;  // Position near the bottom of the panel
+    CGFloat leftMargin = 20;
+
+    // Graph Style label
+    NSTextField *styleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(leftMargin, yPos + 5, 80, 17)];
+    [styleLabel setStringValue:@"Graph Style:"];
+    [styleLabel setBezeled:NO];
+    [styleLabel setDrawsBackground:NO];
+    [styleLabel setEditable:NO];
+    [styleLabel setSelectable:NO];
+    [ColorPrefView addSubview:styleLabel];
+
+    // Graph Style popup menu
+    NSPopUpButton *graphStylePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(leftMargin + 85, yPos, 150, 26) pullsDown:NO];
+    [graphStylePopup addItemWithTitle:@"Normal"];
+    [graphStylePopup addItemWithTitle:@"Scanlines"];
+    [graphStylePopup addItemWithTitle:@"Pixel Grid"];
+    [graphStylePopup addItemWithTitle:@"Retro Dots"];
+    [graphStylePopup selectItemAtIndex:self.xrgGraphWindow.appSettings.graphStyle];
+    [graphStylePopup setTarget:self.xrgGraphWindow];
+    [graphStylePopup setAction:@selector(setGraphStyle:)];
+    [graphStylePopup setTag:1010];
+    [ColorPrefView addSubview:graphStylePopup];
 }
 
 - (void)setUpCPUPanel {
@@ -1037,9 +1070,7 @@
             @"aiTokensAggregateByProvider": @NO,
             @"aiTokensShowRate": @YES,
             @"aiTokensShowBreakdown": @YES,
-            @"showScanlines": @YES,
-            @"showPixelGrid": @YES,
-            @"showPixelDots": @YES
+            @"graphStyle": @0  // 0=Normal, 1=Scanlines, 2=Pixel Grid, 3=Retro Dots
         };
         [[NSUserDefaults standardUserDefaults] registerDefaults:defaults];
     });
@@ -1150,45 +1181,6 @@
         [AIPrefView addSubview:showBreakdown];
 
         yPos -= 40;
-
-        // Cyberpunk visual effects section
-        NSTextField *effectsLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(leftMargin, yPos, 460, 24)];
-        [effectsLabel setStringValue:@"Cyberpunk Visual Effects"];
-        [effectsLabel setBezeled:NO];
-        [effectsLabel setDrawsBackground:NO];
-        [effectsLabel setEditable:NO];
-        [effectsLabel setSelectable:NO];
-        [effectsLabel setFont:[NSFont boldSystemFontOfSize:14]];
-        [AIPrefView addSubview:effectsLabel];
-
-        yPos -= 30;
-
-        // Scanlines checkbox
-        NSButton *showScanlines = [NSButton checkboxWithTitle:@"Show CRT scanlines" target:nil action:nil];
-        [showScanlines setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
-        [showScanlines setState:self.xrgGraphWindow.appSettings.showScanlines ? NSControlStateValueOn : NSControlStateValueOff];
-        [showScanlines setTag:1010];
-        [AIPrefView addSubview:showScanlines];
-
-        yPos -= 30;
-
-        // Pixel grid checkbox
-        NSButton *showPixelGrid = [NSButton checkboxWithTitle:@"Show pixel grid background" target:nil action:nil];
-        [showPixelGrid setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
-        [showPixelGrid setState:self.xrgGraphWindow.appSettings.showPixelGrid ? NSControlStateValueOn : NSControlStateValueOff];
-        [showPixelGrid setTag:1011];
-        [AIPrefView addSubview:showPixelGrid];
-
-        yPos -= 30;
-
-        // Pixel dots checkbox
-        NSButton *showPixelDots = [NSButton checkboxWithTitle:@"Show pixel dots on graphs" target:nil action:nil];
-        [showPixelDots setFrame:NSMakeRect(leftMargin, yPos, controlWidth, 20)];
-        [showPixelDots setState:self.xrgGraphWindow.appSettings.showPixelDots ? NSControlStateValueOn : NSControlStateValueOff];
-        [showPixelDots setTag:1012];
-        [AIPrefView addSubview:showPixelDots];
-
-        yPos -= 50;
 
         // Reset buttons
         NSButton *resetSessionBtn = [[NSButton alloc] initWithFrame:NSMakeRect(leftMargin, yPos, 150, 28)];

@@ -765,6 +765,16 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
     }
 }
 
+- (IBAction)setGraphStyle:(id)sender {
+    NSInteger selectedIndex = [sender indexOfSelectedItem];
+    [self.appSettings setGraphStyle:selectedIndex];
+
+    // Redraw all graph views to apply the new style
+    for (NSView *subview in self.contentView.subviews) {
+        [subview setNeedsDisplay:YES];
+    }
+}
+
 - (IBAction)setFastCPUUsageCheckbox:(id)sender {
 	[self.appSettings setFastCPUUsage:([sender state] == NSControlStateValueOn)];
         

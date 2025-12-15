@@ -210,6 +210,10 @@
     [s appendFormat:@"\nVt: %@", [XRGCommon formattedStringForBytes:[memoryMiner totalSwap]]];
 
     [self drawLeftText:s centerText:nil rightText:nil inRect:[self paddedTextRect]];
+
+    // Draw cyberpunk visual effects overlay
+    [self drawCyberpunkEffectsInRect:self.bounds];
+
     [gc setShouldAntialias:YES];
 }
 

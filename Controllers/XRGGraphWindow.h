@@ -131,6 +131,7 @@
 
 - (IBAction)setObjectsToColor:(id)sender;
 - (IBAction)setObjectsToTransparency:(id)sender;
+- (IBAction)setGraphStyle:(id)sender;
 
 - (IBAction)setFastCPUUsageCheckbox:(id)sender;
 - (IBAction)setSeparateCPUColor:(id)sender;

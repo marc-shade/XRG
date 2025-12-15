@@ -66,9 +66,11 @@
 - (BOOL)shouldDrawMiniGraph;
 - (NSRect)paddedTextRect;
 
-// Cyberpunk visual effects
+// Graph visual styles
+- (void)drawCyberpunkEffectsInRect:(NSRect)rect;
 - (void)drawScanlines:(NSRect)rect;
 - (void)drawPixelGrid:(NSRect)rect withSpacing:(CGFloat)spacing color:(NSColor *)color;
+- (void)drawRetroDots:(NSRect)rect;
 - (void)drawPixelDotsWithData:(CGFloat *)samples size:(NSInteger)nSamples currentIndex:(NSInteger)cIndex maxValue:(CGFloat)max inRect:(NSRect)rect color:(NSColor *)color dotSize:(CGFloat)dotSize;
 - (void)drawPixelDotsWithDataFromDataSet:(XRGDataSet *)dataSet maxValue:(CGFloat)max inRect:(NSRect)rect color:(NSColor *)color dotSize:(CGFloat)dotSize;
 - (void)drawNeonGlowLine:(NSRect)rect atY:(CGFloat)y color:(NSColor *)color;

@@ -131,7 +131,7 @@
     NSRect inRect = NSMakeRect(0, 0, graphSize.width, graphSize.height);
 
     NSGraphicsContext *gc = [NSGraphicsContext currentContext];
-    
+
     [[appSettings graphBGColor] set];
     NSRect bounds = [self bounds];
     CGContextFillRect([gc CGContext], bounds);
@@ -142,6 +142,9 @@
 	else {
         [self drawGraph:inRect];
 	}
+
+    // Draw cyberpunk visual effects overlay
+    [self drawCyberpunkEffectsInRect:inRect];
     
     // Draw the graph in the application dock icon
     // Re-drawing uses about 2% of the CPU, and the drawing gets messed up if the graph window is higher res

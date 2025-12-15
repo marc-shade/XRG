@@ -355,7 +355,10 @@
     else {
         [@"No Battery Info Found" drawInRect:NSInsetRect(self.bounds, 3, 0) withAttributes:wrapAttributes];
     }
-    
+
+    // Draw cyberpunk visual effects overlay
+    [self drawCyberpunkEffectsInRect:self.bounds];
+
     gc.shouldAntialias = YES;
 }
 

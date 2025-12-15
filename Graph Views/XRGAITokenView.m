@@ -114,9 +114,10 @@
     NSColor *geminiColor = [appSettings graphFG3Color];
 
     NSRect graphRect = NSMakeRect(0, 0, numSamples, graphSize.height - textRectHeight);
+    NSInteger graphStyle = [appSettings graphStyle];
 
-    // Draw cyberpunk pixel grid background (if enabled)
-    if ([appSettings showPixelGrid]) {
+    // Draw pixel grid background (style 2)
+    if (graphStyle == 2) {
         [self drawPixelGrid:graphRect withSpacing:4.0 color:[appSettings borderColor]];
     }
 
@@ -137,16 +138,18 @@
 
     [self drawGraphWithDataFromDataSet:[tokenMiner claudeTokenData] maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:claudeColor];
 
-    // Add pixel dots on top of the graphs for cyberpunk effect (if enabled)
-    if ([appSettings showPixelDots]) {
-        [self drawPixelDotsWithDataFromDataSet:totalData maxValue:maxValue inRect:graphRect color:geminiColor dotSize:2.0];
-        [self drawPixelDotsWithDataFromDataSet:claudeCodexData maxValue:maxValue inRect:graphRect color:codexColor dotSize:2.0];
-        [self drawPixelDotsWithDataFromDataSet:[tokenMiner claudeTokenData] maxValue:maxValue inRect:graphRect color:claudeColor dotSize:2.0];
-    }
-
-    // Draw CRT scanlines overlay (if enabled)
-    if ([appSettings showScanlines]) {
-        [self drawScanlines:graphRect];
+    // Apply selected graph style overlay
+    switch (graphStyle) {
+        case 1:  // Scanlines
+            [self drawScanlines:graphRect];
+            break;
+        case 3:  // Retro Dots - data-aware version for AI Token view
+            [self drawPixelDotsWithDataFromDataSet:totalData maxValue:maxValue inRect:graphRect color:geminiColor dotSize:2.0];
+            [self drawPixelDotsWithDataFromDataSet:claudeCodexData maxValue:maxValue inRect:graphRect color:codexColor dotSize:2.0];
+            [self drawPixelDotsWithDataFromDataSet:[tokenMiner claudeTokenData] maxValue:maxValue inRect:graphRect color:claudeColor dotSize:2.0];
+            break;
+        default:  // 0 = Normal, 2 = Pixel Grid (already drawn above)
+            break;
     }
 
     // Draw current rate indicator on the right side

@@ -380,7 +380,9 @@ void getDISKcounters(io_iterator_t drivelist, io_stats *i_dsk, io_stats *o_dsk);
         tmpRect.origin.y = graphSize.height - textRectHeight;
         [[self writeBytesString] drawInRect:tmpRect withAttributes:[appSettings alignRightAttributes]];
     }
-    
+
+    // Draw cyberpunk visual effects overlay
+    [self drawCyberpunkEffectsInRect:self.bounds];
 
     [gc setShouldAntialias:YES];
 }
