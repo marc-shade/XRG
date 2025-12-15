@@ -116,7 +116,7 @@
 // Adapted from original drawGraphWithData, but added UpperBound and LowerBound in place of Max, and Filled
 - (void)drawRangedGraphWithData:(CGFloat *)samples size:(NSInteger)nSamples currentIndex:(NSInteger)cIndex upperBound:(CGFloat)max lowerBound:(CGFloat)min inRect:(NSRect)rect flipped:(BOOL)flipped filled:(BOOL)filled color:(NSColor *)color {
 	if (nSamples == 0) return;
-	
+
     NSInteger filledOffset = 0;
     NSInteger currentPointIndex;
 
@@ -142,7 +142,7 @@
     CGFloat height_scaled;
     CGFloat dx = rect.size.width / nSamples;
     CGFloat x;
-	
+
 	if (fabs(max - min) < 0.001) {
 		// Set the difference of max and min to 1 to avoid a divide by 0.
 		max += 0.5;
@@ -154,7 +154,7 @@
 
     for (i = currentPointIndex = 1 - filledOffset, x= origin.x; i <= nSamples - filledOffset; ++i, x+=dx) {
         j = (i + cIndex + filledOffset) % nSamples;
-        
+
         if (samples[j] != NOVALUE) {
             height = samples[j] - min;
             height_scaled = (height >=  0.0f ? height * scale : 0.0f);
@@ -172,7 +172,7 @@
     }
     // close any gap at the edge of the graph resulting from floating point rounding of dx
     points[currentPointIndex - 1].x = origin.x + rect.size.width;
-    
+
     if (filled) points[currentPointIndex] = NSMakePoint(origin.x + rect.size.width, origin.y);
 
     [color set];
@@ -191,8 +191,115 @@
         [bp setLineJoinStyle:NSLineJoinStyleRound];
         [bp stroke];
 	}
-        
+
     [bp removeAllPoints];
+}
+
+#pragma mark - Cyberpunk Visual Effects
+
+- (void)drawScanlines:(NSRect)rect {
+    // Draw CRT-style scanlines for cyberpunk effect
+    NSColor *scanlineColor = [[NSColor blackColor] colorWithAlphaComponent:0.15];
+    [scanlineColor set];
+
+    CGFloat scanlineSpacing = 2.0;  // Pixels between scanlines
+    NSBezierPath *scanlines = [NSBezierPath bezierPath];
+    [scanlines setLineWidth:1.0];
+
+    for (CGFloat y = rect.origin.y; y < rect.origin.y + rect.size.height; y += scanlineSpacing) {
+        [scanlines moveToPoint:NSMakePoint(rect.origin.x, y)];
+        [scanlines lineToPoint:NSMakePoint(rect.origin.x + rect.size.width, y)];
+    }
+    [scanlines stroke];
+}
+
+- (void)drawPixelGrid:(NSRect)rect withSpacing:(CGFloat)spacing color:(NSColor *)color {
+    // Draw subtle pixel grid for retro effect
+    [[color colorWithAlphaComponent:0.1] set];
+
+    NSBezierPath *grid = [NSBezierPath bezierPath];
+    [grid setLineWidth:0.5];
+
+    // Vertical lines
+    for (CGFloat x = rect.origin.x; x < rect.origin.x + rect.size.width; x += spacing) {
+        [grid moveToPoint:NSMakePoint(x, rect.origin.y)];
+        [grid lineToPoint:NSMakePoint(x, rect.origin.y + rect.size.height)];
+    }
+
+    // Horizontal lines
+    for (CGFloat y = rect.origin.y; y < rect.origin.y + rect.size.height; y += spacing) {
+        [grid moveToPoint:NSMakePoint(rect.origin.x, y)];
+        [grid lineToPoint:NSMakePoint(rect.origin.x + rect.size.width, y)];
+    }
+
+    [grid stroke];
+}
+
+- (void)drawPixelDotsWithData:(CGFloat *)samples size:(NSInteger)nSamples currentIndex:(NSInteger)cIndex maxValue:(CGFloat)max inRect:(NSRect)rect color:(NSColor *)color dotSize:(CGFloat)dotSize {
+    if (nSamples == 0) return;
+
+    if (fabs(max) < 0.001) max = 1.0;
+
+    CGFloat scale = rect.size.height / max;
+    CGFloat dx = rect.size.width / nSamples;
+
+    // Draw glow effect first (larger, semi-transparent)
+    NSColor *glowColor = [color colorWithAlphaComponent:0.3];
+    [glowColor set];
+
+    for (NSInteger i = 0; i < nSamples; i++) {
+        NSInteger j = (i + cIndex + 1) % nSamples;
+        if (samples[j] != NOVALUE && samples[j] > 0) {
+            CGFloat x = rect.origin.x + (i * dx);
+            CGFloat height = samples[j] * scale;
+            CGFloat y = rect.origin.y + height;
+
+            // Glow dot (larger)
+            NSRect glowRect = NSMakeRect(x - dotSize, y - dotSize, dotSize * 3, dotSize * 3);
+            NSBezierPath *glow = [NSBezierPath bezierPathWithOvalInRect:glowRect];
+            [glow fill];
+        }
+    }
+
+    // Draw main dots
+    [color set];
+    for (NSInteger i = 0; i < nSamples; i++) {
+        NSInteger j = (i + cIndex + 1) % nSamples;
+        if (samples[j] != NOVALUE && samples[j] > 0) {
+            CGFloat x = rect.origin.x + (i * dx);
+            CGFloat height = samples[j] * scale;
+            CGFloat y = rect.origin.y + height;
+
+            // Main dot
+            NSRect dotRect = NSMakeRect(x - dotSize/2, y - dotSize/2, dotSize, dotSize);
+            NSRectFill(dotRect);  // Square pixels for retro look
+        }
+    }
+}
+
+- (void)drawPixelDotsWithDataFromDataSet:(XRGDataSet *)dataSet maxValue:(CGFloat)max inRect:(NSRect)rect color:(NSColor *)color dotSize:(CGFloat)dotSize {
+    size_t numVals = [dataSet numValues];
+    CGFloat *values = alloca(numVals * sizeof(CGFloat));
+    [dataSet valuesInOrder:values];
+
+    [self drawPixelDotsWithData:values size:numVals currentIndex:numVals - 1 maxValue:max inRect:rect color:color dotSize:dotSize];
+}
+
+- (void)drawNeonGlowLine:(NSRect)rect atY:(CGFloat)y color:(NSColor *)color {
+    // Draw a horizontal neon glow line (good for threshold indicators)
+    CGFloat glowWidth = 3.0;
+
+    // Outer glow
+    [[color colorWithAlphaComponent:0.2] set];
+    NSRectFill(NSMakeRect(rect.origin.x, y - glowWidth, rect.size.width, glowWidth * 2));
+
+    // Inner glow
+    [[color colorWithAlphaComponent:0.5] set];
+    NSRectFill(NSMakeRect(rect.origin.x, y - 1, rect.size.width, 2));
+
+    // Core line
+    [color set];
+    NSRectFill(NSMakeRect(rect.origin.x, y - 0.5, rect.size.width, 1));
 }
 
 - (void)drawRangedGraphWithDataFromDataSet:(XRGDataSet *)dataSet upperBound:(CGFloat)max lowerBound:(CGFloat)min inRect:(NSRect)rect flipped:(BOOL)flipped filled:(BOOL)filled color:(NSColor *)color {
