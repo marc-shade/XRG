@@ -105,29 +105,31 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
     appDefs[XRG_borderTransparency]     = @"0.4";
     appDefs[XRG_textTransparency]       = @"1.0";
     
-    // Modern dark theme with vibrant accent colors
-    NSColor *c = [NSColor colorWithDeviceRed: 0.1 green: 0.1 blue: 0.1 alpha: 0.9];
+    // Cyberpunk theme - neon on dark
+    NSColor *c = [NSColor colorWithDeviceRed: 0.05 green: 0.02 blue: 0.08 alpha: 0.95];
     appDefs[XRG_backgroundColor] = [NSKeyedArchiver archivedDataWithRootObject:[c copy] requiringSecureCoding:NO error:nil];
 
-    c = [NSColor colorWithDeviceRed: 0.15 green: 0.15 blue: 0.15 alpha: 0.9];
+    c = [NSColor colorWithDeviceRed: 0.08 green: 0.04 blue: 0.12 alpha: 0.9];
     appDefs[XRG_graphBGColor] = [NSKeyedArchiver archivedDataWithRootObject:[c copy] requiringSecureCoding:NO error:nil];
 
-    // Bright cyan for primary data series
-    c = [NSColor colorWithDeviceRed: 0.2 green: 0.8 blue: 0.9 alpha: 1.0];
+    // Hot pink/magenta for primary data series
+    c = [NSColor colorWithDeviceRed: 1.0 green: 0.0 blue: 0.6 alpha: 1.0];
     appDefs[XRG_graphFG1Color] = [NSKeyedArchiver archivedDataWithRootObject:[c copy] requiringSecureCoding:NO error:nil];
 
-    // Vibrant purple for secondary data series
-    c = [NSColor colorWithDeviceRed: 0.7 green: 0.3 blue: 0.9 alpha: 1.0];
+    // Electric cyan for secondary data series
+    c = [NSColor colorWithDeviceRed: 0.0 green: 1.0 blue: 1.0 alpha: 1.0];
     appDefs[XRG_graphFG2Color] = [NSKeyedArchiver archivedDataWithRootObject:[c copy] requiringSecureCoding:NO error:nil];
 
-    // Warm amber/gold for tertiary data series
-    c = [NSColor colorWithDeviceRed: 1.0 green: 0.7 blue: 0.2 alpha: 1.0];
+    // Toxic green for tertiary data series
+    c = [NSColor colorWithDeviceRed: 0.2 green: 1.0 blue: 0.2 alpha: 1.0];
     appDefs[XRG_graphFG3Color] = [NSKeyedArchiver archivedDataWithRootObject:[c copy] requiringSecureCoding:NO error:nil];
 
-    c = [NSColor colorWithDeviceRed: 0.3 green: 0.3 blue: 0.3 alpha: 0.4];
+    c = [NSColor colorWithDeviceRed: 0.5 green: 0.0 blue: 0.5 alpha: 0.5];
     appDefs[XRG_borderColor] = [NSKeyedArchiver archivedDataWithRootObject:[c copy] requiringSecureCoding:NO error:nil];
-        
-    appDefs[XRG_textColor] = [NSKeyedArchiver archivedDataWithRootObject:[NSColor whiteColor] requiringSecureCoding:NO error:nil];
+
+    // Neon cyan text
+    c = [NSColor colorWithDeviceRed: 0.6 green: 1.0 blue: 1.0 alpha: 1.0];
+    appDefs[XRG_textColor] = [NSKeyedArchiver archivedDataWithRootObject:[c copy] requiringSecureCoding:NO error:nil];
     
     appDefs[XRG_graphFont] = [NSKeyedArchiver archivedDataWithRootObject:[NSFont systemFontOfSize:10.0] requiringSecureCoding:NO error:nil];
                 
