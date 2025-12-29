@@ -76,6 +76,8 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     UInt64 cachedCodexTokens;                 // Cached Codex tokens
     UInt64 cachedGeminiTokens;                // Cached Gemini tokens
     NSDate *lastJSONLScanTime;                // Last time we scanned for new files
+    NSDate *lastCodexScanTime;                // Last time we scanned Codex files
+    NSDate *lastGeminiScanTime;               // Last time we scanned Gemini files
     dispatch_queue_t jsonlParsingQueue;       // Background queue for file I/O
     dispatch_semaphore_t cacheSemaphore;      // Thread-safe cache access
 }

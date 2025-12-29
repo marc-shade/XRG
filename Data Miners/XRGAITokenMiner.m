@@ -78,6 +78,8 @@
         cachedCodexTokens = 0;
         cachedGeminiTokens = 0;
         lastJSONLScanTime = nil;
+        lastCodexScanTime = nil;
+        lastGeminiScanTime = nil;
 
         // Create background queue for non-blocking file operations
         jsonlParsingQueue = dispatch_queue_create("com.xrg.jsonl.parsing", DISPATCH_QUEUE_SERIAL);
@@ -393,11 +395,12 @@
 
     dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
 
-    // ALWAYS trigger update if:
+    // Trigger update if:
     // 1. First time (no last scan time)
-    // 2. Been more than 1 second since last scan (to catch active file writes)
-    // Original 30-second throttle was too slow for real-time tracking
-    if (!lastJSONLScanTime || [now timeIntervalSinceDate:lastJSONLScanTime] > 1.0) {
+    // 2. Been more than 30 seconds since last scan
+    // NOTE: With 26K+ JSONL files, scanning more frequently causes 100% CPU!
+    // The 1-second throttle was too aggressive for large file counts.
+    if (!lastJSONLScanTime || [now timeIntervalSinceDate:lastJSONLScanTime] > 30.0) {
         shouldUpdate = YES;
         lastJSONLScanTime = now; // Prevent multiple simultaneous updates
     }
@@ -550,10 +553,24 @@
     _totalCodexTokens = cachedCodexTokens;
     dispatch_semaphore_signal(cacheSemaphore);
 
-    // Trigger background update (non-blocking)
-    dispatch_async(jsonlParsingQueue, ^{
-        [self updateCodexCacheInBackground];
-    });
+    // Check if we should trigger background update (throttled)
+    NSDate *now = [NSDate date];
+    BOOL shouldUpdate = NO;
+
+    dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+    // Throttle to every 30 seconds to avoid excessive file I/O
+    if (!lastCodexScanTime || [now timeIntervalSinceDate:lastCodexScanTime] > 30.0) {
+        shouldUpdate = YES;
+        lastCodexScanTime = now;
+    }
+    dispatch_semaphore_signal(cacheSemaphore);
+
+    // Dispatch background update (non-blocking)
+    if (shouldUpdate) {
+        dispatch_async(jsonlParsingQueue, ^{
+            [self updateCodexCacheInBackground];
+        });
+    }
 
     return YES;
 }
@@ -668,10 +685,24 @@
     _totalGeminiTokens = cachedGeminiTokens;
     dispatch_semaphore_signal(cacheSemaphore);
 
-    // Trigger background update (non-blocking)
-    dispatch_async(jsonlParsingQueue, ^{
-        [self updateGeminiCacheInBackground];
-    });
+    // Check if we should trigger background update (throttled)
+    NSDate *now = [NSDate date];
+    BOOL shouldUpdate = NO;
+
+    dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+    // Throttle to every 30 seconds to avoid excessive file I/O
+    if (!lastGeminiScanTime || [now timeIntervalSinceDate:lastGeminiScanTime] > 30.0) {
+        shouldUpdate = YES;
+        lastGeminiScanTime = now;
+    }
+    dispatch_semaphore_signal(cacheSemaphore);
+
+    // Dispatch background update (non-blocking)
+    if (shouldUpdate) {
+        dispatch_async(jsonlParsingQueue, ^{
+            [self updateGeminiCacheInBackground];
+        });
+    }
 
     return YES;
 }
