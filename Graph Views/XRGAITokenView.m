@@ -130,6 +130,8 @@
     NSColor *claudeColor = [appSettings graphFG1Color];
     NSColor *codexColor = [appSettings graphFG2Color];
     NSColor *geminiColor = [appSettings graphFG3Color];
+    // Ollama uses a blend of FG1 and FG3 (orange-ish local AI)
+    NSColor *ollamaColor = [[appSettings graphFG3Color] blendedColorWithFraction:0.5 ofColor:[appSettings graphFG1Color]];
 
     NSRect graphRect = NSMakeRect(0, 0, numSamples, graphSize.height - textRectHeight);
     NSInteger graphStyle = [appSettings graphStyle];
@@ -143,6 +145,7 @@
     XRGDataSet *claudeData = [tokenMiner claudeTokenData];
     XRGDataSet *codexData = [tokenMiner codexTokenData];
     XRGDataSet *geminiData = [tokenMiner geminiTokenData];
+    XRGDataSet *ollamaData = [tokenMiner ollamaTokenData];
 
     // Defensive nil checks - skip graph drawing if data not ready
     if (!claudeData || claudeData.numValues == 0) {
@@ -165,12 +168,21 @@
     }
     if (codexData) [cachedTotalData addOtherDataSetValues:codexData];
     if (geminiData) [cachedTotalData addOtherDataSetValues:geminiData];
+    if (ollamaData) [cachedTotalData addOtherDataSetValues:ollamaData];
 
     CGFloat maxValue = [cachedTotalData max];
     if (maxValue == 0) maxValue = 1000;  // Default scale
 
-    // Draw stacked area graphs (bottom to top: Claude, Codex, Gemini)
-    [self drawGraphWithDataFromDataSet:cachedTotalData maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:geminiColor];
+    // Draw stacked area graphs (bottom to top: Claude, Codex, Gemini, Ollama)
+    [self drawGraphWithDataFromDataSet:cachedTotalData maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:ollamaColor];
+
+    // Create cached dataset for Claude+Codex+Gemini (without Ollama)
+    XRGDataSet *claudeCodexGeminiData = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:claudeData];
+    if (claudeCodexGeminiData) {
+        if (codexData) [claudeCodexGeminiData addOtherDataSetValues:codexData];
+        if (geminiData) [claudeCodexGeminiData addOtherDataSetValues:geminiData];
+        [self drawGraphWithDataFromDataSet:claudeCodexGeminiData maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:geminiColor];
+    }
 
     // Lazily create or resize cached claude+codex dataset
     if (!cachedClaudeCodexData || cachedClaudeCodexData.numValues != claudeData.numValues) {
@@ -231,6 +243,12 @@
         indicatorRect.size.height = (CGFloat)[tokenMiner geminiTokenRate] / indicatorTotalRate * (graphSize.height - textRectHeight);
         [geminiColor set];
         NSRectFill(indicatorRect);
+
+        // Draw Ollama rate
+        indicatorRect.origin.y += indicatorRect.size.height;
+        indicatorRect.size.height = (CGFloat)[tokenMiner ollamaTokenRate] / indicatorTotalRate * (graphSize.height - textRectHeight);
+        [ollamaColor set];
+        NSRectFill(indicatorRect);
     }
 
     // Draw provider color legend at top-right of graph area
@@ -245,7 +263,7 @@
     CGFloat legendSpacing = 11;
 
     // Only show legend if there's any data
-    if ([tokenMiner totalClaudeTokens] > 0 || [tokenMiner totalCodexTokens] > 0 || [tokenMiner totalGeminiTokens] > 0) {
+    if ([tokenMiner totalClaudeTokens] > 0 || [tokenMiner totalCodexTokens] > 0 || [tokenMiner totalGeminiTokens] > 0 || [tokenMiner ollamaAvailable]) {
         // Claude legend entry (bottom, since stack is bottom-to-top)
         if ([tokenMiner totalClaudeTokens] > 0) {
             NSRect claudeBox = NSMakeRect(legendX, legendY, legendBoxSize, legendBoxSize);
@@ -264,12 +282,21 @@
             legendY -= legendSpacing;
         }
 
-        // Gemini legend entry (top)
+        // Gemini legend entry
         if ([tokenMiner totalGeminiTokens] > 0) {
             NSRect geminiBox = NSMakeRect(legendX, legendY, legendBoxSize, legendBoxSize);
             [geminiColor set];
             NSRectFill(geminiBox);
             [@"G" drawAtPoint:NSMakePoint(legendX + legendBoxSize + 2, legendY - 1) withAttributes:legendAttributes];
+            legendY -= legendSpacing;
+        }
+
+        // Ollama legend entry (top)
+        if ([tokenMiner ollamaAvailable]) {
+            NSRect ollamaBox = NSMakeRect(legendX, legendY, legendBoxSize, legendBoxSize);
+            [ollamaColor set];
+            NSRectFill(ollamaBox);
+            [@"O" drawAtPoint:NSMakePoint(legendX + legendBoxSize + 2, legendY - 1) withAttributes:legendAttributes];
         }
     }
 
@@ -295,15 +322,18 @@
     UInt32 claudeRate = [tokenMiner claudeTokenRate];
     UInt32 codexRate = [tokenMiner codexTokenRate];
     UInt32 geminiRate = [tokenMiner geminiTokenRate];
-    UInt32 totalRate = claudeRate + codexRate + geminiRate;
+    UInt32 ollamaRate = [tokenMiner ollamaTokenRate];
+    UInt32 totalRate = claudeRate + codexRate + geminiRate + ollamaRate;
 
     // Get per-provider totals
     UInt64 claudeTotal = [tokenMiner totalClaudeTokens];
     UInt64 codexTotal = [tokenMiner totalCodexTokens];
     UInt64 geminiTotal = [tokenMiner totalGeminiTokens];
+    UInt64 ollamaTotal = [tokenMiner totalOllamaTokens];
+    BOOL ollamaAvailable = [tokenMiner ollamaAvailable];
 
     // Always show per-provider totals for visibility
-    if (claudeTotal > 0 || codexTotal > 0 || geminiTotal > 0) {
+    if (claudeTotal > 0 || codexTotal > 0 || geminiTotal > 0 || ollamaAvailable) {
         [label appendString:@"\n─ Providers ─"];
 
         // Claude (FG1 color = typically green/cyan)
@@ -337,6 +367,12 @@
             } else {
                 [label appendFormat:@"\n● Gemini: %llu", geminiTotal];
             }
+        }
+
+        // Ollama (local inference)
+        if (ollamaAvailable) {
+            NSString *ollamaStatus = [tokenMiner ollamaStatusString];
+            [label appendFormat:@"\n● %@", ollamaStatus];
         }
     }
 
@@ -509,6 +545,7 @@
     XRGDataSet *claudeData = [tokenMiner claudeTokenData];
     XRGDataSet *codexData = [tokenMiner codexTokenData];
     XRGDataSet *geminiData = [tokenMiner geminiTokenData];
+    XRGDataSet *ollamaData = [tokenMiner ollamaTokenData];
 
     if (!cachedTotalData || cachedTotalData.numValues != claudeData.numValues) {
         cachedTotalData = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:claudeData];
@@ -523,6 +560,7 @@
     }
     [cachedTotalData addOtherDataSetValues:codexData];
     [cachedTotalData addOtherDataSetValues:geminiData];
+    [cachedTotalData addOtherDataSetValues:ollamaData];
 
     CGFloat maxValue = [cachedTotalData max];
     if (maxValue == 0) maxValue = 1000;
@@ -613,6 +651,32 @@
         if (geminiCost > 0.001) {
             tMI = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"  Gemini: $%.4f", geminiCost] action:@selector(emptyEvent:) keyEquivalent:@""];
             [myMenu addItem:tMI];
+        }
+    }
+
+    // Ollama Status Section
+    if ([tokenMiner ollamaAvailable]) {
+        [myMenu addItem:[NSMenuItem separatorItem]];
+
+        tMI = [[NSMenuItem alloc] initWithTitle:@"Ollama Local Inference" action:@selector(emptyEvent:) keyEquivalent:@""];
+        [tMI setEnabled:NO];
+        [myMenu addItem:tMI];
+
+        NSString *ollamaStatus = [tokenMiner ollamaStatusString];
+        tMI = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"  %@", ollamaStatus] action:@selector(emptyEvent:) keyEquivalent:@""];
+        [myMenu addItem:tMI];
+
+        // Show running models if any
+        NSArray *runningModels = [tokenMiner ollamaRunningModels];
+        if (runningModels.count > 0) {
+            tMI = [[NSMenuItem alloc] initWithTitle:@"  Running Models:" action:@selector(emptyEvent:) keyEquivalent:@""];
+            [tMI setEnabled:NO];
+            [myMenu addItem:tMI];
+
+            for (NSString *model in runningModels) {
+                tMI = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"    %@", model] action:@selector(emptyEvent:) keyEquivalent:@""];
+                [myMenu addItem:tMI];
+            }
         }
     }
 

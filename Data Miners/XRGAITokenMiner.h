@@ -45,12 +45,14 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     XRGDataSet *claudeCodeTokens;      // Claude Code API tokens/sec
     XRGDataSet *codexTokens;            // OpenAI Codex CLI tokens/sec
     XRGDataSet *geminiTokens;           // Google Gemini CLI tokens/sec
+    XRGDataSet *ollamaTokens;           // Ollama local inference tokens/sec
     XRGDataSet *costPerSecond;          // Cost tracking ($/sec for burn rate)
 
     // Cumulative counters
     UInt64 totalClaudeTokens;
     UInt64 totalCodexTokens;
     UInt64 totalGeminiTokens;
+    UInt64 totalOllamaTokens;
     double totalCostUSD;
 
     // Input/Output token tracking for accurate cost calculation
@@ -60,18 +62,30 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     UInt64 codexOutputTokens;
     UInt64 geminiInputTokens;
     UInt64 geminiOutputTokens;
+    UInt64 ollamaInputTokens;
+    UInt64 ollamaOutputTokens;
 
     // Rate tracking (for proper delta calculation)
     UInt64 lastClaudeCount;
     UInt64 lastCodexCount;
     UInt64 lastGeminiCount;
+    UInt64 lastOllamaCount;
     double lastTotalCost;
 
     // Current rates (stored to avoid recalculation bug)
     UInt32 currentClaudeRate;
     UInt32 currentCodexRate;
     UInt32 currentGeminiRate;
+    UInt32 currentOllamaRate;
     double currentCostRate;  // $/second burn rate
+
+    // Ollama local inference tracking
+    NSString *ollamaApiEndpoint;         // Ollama API endpoint (default: localhost:11434)
+    BOOL ollamaAvailable;                // Whether Ollama server is running
+    NSArray *ollamaAvailableModels;      // Models available in Ollama
+    NSArray *ollamaRunningModels;        // Currently loaded/running models
+    NSDate *lastOllamaScanTime;          // Last time we checked Ollama API
+    UInt64 cachedOllamaTokens;           // Cached token count
 
     // Multi-strategy data collection
     XRGAIDataStrategy activeStrategy;
@@ -106,8 +120,11 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
 @property (nonatomic, assign) UInt64 totalClaudeTokens;
 @property (nonatomic, assign) UInt64 totalCodexTokens;
 @property (nonatomic, assign) UInt64 totalGeminiTokens;
+@property (nonatomic, assign) UInt64 totalOllamaTokens;
 @property (nonatomic, assign) double totalCostUSD;
 @property (nonatomic, assign, readonly) XRGAIDataStrategy activeStrategy;
+@property (nonatomic, assign, readonly) BOOL ollamaAvailable;
+@property (nonatomic, strong, readonly) NSArray *ollamaRunningModels;
 
 // Core methods
 - (void)getLatestTokenInfo;
@@ -118,6 +135,7 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
 - (UInt32)claudeTokenRate;
 - (UInt32)codexTokenRate;
 - (UInt32)geminiTokenRate;
+- (UInt32)ollamaTokenRate;
 - (UInt32)totalTokenRate;
 
 // Cost intelligence methods
@@ -132,6 +150,7 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
 - (XRGDataSet *)claudeTokenData;
 - (XRGDataSet *)codexTokenData;
 - (XRGDataSet *)geminiTokenData;
+- (XRGDataSet *)ollamaTokenData;
 
 // Strategy detection and management
 - (void)detectBestStrategy;
@@ -153,5 +172,10 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
 - (BOOL)fetchFromGeminiCLI;
 - (void)updateGeminiCacheInBackground;
 - (UInt64)parseGeminiSessionFile:(NSString *)filePath;
+
+// Data collection strategies - Ollama Local Inference
+- (BOOL)fetchFromOllamaAPI;
+- (void)updateOllamaStatusInBackground;
+- (NSString *)ollamaStatusString;
 
 @end

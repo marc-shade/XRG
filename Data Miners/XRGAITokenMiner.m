@@ -58,8 +58,11 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
 @synthesize totalClaudeTokens = _totalClaudeTokens;
 @synthesize totalCodexTokens = _totalCodexTokens;
 @synthesize totalGeminiTokens = _totalGeminiTokens;
+@synthesize totalOllamaTokens = _totalOllamaTokens;
 @synthesize totalCostUSD = _totalCostUSD;
 @synthesize activeStrategy;
+@synthesize ollamaAvailable = _ollamaAvailable;
+@synthesize ollamaRunningModels = _ollamaRunningModels;
 
 - (instancetype)init {
     self = [super init];
@@ -68,16 +71,19 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
         claudeCodeTokens = [[XRGDataSet alloc] init];
         codexTokens = [[XRGDataSet alloc] init];
         geminiTokens = [[XRGDataSet alloc] init];
+        ollamaTokens = [[XRGDataSet alloc] init];
         costPerSecond = [[XRGDataSet alloc] init];
 
         // Initialize counters
         _totalClaudeTokens = 0;
         _totalCodexTokens = 0;
         _totalGeminiTokens = 0;
+        _totalOllamaTokens = 0;
         _totalCostUSD = 0.0;
         lastClaudeCount = 0;
         lastCodexCount = 0;
         lastGeminiCount = 0;
+        lastOllamaCount = 0;
         lastTotalCost = 0.0;
 
         // Initialize input/output token counters for cost calculation
@@ -87,12 +93,23 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
         codexOutputTokens = 0;
         geminiInputTokens = 0;
         geminiOutputTokens = 0;
+        ollamaInputTokens = 0;
+        ollamaOutputTokens = 0;
 
         // Initialize current rates
         currentClaudeRate = 0;
         currentCodexRate = 0;
         currentGeminiRate = 0;
+        currentOllamaRate = 0;
         currentCostRate = 0.0;
+
+        // Initialize Ollama API tracking
+        ollamaApiEndpoint = @"http://localhost:11434";
+        _ollamaAvailable = NO;
+        ollamaAvailableModels = @[];
+        _ollamaRunningModels = @[];
+        lastOllamaScanTime = nil;
+        cachedOllamaTokens = 0;
 
         // Initialize paths
         NSString *homeDir = NSHomeDirectory();
@@ -137,6 +154,7 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
             }
             [self updateCodexCacheInBackground];
             [self updateGeminiCacheInBackground];
+            [self updateOllamaStatusInBackground];
         });
 
 #ifdef XRG_DEBUG
@@ -150,21 +168,24 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
 - (void)setDataSize:(int)newNumSamples {
     if (newNumSamples < 0) return;
 
-    if (claudeCodeTokens && codexTokens && geminiTokens && costPerSecond) {
+    if (claudeCodeTokens && codexTokens && geminiTokens && ollamaTokens && costPerSecond) {
         [claudeCodeTokens resize:(size_t)newNumSamples];
         [codexTokens resize:(size_t)newNumSamples];
         [geminiTokens resize:(size_t)newNumSamples];
+        [ollamaTokens resize:(size_t)newNumSamples];
         [costPerSecond resize:(size_t)newNumSamples];
     }
     else {
         claudeCodeTokens = [[XRGDataSet alloc] init];
         codexTokens = [[XRGDataSet alloc] init];
         geminiTokens = [[XRGDataSet alloc] init];
+        ollamaTokens = [[XRGDataSet alloc] init];
         costPerSecond = [[XRGDataSet alloc] init];
 
         [claudeCodeTokens resize:(size_t)newNumSamples];
         [codexTokens resize:(size_t)newNumSamples];
         [geminiTokens resize:(size_t)newNumSamples];
+        [ollamaTokens resize:(size_t)newNumSamples];
         [costPerSecond resize:(size_t)newNumSamples];
     }
 
@@ -175,15 +196,18 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
     [claudeCodeTokens reset];
     [codexTokens reset];
     [geminiTokens reset];
+    [ollamaTokens reset];
     [costPerSecond reset];
 
     _totalClaudeTokens = 0;
     _totalCodexTokens = 0;
     _totalGeminiTokens = 0;
+    _totalOllamaTokens = 0;
     _totalCostUSD = 0.0;
     lastClaudeCount = 0;
     lastCodexCount = 0;
     lastGeminiCount = 0;
+    lastOllamaCount = 0;
     lastTotalCost = 0.0;
 
     // Reset input/output token counters
@@ -193,11 +217,19 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
     codexOutputTokens = 0;
     geminiInputTokens = 0;
     geminiOutputTokens = 0;
+    ollamaInputTokens = 0;
+    ollamaOutputTokens = 0;
 
     currentClaudeRate = 0;
     currentCodexRate = 0;
     currentGeminiRate = 0;
+    currentOllamaRate = 0;
     currentCostRate = 0.0;
+
+    // Reset Ollama state
+    _ollamaAvailable = NO;
+    _ollamaRunningModels = @[];
+    cachedOllamaTokens = 0;
 }
 
 - (void)detectBestStrategy {
@@ -281,20 +313,26 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
     // === Fetch Gemini CLI tokens ===
     [self fetchFromGeminiCLI];
 
+    // === Fetch Ollama local inference status ===
+    [self fetchFromOllamaAPI];
+
     // Calculate rates (delta from last update) - CRITICAL: Calculate BEFORE updating lastCount
     currentClaudeRate = (UInt32)(_totalClaudeTokens - lastClaudeCount);
     currentCodexRate = (UInt32)(_totalCodexTokens - lastCodexCount);
     currentGeminiRate = (UInt32)(_totalGeminiTokens - lastGeminiCount);
+    currentOllamaRate = (UInt32)(_totalOllamaTokens - lastOllamaCount);
 
     // Update last counts
     lastClaudeCount = _totalClaudeTokens;
     lastCodexCount = _totalCodexTokens;
     lastGeminiCount = _totalGeminiTokens;
+    lastOllamaCount = _totalOllamaTokens;
 
     // Store rates in data sets
     if (claudeCodeTokens) [claudeCodeTokens setNextValue:currentClaudeRate];
     if (codexTokens) [codexTokens setNextValue:currentCodexRate];
     if (geminiTokens) [geminiTokens setNextValue:currentGeminiRate];
+    if (ollamaTokens) [ollamaTokens setNextValue:currentOllamaRate];
 
     // === Calculate costs ===
     [self calculateCosts];
@@ -904,8 +942,12 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
     return currentGeminiRate;
 }
 
+- (UInt32)ollamaTokenRate {
+    return currentOllamaRate;
+}
+
 - (UInt32)totalTokenRate {
-    return currentClaudeRate + currentCodexRate + currentGeminiRate;
+    return currentClaudeRate + currentCodexRate + currentGeminiRate + currentOllamaRate;
 }
 
 - (XRGDataSet *)claudeTokenData {
@@ -918,6 +960,10 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
 
 - (XRGDataSet *)geminiTokenData {
     return geminiTokens;
+}
+
+- (XRGDataSet *)ollamaTokenData {
+    return ollamaTokens;
 }
 
 - (XRGDataSet *)costData {
@@ -1067,6 +1113,138 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
         *error = resultError;
     }
     return resultData;
+}
+
+#pragma mark - Ollama Local Inference Methods
+
+- (BOOL)fetchFromOllamaAPI {
+    // CRITICAL: Return immediately with cached value (non-blocking!)
+    dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+    _totalOllamaTokens = cachedOllamaTokens;
+    dispatch_semaphore_signal(cacheSemaphore);
+
+    // Check if we should trigger background update (throttled)
+    NSDate *now = [NSDate date];
+    BOOL shouldUpdate = NO;
+
+    dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+    // Throttle to every 5 seconds for Ollama API (it's a network call)
+    if (!lastOllamaScanTime || [now timeIntervalSinceDate:lastOllamaScanTime] > 5.0) {
+        shouldUpdate = YES;
+        lastOllamaScanTime = now;
+    }
+    dispatch_semaphore_signal(cacheSemaphore);
+
+    // Dispatch background update (non-blocking)
+    if (shouldUpdate) {
+        dispatch_async(jsonlParsingQueue, ^{
+            [self updateOllamaStatusInBackground];
+        });
+    }
+
+    return _ollamaAvailable;
+}
+
+- (void)updateOllamaStatusInBackground {
+    // Check Ollama availability via /api/tags
+    NSURL *tagsUrl = [NSURL URLWithString:[NSString stringWithFormat:@"%@/api/tags", ollamaApiEndpoint]];
+    if (!tagsUrl) {
+        dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+        _ollamaAvailable = NO;
+        dispatch_semaphore_signal(cacheSemaphore);
+        return;
+    }
+
+    NSURLRequest *tagsRequest = [NSURLRequest requestWithURL:tagsUrl
+                                                 cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
+                                             timeoutInterval:2.0];
+
+    NSError *error = nil;
+    NSHTTPURLResponse *response = nil;
+    NSData *tagsData = [self xrg_syncDataForRequest:tagsRequest returningResponse:&response error:&error];
+
+    if (error || !tagsData || response.statusCode != 200) {
+        // Ollama not available
+        dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+        _ollamaAvailable = NO;
+        ollamaAvailableModels = @[];
+        _ollamaRunningModels = @[];
+        dispatch_semaphore_signal(cacheSemaphore);
+#ifdef XRG_DEBUG
+        NSLog(@"[XRGAITokenMiner] Ollama not available: %@", error ? error.localizedDescription : @"HTTP error");
+#endif
+        return;
+    }
+
+    // Parse available models
+    NSDictionary *tagsJson = [NSJSONSerialization JSONObjectWithData:tagsData options:0 error:nil];
+    NSArray *models = tagsJson[@"models"];
+    NSMutableArray *modelNames = [NSMutableArray array];
+    if (models && [models isKindOfClass:[NSArray class]]) {
+        for (NSDictionary *model in models) {
+            NSString *name = model[@"name"];
+            if (name) [modelNames addObject:name];
+        }
+    }
+
+    // Now check running models via /api/ps
+    NSURL *psUrl = [NSURL URLWithString:[NSString stringWithFormat:@"%@/api/ps", ollamaApiEndpoint]];
+    NSURLRequest *psRequest = [NSURLRequest requestWithURL:psUrl
+                                               cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
+                                           timeoutInterval:2.0];
+
+    NSData *psData = [self xrg_syncDataForRequest:psRequest returningResponse:&response error:&error];
+
+    NSMutableArray *runningNames = [NSMutableArray array];
+    if (!error && psData && response.statusCode == 200) {
+        NSDictionary *psJson = [NSJSONSerialization JSONObjectWithData:psData options:0 error:nil];
+        NSArray *runningModels = psJson[@"models"];
+        if (runningModels && [runningModels isKindOfClass:[NSArray class]]) {
+            for (NSDictionary *model in runningModels) {
+                NSString *name = model[@"name"];
+                if (name) [runningNames addObject:name];
+            }
+        }
+    }
+
+    // Update state (thread-safe)
+    dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+    _ollamaAvailable = YES;
+    ollamaAvailableModels = [modelNames copy];
+    _ollamaRunningModels = [runningNames copy];
+    dispatch_semaphore_signal(cacheSemaphore);
+
+#ifdef XRG_DEBUG
+    NSLog(@"[XRGAITokenMiner] Ollama: %lu models available, %lu running",
+          (unsigned long)modelNames.count, (unsigned long)runningNames.count);
+#endif
+}
+
+- (NSString *)ollamaStatusString {
+    if (!_ollamaAvailable) {
+        return @"Ollama: Not running";
+    }
+
+    NSUInteger availableCount = ollamaAvailableModels.count;
+    NSUInteger runningCount = _ollamaRunningModels.count;
+
+    if (runningCount > 0) {
+        // Show first running model name
+        NSString *firstModel = _ollamaRunningModels[0];
+        // Shorten model name if too long
+        if (firstModel.length > 15) {
+            firstModel = [[firstModel substringToIndex:12] stringByAppendingString:@"..."];
+        }
+        if (runningCount == 1) {
+            return [NSString stringWithFormat:@"Ollama: %@ (%lu avail)",
+                    firstModel, (unsigned long)availableCount];
+        } else {
+            return [NSString stringWithFormat:@"Ollama: %@ +%lu (%lu avail)",
+                    firstModel, (unsigned long)(runningCount - 1), (unsigned long)availableCount];
+        }
+    } else {
+        return [NSString stringWithFormat:@"Ollama: Ready (%lu models)", (unsigned long)availableCount];
+    }
 }
 
 @end
