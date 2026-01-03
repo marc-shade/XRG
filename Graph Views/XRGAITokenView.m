@@ -340,6 +340,73 @@
         }
     }
 
+    // === COST INTELLIGENCE SECTION ===
+    double totalCost = [tokenMiner totalCostUSD];
+    double burnRate = [tokenMiner costPerHour];
+
+    if (totalCost > 0.001 || burnRate > 0.001) {
+        [label appendString:@"\n─ Cost ─"];
+
+        // Total cost
+        if (totalCost >= 100.0) {
+            [label appendFormat:@"\nTotal: $%.0f", totalCost];
+        } else if (totalCost >= 1.0) {
+            [label appendFormat:@"\nTotal: $%.2f", totalCost];
+        } else {
+            [label appendFormat:@"\nTotal: $%.4f", totalCost];
+        }
+
+        // Burn rate ($/hour) - only show if actively burning
+        if (burnRate > 0.001) {
+            if (burnRate >= 10.0) {
+                [label appendFormat:@"\nBurn: $%.0f/hr", burnRate];
+            } else if (burnRate >= 1.0) {
+                [label appendFormat:@"\nBurn: $%.2f/hr", burnRate];
+            } else {
+                [label appendFormat:@"\nBurn: $%.4f/hr", burnRate];
+            }
+
+            // Projected daily cost
+            double projectedDaily = [tokenMiner projectedDailyCost];
+            if (projectedDaily >= 100.0) {
+                [label appendFormat:@"\nProj 24hr: $%.0f", projectedDaily];
+            } else if (projectedDaily >= 1.0) {
+                [label appendFormat:@"\nProj 24hr: $%.2f", projectedDaily];
+            } else if (projectedDaily > 0.001) {
+                [label appendFormat:@"\nProj 24hr: $%.4f", projectedDaily];
+            }
+        }
+
+        // Per-provider costs (only show non-zero)
+        double claudeCost = [tokenMiner claudeCostUSD];
+        double codexCost = [tokenMiner codexCostUSD];
+        double geminiCost = [tokenMiner geminiCostUSD];
+
+        if (claudeCost > 0.001 || codexCost > 0.001 || geminiCost > 0.001) {
+            if (claudeCost > 0.001) {
+                if (claudeCost >= 1.0) {
+                    [label appendFormat:@"\n● C: $%.2f", claudeCost];
+                } else {
+                    [label appendFormat:@"\n● C: $%.4f", claudeCost];
+                }
+            }
+            if (codexCost > 0.001) {
+                if (codexCost >= 1.0) {
+                    [label appendFormat:@"\n● X: $%.2f", codexCost];
+                } else {
+                    [label appendFormat:@"\n● X: $%.4f", codexCost];
+                }
+            }
+            if (geminiCost > 0.001) {
+                if (geminiCost >= 1.0) {
+                    [label appendFormat:@"\n● G: $%.2f", geminiCost];
+                } else {
+                    [label appendFormat:@"\n● G: $%.4f", geminiCost];
+                }
+            }
+        }
+    }
+
     // Show current rate if enabled
     if (showRate && totalRate > 0) {
         if (totalRate >= 1000) {
@@ -506,6 +573,47 @@
         CGFloat progress = (CGFloat)dailyTotal / (CGFloat)dailyBudget * 100.0;
         tMI = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"  Budget: %@ / %@ (%1.1f%%)", [self formatNumber:dailyTotal], [self formatNumber:dailyBudget], progress] action:@selector(emptyEvent:) keyEquivalent:@""];
         [myMenu addItem:tMI];
+    }
+
+    // Cost Intelligence Section
+    double totalCost = [tokenMiner totalCostUSD];
+    if (totalCost > 0.001) {
+        [myMenu addItem:[NSMenuItem separatorItem]];
+
+        tMI = [[NSMenuItem alloc] initWithTitle:@"Cost Intelligence" action:@selector(emptyEvent:) keyEquivalent:@""];
+        [tMI setEnabled:NO];
+        [myMenu addItem:tMI];
+
+        tMI = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"  Total Cost: $%.4f", totalCost] action:@selector(emptyEvent:) keyEquivalent:@""];
+        [myMenu addItem:tMI];
+
+        double burnRate = [tokenMiner costPerHour];
+        if (burnRate > 0.001) {
+            tMI = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"  Burn Rate: $%.4f/hr", burnRate] action:@selector(emptyEvent:) keyEquivalent:@""];
+            [myMenu addItem:tMI];
+
+            double projectedDaily = [tokenMiner projectedDailyCost];
+            tMI = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"  Projected 24hr: $%.4f", projectedDaily] action:@selector(emptyEvent:) keyEquivalent:@""];
+            [myMenu addItem:tMI];
+        }
+
+        // Per-provider costs
+        double claudeCost = [tokenMiner claudeCostUSD];
+        double codexCost = [tokenMiner codexCostUSD];
+        double geminiCost = [tokenMiner geminiCostUSD];
+
+        if (claudeCost > 0.001) {
+            tMI = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"  Claude: $%.4f", claudeCost] action:@selector(emptyEvent:) keyEquivalent:@""];
+            [myMenu addItem:tMI];
+        }
+        if (codexCost > 0.001) {
+            tMI = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"  Codex: $%.4f", codexCost] action:@selector(emptyEvent:) keyEquivalent:@""];
+            [myMenu addItem:tMI];
+        }
+        if (geminiCost > 0.001) {
+            tMI = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"  Gemini: $%.4f", geminiCost] action:@selector(emptyEvent:) keyEquivalent:@""];
+            [myMenu addItem:tMI];
+        }
     }
 
     // Model Breakdown (if enabled)

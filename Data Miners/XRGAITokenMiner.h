@@ -45,6 +45,7 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     XRGDataSet *claudeCodeTokens;      // Claude Code API tokens/sec
     XRGDataSet *codexTokens;            // OpenAI Codex CLI tokens/sec
     XRGDataSet *geminiTokens;           // Google Gemini CLI tokens/sec
+    XRGDataSet *costPerSecond;          // Cost tracking ($/sec for burn rate)
 
     // Cumulative counters
     UInt64 totalClaudeTokens;
@@ -52,15 +53,25 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     UInt64 totalGeminiTokens;
     double totalCostUSD;
 
+    // Input/Output token tracking for accurate cost calculation
+    UInt64 claudeInputTokens;
+    UInt64 claudeOutputTokens;
+    UInt64 codexInputTokens;
+    UInt64 codexOutputTokens;
+    UInt64 geminiInputTokens;
+    UInt64 geminiOutputTokens;
+
     // Rate tracking (for proper delta calculation)
     UInt64 lastClaudeCount;
     UInt64 lastCodexCount;
     UInt64 lastGeminiCount;
+    double lastTotalCost;
 
     // Current rates (stored to avoid recalculation bug)
     UInt32 currentClaudeRate;
     UInt32 currentCodexRate;
     UInt32 currentGeminiRate;
+    double currentCostRate;  // $/second burn rate
 
     // Multi-strategy data collection
     XRGAIDataStrategy activeStrategy;
@@ -75,6 +86,15 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     UInt64 cachedJSONLTokens;                 // Cached total from last parse
     UInt64 cachedCodexTokens;                 // Cached Codex tokens
     UInt64 cachedGeminiTokens;                // Cached Gemini tokens
+
+    // Cached input/output tokens for accurate cost calculation (thread-safe)
+    UInt64 cachedClaudeInputTokens;           // Cached Claude input tokens
+    UInt64 cachedClaudeOutputTokens;          // Cached Claude output tokens
+    UInt64 cachedCodexInputTokens;            // Cached Codex input tokens
+    UInt64 cachedCodexOutputTokens;           // Cached Codex output tokens
+    UInt64 cachedGeminiInputTokens;           // Cached Gemini input tokens
+    UInt64 cachedGeminiOutputTokens;          // Cached Gemini output tokens
+
     NSDate *lastJSONLScanTime;                // Last time we scanned for new files
     NSDate *lastCodexScanTime;                // Last time we scanned Codex files
     NSDate *lastGeminiScanTime;               // Last time we scanned Gemini files
@@ -99,6 +119,14 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
 - (UInt32)codexTokenRate;
 - (UInt32)geminiTokenRate;
 - (UInt32)totalTokenRate;
+
+// Cost intelligence methods
+- (double)costPerHour;              // Current $/hour burn rate
+- (double)projectedDailyCost;       // Projected cost for 24 hours at current rate
+- (double)claudeCostUSD;            // Total Claude cost
+- (double)codexCostUSD;             // Total Codex cost
+- (double)geminiCostUSD;            // Total Gemini cost
+- (XRGDataSet *)costData;           // Cost per second data for graphing
 
 // Data set accessors for graphing
 - (XRGDataSet *)claudeTokenData;

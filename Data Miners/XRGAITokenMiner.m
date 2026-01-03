@@ -30,8 +30,27 @@
 #import "definitions.h"
 #import <sqlite3.h>
 
+// ============================================================================
+// COST PRICING MODEL (per 1M tokens, USD)
+// Updated: January 2025
+// ============================================================================
+
+// Claude pricing (Anthropic) - using average of Sonnet/Opus for Claude Code
+// Claude Code uses claude-sonnet-4-20250514 by default
+static const double kClaudeInputPricePerMillion = 3.0;    // $3/M input (Sonnet)
+static const double kClaudeOutputPricePerMillion = 15.0;  // $15/M output (Sonnet)
+
+// Codex/OpenAI pricing - uses gpt-4o by default
+static const double kCodexInputPricePerMillion = 2.50;    // $2.50/M input (GPT-4o)
+static const double kCodexOutputPricePerMillion = 10.0;   // $10/M output (GPT-4o)
+
+// Gemini pricing (Google) - Gemini 2.0 Flash
+static const double kGeminiInputPricePerMillion = 0.10;   // $0.10/M input
+static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
+
 @interface XRGAITokenMiner ()
 - (NSData *)xrg_syncDataForRequest:(NSURLRequest *)request returningResponse:(NSHTTPURLResponse * _Nullable __autoreleasing *)response error:(NSError * _Nullable __autoreleasing *)error;
+- (void)calculateCosts;
 @end
 
 @implementation XRGAITokenMiner
@@ -49,6 +68,7 @@
         claudeCodeTokens = [[XRGDataSet alloc] init];
         codexTokens = [[XRGDataSet alloc] init];
         geminiTokens = [[XRGDataSet alloc] init];
+        costPerSecond = [[XRGDataSet alloc] init];
 
         // Initialize counters
         _totalClaudeTokens = 0;
@@ -58,11 +78,21 @@
         lastClaudeCount = 0;
         lastCodexCount = 0;
         lastGeminiCount = 0;
+        lastTotalCost = 0.0;
+
+        // Initialize input/output token counters for cost calculation
+        claudeInputTokens = 0;
+        claudeOutputTokens = 0;
+        codexInputTokens = 0;
+        codexOutputTokens = 0;
+        geminiInputTokens = 0;
+        geminiOutputTokens = 0;
 
         // Initialize current rates
         currentClaudeRate = 0;
         currentCodexRate = 0;
         currentGeminiRate = 0;
+        currentCostRate = 0.0;
 
         // Initialize paths
         NSString *homeDir = NSHomeDirectory();
@@ -77,6 +107,15 @@
         cachedJSONLTokens = 0;
         cachedCodexTokens = 0;
         cachedGeminiTokens = 0;
+
+        // Initialize cached input/output tokens
+        cachedClaudeInputTokens = 0;
+        cachedClaudeOutputTokens = 0;
+        cachedCodexInputTokens = 0;
+        cachedCodexOutputTokens = 0;
+        cachedGeminiInputTokens = 0;
+        cachedGeminiOutputTokens = 0;
+
         lastJSONLScanTime = nil;
         lastCodexScanTime = nil;
         lastGeminiScanTime = nil;
@@ -111,19 +150,22 @@
 - (void)setDataSize:(int)newNumSamples {
     if (newNumSamples < 0) return;
 
-    if (claudeCodeTokens && codexTokens && geminiTokens) {
+    if (claudeCodeTokens && codexTokens && geminiTokens && costPerSecond) {
         [claudeCodeTokens resize:(size_t)newNumSamples];
         [codexTokens resize:(size_t)newNumSamples];
         [geminiTokens resize:(size_t)newNumSamples];
+        [costPerSecond resize:(size_t)newNumSamples];
     }
     else {
         claudeCodeTokens = [[XRGDataSet alloc] init];
         codexTokens = [[XRGDataSet alloc] init];
         geminiTokens = [[XRGDataSet alloc] init];
+        costPerSecond = [[XRGDataSet alloc] init];
 
         [claudeCodeTokens resize:(size_t)newNumSamples];
         [codexTokens resize:(size_t)newNumSamples];
         [geminiTokens resize:(size_t)newNumSamples];
+        [costPerSecond resize:(size_t)newNumSamples];
     }
 
     numSamples = newNumSamples;
@@ -133,6 +175,7 @@
     [claudeCodeTokens reset];
     [codexTokens reset];
     [geminiTokens reset];
+    [costPerSecond reset];
 
     _totalClaudeTokens = 0;
     _totalCodexTokens = 0;
@@ -141,10 +184,20 @@
     lastClaudeCount = 0;
     lastCodexCount = 0;
     lastGeminiCount = 0;
+    lastTotalCost = 0.0;
+
+    // Reset input/output token counters
+    claudeInputTokens = 0;
+    claudeOutputTokens = 0;
+    codexInputTokens = 0;
+    codexOutputTokens = 0;
+    geminiInputTokens = 0;
+    geminiOutputTokens = 0;
 
     currentClaudeRate = 0;
     currentCodexRate = 0;
     currentGeminiRate = 0;
+    currentCostRate = 0.0;
 }
 
 - (void)detectBestStrategy {
@@ -242,6 +295,16 @@
     if (claudeCodeTokens) [claudeCodeTokens setNextValue:currentClaudeRate];
     if (codexTokens) [codexTokens setNextValue:currentCodexRate];
     if (geminiTokens) [geminiTokens setNextValue:currentGeminiRate];
+
+    // === Calculate costs ===
+    [self calculateCosts];
+
+    // Calculate cost rate ($/second) - CRITICAL: Calculate BEFORE updating lastTotalCost
+    currentCostRate = _totalCostUSD - lastTotalCost;
+    lastTotalCost = _totalCostUSD;
+
+    // Store cost rate in data set (scaled by 1000 for visibility in graph)
+    if (costPerSecond) [costPerSecond setNextValue:(CGFloat)(currentCostRate * 1000.0)];
 }
 
 #pragma mark - Strategy 1: SQLite Database (Universal)
@@ -384,9 +447,11 @@
     // CRITICAL: Return immediately with cached value (non-blocking!)
     // File operations happen asynchronously on background queue
 
-    // Thread-safe read of cached value
+    // Thread-safe read of cached values (including input/output for cost calc)
     dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
     _totalClaudeTokens = cachedJSONLTokens;
+    claudeInputTokens = cachedClaudeInputTokens;
+    claudeOutputTokens = cachedClaudeOutputTokens;
     dispatch_semaphore_signal(cacheSemaphore);
 
     // Check if we should trigger background update
@@ -433,6 +498,8 @@
     // Thread-safe read of current cache
     dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
     UInt64 totalTokens = cachedJSONLTokens;
+    UInt64 totalInputTokens = cachedClaudeInputTokens;
+    UInt64 totalOutputTokens = cachedClaudeOutputTokens;
     NSMutableDictionary *modTimes = [jsonlFileModTimes mutableCopy]; // Work on copy
     dispatch_semaphore_signal(cacheSemaphore);
 
@@ -470,18 +537,34 @@
 
                 // Subtract old tokens if file was previously cached
                 NSNumber *oldFileTokens = modTimes[[filePath stringByAppendingString:@"_tokens"]];
+                NSNumber *oldInputTokens = modTimes[[filePath stringByAppendingString:@"_input"]];
+                NSNumber *oldOutputTokens = modTimes[[filePath stringByAppendingString:@"_output"]];
                 if (oldFileTokens) {
                     totalTokens -= [oldFileTokens unsignedLongLongValue];
                 }
+                if (oldInputTokens) {
+                    totalInputTokens -= [oldInputTokens unsignedLongLongValue];
+                }
+                if (oldOutputTokens) {
+                    totalOutputTokens -= [oldOutputTokens unsignedLongLongValue];
+                }
 
-                // Parse this file (on background thread)
-                UInt64 fileTokens = [self parseJSONLFile:filePath];
+                // Parse this file with input/output tracking (on background thread)
+                UInt64 fileInputTokens = 0;
+                UInt64 fileOutputTokens = 0;
+                UInt64 fileTokens = [self parseJSONLFile:filePath
+                                             inputTokens:&fileInputTokens
+                                            outputTokens:&fileOutputTokens];
 
                 totalTokens += fileTokens;
+                totalInputTokens += fileInputTokens;
+                totalOutputTokens += fileOutputTokens;
 
                 // Update local copy of cache
                 modTimes[filePath] = modTime;
                 modTimes[[filePath stringByAppendingString:@"_tokens"]] = @(fileTokens);
+                modTimes[[filePath stringByAppendingString:@"_input"]] = @(fileInputTokens);
+                modTimes[[filePath stringByAppendingString:@"_output"]] = @(fileOutputTokens);
             }
         }
     }
@@ -490,21 +573,33 @@
     if (anyChanges) {
         dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
         cachedJSONLTokens = totalTokens;
+        cachedClaudeInputTokens = totalInputTokens;
+        cachedClaudeOutputTokens = totalOutputTokens;
         jsonlFileModTimes = modTimes; // Replace with updated copy
         dispatch_semaphore_signal(cacheSemaphore);
 
 #ifdef XRG_DEBUG
-        NSLog(@"[XRGAITokenMiner] JSONL cache updated in background: tokens=%llu", totalTokens);
+        NSLog(@"[XRGAITokenMiner] JSONL cache updated: total=%llu input=%llu output=%llu",
+              totalTokens, totalInputTokens, totalOutputTokens);
 #endif
     }
 }
 
 // Helper method to parse a single JSONL file using streaming (memory efficient)
-- (UInt64)parseJSONLFile:(NSString *)filePath {
+// Returns total tokens, optionally outputs input/output breakdown via pointers
+- (UInt64)parseJSONLFile:(NSString *)filePath
+             inputTokens:(UInt64 *)outInputTokens
+            outputTokens:(UInt64 *)outOutputTokens {
     FILE *file = fopen([filePath UTF8String], "r");
-    if (!file) return 0;
+    if (!file) {
+        if (outInputTokens) *outInputTokens = 0;
+        if (outOutputTokens) *outOutputTokens = 0;
+        return 0;
+    }
 
     UInt64 fileTokens = 0;
+    UInt64 fileInputTokens = 0;
+    UInt64 fileOutputTokens = 0;
     char *line = NULL;
     size_t linecap = 0;
     ssize_t linelen;
@@ -533,6 +628,8 @@
                                      [usage[@"cache_read_input_tokens"] unsignedLongLongValue];
                 UInt64 completionTokens = [usage[@"output_tokens"] unsignedLongLongValue];
 
+                fileInputTokens += promptTokens;
+                fileOutputTokens += completionTokens;
                 fileTokens += promptTokens + completionTokens;
             }
         }
@@ -541,7 +638,15 @@
     free(line);
     fclose(file);
 
+    if (outInputTokens) *outInputTokens = fileInputTokens;
+    if (outOutputTokens) *outOutputTokens = fileOutputTokens;
+
     return fileTokens;
+}
+
+// Legacy method for backward compatibility
+- (UInt64)parseJSONLFile:(NSString *)filePath {
+    return [self parseJSONLFile:filePath inputTokens:NULL outputTokens:NULL];
 }
 
 #pragma mark - Codex CLI Methods
@@ -813,6 +918,108 @@
 
 - (XRGDataSet *)geminiTokenData {
     return geminiTokens;
+}
+
+- (XRGDataSet *)costData {
+    return costPerSecond;
+}
+
+#pragma mark - Cost Intelligence Methods
+
+- (void)calculateCosts {
+    // Calculate costs based on input/output token counts
+    // Using per-million pricing model
+
+    // For JSONL strategy, we track input/output separately in the parser
+    // For other strategies, we estimate 70/30 input/output split (typical for coding)
+
+    double claudeCost = 0.0;
+    double codexCost = 0.0;
+    double geminiCost = 0.0;
+
+    if (claudeInputTokens > 0 || claudeOutputTokens > 0) {
+        // We have granular data - use it
+        claudeCost = (claudeInputTokens / 1000000.0) * kClaudeInputPricePerMillion +
+                     (claudeOutputTokens / 1000000.0) * kClaudeOutputPricePerMillion;
+    } else if (_totalClaudeTokens > 0) {
+        // Estimate with 70/30 split (input tokens are typically ~70% for coding tasks)
+        UInt64 estimatedInput = (UInt64)(_totalClaudeTokens * 0.70);
+        UInt64 estimatedOutput = _totalClaudeTokens - estimatedInput;
+        claudeCost = (estimatedInput / 1000000.0) * kClaudeInputPricePerMillion +
+                     (estimatedOutput / 1000000.0) * kClaudeOutputPricePerMillion;
+    }
+
+    if (codexInputTokens > 0 || codexOutputTokens > 0) {
+        codexCost = (codexInputTokens / 1000000.0) * kCodexInputPricePerMillion +
+                    (codexOutputTokens / 1000000.0) * kCodexOutputPricePerMillion;
+    } else if (_totalCodexTokens > 0) {
+        UInt64 estimatedInput = (UInt64)(_totalCodexTokens * 0.70);
+        UInt64 estimatedOutput = _totalCodexTokens - estimatedInput;
+        codexCost = (estimatedInput / 1000000.0) * kCodexInputPricePerMillion +
+                    (estimatedOutput / 1000000.0) * kCodexOutputPricePerMillion;
+    }
+
+    if (geminiInputTokens > 0 || geminiOutputTokens > 0) {
+        geminiCost = (geminiInputTokens / 1000000.0) * kGeminiInputPricePerMillion +
+                     (geminiOutputTokens / 1000000.0) * kGeminiOutputPricePerMillion;
+    } else if (_totalGeminiTokens > 0) {
+        UInt64 estimatedInput = (UInt64)(_totalGeminiTokens * 0.70);
+        UInt64 estimatedOutput = _totalGeminiTokens - estimatedInput;
+        geminiCost = (estimatedInput / 1000000.0) * kGeminiInputPricePerMillion +
+                     (estimatedOutput / 1000000.0) * kGeminiOutputPricePerMillion;
+    }
+
+    _totalCostUSD = claudeCost + codexCost + geminiCost;
+}
+
+- (double)costPerHour {
+    // Calculate $/hour based on current rate ($/second)
+    // currentCostRate is $/second, so multiply by 3600
+    return currentCostRate * 3600.0;
+}
+
+- (double)projectedDailyCost {
+    // Project 24-hour cost at current burn rate
+    return [self costPerHour] * 24.0;
+}
+
+- (double)claudeCostUSD {
+    if (claudeInputTokens > 0 || claudeOutputTokens > 0) {
+        return (claudeInputTokens / 1000000.0) * kClaudeInputPricePerMillion +
+               (claudeOutputTokens / 1000000.0) * kClaudeOutputPricePerMillion;
+    } else if (_totalClaudeTokens > 0) {
+        UInt64 estimatedInput = (UInt64)(_totalClaudeTokens * 0.70);
+        UInt64 estimatedOutput = _totalClaudeTokens - estimatedInput;
+        return (estimatedInput / 1000000.0) * kClaudeInputPricePerMillion +
+               (estimatedOutput / 1000000.0) * kClaudeOutputPricePerMillion;
+    }
+    return 0.0;
+}
+
+- (double)codexCostUSD {
+    if (codexInputTokens > 0 || codexOutputTokens > 0) {
+        return (codexInputTokens / 1000000.0) * kCodexInputPricePerMillion +
+               (codexOutputTokens / 1000000.0) * kCodexOutputPricePerMillion;
+    } else if (_totalCodexTokens > 0) {
+        UInt64 estimatedInput = (UInt64)(_totalCodexTokens * 0.70);
+        UInt64 estimatedOutput = _totalCodexTokens - estimatedInput;
+        return (estimatedInput / 1000000.0) * kCodexInputPricePerMillion +
+               (estimatedOutput / 1000000.0) * kCodexOutputPricePerMillion;
+    }
+    return 0.0;
+}
+
+- (double)geminiCostUSD {
+    if (geminiInputTokens > 0 || geminiOutputTokens > 0) {
+        return (geminiInputTokens / 1000000.0) * kGeminiInputPricePerMillion +
+               (geminiOutputTokens / 1000000.0) * kGeminiOutputPricePerMillion;
+    } else if (_totalGeminiTokens > 0) {
+        UInt64 estimatedInput = (UInt64)(_totalGeminiTokens * 0.70);
+        UInt64 estimatedOutput = _totalGeminiTokens - estimatedInput;
+        return (estimatedInput / 1000000.0) * kGeminiInputPricePerMillion +
+               (estimatedOutput / 1000000.0) * kGeminiOutputPricePerMillion;
+    }
+    return 0.0;
 }
 
 #pragma mark - Private Networking Helper
