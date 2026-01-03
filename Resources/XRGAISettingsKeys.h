@@ -13,6 +13,12 @@
 #define XRGDefaultsKeyAITokensShowRate @"aiTokensShowRate"
 #define XRGDefaultsKeyAITokensShowBreakdown @"aiTokensShowBreakdown"
 
+// Account type (subscription vs API billing)
+// 0 = Subscription/Max (show tokens only, no cost)
+// 1 = API billing (show cost calculations)
+#define XRGDefaultsKeyAITokensAccountType @"aiTokensAccountType"
+#define XRGDefaultsKeyAITokensMonthlyAllowance @"aiTokensMonthlyAllowance"  // For subscription: tokens/month
+
 // Cyberpunk visual effects
 #define XRGDefaultsKeyShowScanlines @"showScanlines"
 #define XRGDefaultsKeyShowPixelGrid @"showPixelGrid"

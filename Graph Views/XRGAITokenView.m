@@ -376,44 +376,104 @@
         }
     }
 
-    // === COST INTELLIGENCE SECTION ===
+    // === TOKEN TOTALS SECTION ===
+    UInt64 totalClaudeTokens = [tokenMiner totalClaudeTokens];
+    UInt64 totalCodexTokens = [tokenMiner totalCodexTokens];
+    UInt64 totalGeminiTokens = [tokenMiner totalGeminiTokens];
+    UInt64 totalOllamaTokens = [tokenMiner totalOllamaTokens];
+    UInt64 grandTotalTokens = totalClaudeTokens + totalCodexTokens + totalGeminiTokens + totalOllamaTokens;
+
+    if (grandTotalTokens > 0) {
+        [label appendString:@"\n─ Tokens ─"];
+
+        // Grand total with smart formatting
+        if (grandTotalTokens >= 1000000000) {
+            [label appendFormat:@"\nTotal: %.2fB", grandTotalTokens / 1000000000.0];
+        } else if (grandTotalTokens >= 1000000) {
+            [label appendFormat:@"\nTotal: %.2fM", grandTotalTokens / 1000000.0];
+        } else if (grandTotalTokens >= 1000) {
+            [label appendFormat:@"\nTotal: %.1fK", grandTotalTokens / 1000.0];
+        } else {
+            [label appendFormat:@"\nTotal: %llu", grandTotalTokens];
+        }
+
+        // Per-provider token breakdown
+        if (totalClaudeTokens > 0) {
+            if (totalClaudeTokens >= 1000000) {
+                [label appendFormat:@"\n● C: %.2fM", totalClaudeTokens / 1000000.0];
+            } else if (totalClaudeTokens >= 1000) {
+                [label appendFormat:@"\n● C: %.1fK", totalClaudeTokens / 1000.0];
+            } else {
+                [label appendFormat:@"\n● C: %llu", totalClaudeTokens];
+            }
+        }
+        if (totalCodexTokens > 0) {
+            if (totalCodexTokens >= 1000000) {
+                [label appendFormat:@"\n● X: %.2fM", totalCodexTokens / 1000000.0];
+            } else if (totalCodexTokens >= 1000) {
+                [label appendFormat:@"\n● X: %.1fK", totalCodexTokens / 1000.0];
+            } else {
+                [label appendFormat:@"\n● X: %llu", totalCodexTokens];
+            }
+        }
+        if (totalGeminiTokens > 0) {
+            if (totalGeminiTokens >= 1000000) {
+                [label appendFormat:@"\n● G: %.2fM", totalGeminiTokens / 1000000.0];
+            } else if (totalGeminiTokens >= 1000) {
+                [label appendFormat:@"\n● G: %.1fK", totalGeminiTokens / 1000.0];
+            } else {
+                [label appendFormat:@"\n● G: %llu", totalGeminiTokens];
+            }
+        }
+        if (totalOllamaTokens > 0) {
+            if (totalOllamaTokens >= 1000000) {
+                [label appendFormat:@"\n● O: %.2fM", totalOllamaTokens / 1000000.0];
+            } else if (totalOllamaTokens >= 1000) {
+                [label appendFormat:@"\n● O: %.1fK", totalOllamaTokens / 1000.0];
+            } else {
+                [label appendFormat:@"\n● O: %llu", totalOllamaTokens];
+            }
+        }
+    }
+
+    // === EQUIVALENT API COST SECTION (Reference only for subscription users) ===
     double totalCost = [tokenMiner totalCostUSD];
     double burnRate = [tokenMiner costPerHour];
 
     if (totalCost > 0.001 || burnRate > 0.001) {
-        [label appendString:@"\n─ Cost ─"];
+        [label appendString:@"\n─ API Cost ─"];  // Labeled as API cost (reference)
 
-        // Total cost
+        // Total equivalent API cost
         if (totalCost >= 100.0) {
-            [label appendFormat:@"\nTotal: $%.0f", totalCost];
+            [label appendFormat:@"\n≈ $%.0f", totalCost];
         } else if (totalCost >= 1.0) {
-            [label appendFormat:@"\nTotal: $%.2f", totalCost];
+            [label appendFormat:@"\n≈ $%.2f", totalCost];
         } else {
-            [label appendFormat:@"\nTotal: $%.4f", totalCost];
+            [label appendFormat:@"\n≈ $%.4f", totalCost];
         }
 
         // Burn rate ($/hour) - only show if actively burning
         if (burnRate > 0.001) {
             if (burnRate >= 10.0) {
-                [label appendFormat:@"\nBurn: $%.0f/hr", burnRate];
+                [label appendFormat:@"\n≈ $%.0f/hr", burnRate];
             } else if (burnRate >= 1.0) {
-                [label appendFormat:@"\nBurn: $%.2f/hr", burnRate];
+                [label appendFormat:@"\n≈ $%.2f/hr", burnRate];
             } else {
-                [label appendFormat:@"\nBurn: $%.4f/hr", burnRate];
+                [label appendFormat:@"\n≈ $%.4f/hr", burnRate];
             }
 
-            // Projected daily cost
+            // Projected daily cost (at API rates)
             double projectedDaily = [tokenMiner projectedDailyCost];
             if (projectedDaily >= 100.0) {
-                [label appendFormat:@"\nProj 24hr: $%.0f", projectedDaily];
+                [label appendFormat:@"\n≈ $%.0f/day", projectedDaily];
             } else if (projectedDaily >= 1.0) {
-                [label appendFormat:@"\nProj 24hr: $%.2f", projectedDaily];
+                [label appendFormat:@"\n≈ $%.2f/day", projectedDaily];
             } else if (projectedDaily > 0.001) {
-                [label appendFormat:@"\nProj 24hr: $%.4f", projectedDaily];
+                [label appendFormat:@"\n≈ $%.4f/day", projectedDaily];
             }
         }
 
-        // Per-provider costs (only show non-zero)
+        // Per-provider API costs (reference)
         double claudeCost = [tokenMiner claudeCostUSD];
         double codexCost = [tokenMiner codexCostUSD];
         double geminiCost = [tokenMiner geminiCostUSD];
@@ -421,16 +481,16 @@
         if (claudeCost > 0.001 || codexCost > 0.001 || geminiCost > 0.001) {
             if (claudeCost > 0.001) {
                 if (claudeCost >= 1.0) {
-                    [label appendFormat:@"\n● C: $%.2f", claudeCost];
+                    [label appendFormat:@"\n● C: ≈$%.2f", claudeCost];
                 } else {
-                    [label appendFormat:@"\n● C: $%.4f", claudeCost];
+                    [label appendFormat:@"\n● C: ≈$%.4f", claudeCost];
                 }
             }
             if (codexCost > 0.001) {
                 if (codexCost >= 1.0) {
-                    [label appendFormat:@"\n● X: $%.2f", codexCost];
+                    [label appendFormat:@"\n● X: ≈$%.2f", codexCost];
                 } else {
-                    [label appendFormat:@"\n● X: $%.4f", codexCost];
+                    [label appendFormat:@"\n● X: ≈$%.4f", codexCost];
                 }
             }
             if (geminiCost > 0.001) {

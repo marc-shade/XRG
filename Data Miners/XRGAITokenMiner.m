@@ -31,22 +31,161 @@
 #import <sqlite3.h>
 
 // ============================================================================
-// COST PRICING MODEL (per 1M tokens, USD)
-// Updated: January 2025
+// MODEL PRICING DATABASE (per 1M tokens, USD)
+// Updated: January 2026 - Dynamic per-model pricing
+// Prices from official provider pricing pages
 // ============================================================================
 
-// Claude pricing (Anthropic) - using average of Sonnet/Opus for Claude Code
-// Claude Code uses claude-sonnet-4-20250514 by default
-static const double kClaudeInputPricePerMillion = 3.0;    // $3/M input (Sonnet)
-static const double kClaudeOutputPricePerMillion = 15.0;  // $15/M output (Sonnet)
+// Helper function to get model pricing
+typedef struct {
+    double inputPrice;   // $/MTok input
+    double outputPrice;  // $/MTok output
+} XRGModelPricing;
 
-// Codex/OpenAI pricing - uses gpt-4o by default
-static const double kCodexInputPricePerMillion = 2.50;    // $2.50/M input (GPT-4o)
-static const double kCodexOutputPricePerMillion = 10.0;   // $10/M output (GPT-4o)
+// Get pricing for a Claude model by name
+static XRGModelPricing getClaudeModelPricing(NSString *modelName) {
+    XRGModelPricing pricing = {3.0, 15.0}; // Default to Sonnet 4 pricing
 
-// Gemini pricing (Google) - Gemini 2.0 Flash
-static const double kGeminiInputPricePerMillion = 0.10;   // $0.10/M input
-static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
+    if (!modelName) return pricing;
+
+    // Normalize model name to lowercase for matching
+    NSString *model = [modelName lowercaseString];
+
+    // Claude Opus 4.5 (claude-opus-4-5-*, claude-4.5-opus)
+    if ([model containsString:@"opus-4-5"] || [model containsString:@"4-5-opus"] ||
+        [model containsString:@"opus-4.5"] || [model containsString:@"4.5-opus"]) {
+        pricing.inputPrice = 15.0;  pricing.outputPrice = 75.0;
+    }
+    // Claude Opus 4 (claude-opus-4-*, claude-4-opus)
+    else if ([model containsString:@"opus-4"] || [model containsString:@"-4-opus"]) {
+        pricing.inputPrice = 15.0;  pricing.outputPrice = 75.0;
+    }
+    // Claude Opus 3 (claude-3-opus)
+    else if ([model containsString:@"3-opus"] || [model containsString:@"opus-3"]) {
+        pricing.inputPrice = 15.0;  pricing.outputPrice = 75.0;
+    }
+    // Claude Sonnet 4 (claude-sonnet-4-*, claude-4-sonnet) - Current default
+    else if ([model containsString:@"sonnet-4"] || [model containsString:@"-4-sonnet"]) {
+        pricing.inputPrice = 3.0;   pricing.outputPrice = 15.0;
+    }
+    // Claude Sonnet 3.5 v2 (claude-3-5-sonnet-20241022)
+    else if ([model containsString:@"3-5-sonnet"] || [model containsString:@"sonnet-3-5"] ||
+             [model containsString:@"3.5-sonnet"] || [model containsString:@"sonnet-3.5"]) {
+        pricing.inputPrice = 3.0;   pricing.outputPrice = 15.0;
+    }
+    // Claude Haiku 4.5 (claude-haiku-4-5-*)
+    else if ([model containsString:@"haiku-4-5"] || [model containsString:@"4-5-haiku"] ||
+             [model containsString:@"haiku-4.5"] || [model containsString:@"4.5-haiku"]) {
+        pricing.inputPrice = 1.00;  pricing.outputPrice = 5.0;  // Haiku 4.5 pricing
+    }
+    // Claude Haiku 3.5 (claude-3-5-haiku)
+    else if ([model containsString:@"3-5-haiku"] || [model containsString:@"haiku-3-5"] ||
+             [model containsString:@"3.5-haiku"] || [model containsString:@"haiku-3.5"]) {
+        pricing.inputPrice = 0.80;  pricing.outputPrice = 4.0;
+    }
+    // Claude Haiku 3 (claude-3-haiku)
+    else if ([model containsString:@"3-haiku"] || [model containsString:@"haiku-3"]) {
+        pricing.inputPrice = 0.25;  pricing.outputPrice = 1.25;
+    }
+    // Generic fallback by tier
+    else if ([model containsString:@"opus"]) {
+        pricing.inputPrice = 15.0;  pricing.outputPrice = 75.0;
+    }
+    else if ([model containsString:@"haiku"]) {
+        pricing.inputPrice = 0.80;  pricing.outputPrice = 4.0;
+    }
+    // Default: Sonnet pricing (most common for Claude Code)
+
+    return pricing;
+}
+
+// Get pricing for an OpenAI/Codex model by name
+static XRGModelPricing getCodexModelPricing(NSString *modelName) {
+    XRGModelPricing pricing = {2.50, 10.0}; // Default to GPT-4o pricing
+
+    if (!modelName) return pricing;
+
+    NSString *model = [modelName lowercaseString];
+
+    // o1 (reasoning model - premium)
+    if ([model containsString:@"o1-preview"] || [model isEqualToString:@"o1"]) {
+        pricing.inputPrice = 15.0;  pricing.outputPrice = 60.0;
+    }
+    // o1-mini (smaller reasoning)
+    else if ([model containsString:@"o1-mini"]) {
+        pricing.inputPrice = 3.0;   pricing.outputPrice = 12.0;
+    }
+    // o3-mini (newest reasoning)
+    else if ([model containsString:@"o3-mini"]) {
+        pricing.inputPrice = 1.10;  pricing.outputPrice = 4.40;
+    }
+    // GPT-4o (standard)
+    else if ([model containsString:@"gpt-4o"] && ![model containsString:@"mini"]) {
+        pricing.inputPrice = 2.50;  pricing.outputPrice = 10.0;
+    }
+    // GPT-4o-mini
+    else if ([model containsString:@"gpt-4o-mini"]) {
+        pricing.inputPrice = 0.15;  pricing.outputPrice = 0.60;
+    }
+    // GPT-4 Turbo
+    else if ([model containsString:@"gpt-4-turbo"] || [model containsString:@"gpt-4-1106"]) {
+        pricing.inputPrice = 10.0;  pricing.outputPrice = 30.0;
+    }
+    // GPT-4 (standard)
+    else if ([model containsString:@"gpt-4"] && ![model containsString:@"turbo"]) {
+        pricing.inputPrice = 30.0;  pricing.outputPrice = 60.0;
+    }
+    // GPT-3.5 Turbo
+    else if ([model containsString:@"gpt-3.5"]) {
+        pricing.inputPrice = 0.50;  pricing.outputPrice = 1.50;
+    }
+    // Codex specific models
+    else if ([model containsString:@"codex"]) {
+        pricing.inputPrice = 2.50;  pricing.outputPrice = 10.0;
+    }
+
+    return pricing;
+}
+
+// Get pricing for a Gemini model by name
+static XRGModelPricing getGeminiModelPricing(NSString *modelName) {
+    XRGModelPricing pricing = {0.10, 0.40}; // Default to Gemini 2.0 Flash pricing
+
+    if (!modelName) return pricing;
+
+    NSString *model = [modelName lowercaseString];
+
+    // Gemini 2.0 Flash (current CLI default)
+    if ([model containsString:@"2.0-flash"] || [model containsString:@"gemini-2.0"]) {
+        pricing.inputPrice = 0.10;  pricing.outputPrice = 0.40;
+    }
+    // Gemini 1.5 Pro
+    else if ([model containsString:@"1.5-pro"] || [model containsString:@"gemini-pro"]) {
+        pricing.inputPrice = 1.25;  pricing.outputPrice = 5.0;
+    }
+    // Gemini 1.5 Flash
+    else if ([model containsString:@"1.5-flash"]) {
+        pricing.inputPrice = 0.075; pricing.outputPrice = 0.30;
+    }
+    // Gemini 1.0 Pro
+    else if ([model containsString:@"1.0-pro"]) {
+        pricing.inputPrice = 0.50;  pricing.outputPrice = 1.50;
+    }
+    // Gemini Ultra
+    else if ([model containsString:@"ultra"]) {
+        pricing.inputPrice = 10.0;  pricing.outputPrice = 30.0;
+    }
+
+    return pricing;
+}
+
+// Fallback constants (used when model name unknown or for estimation)
+static const double kClaudeDefaultInputPrice = 3.0;   // Sonnet 4 (most common)
+static const double kClaudeDefaultOutputPrice = 15.0;
+static const double kCodexDefaultInputPrice = 2.50;   // GPT-4o (default)
+static const double kCodexDefaultOutputPrice = 10.0;
+static const double kGeminiDefaultInputPrice = 0.10;  // 2.0 Flash (default)
+static const double kGeminiDefaultOutputPrice = 0.40;
 
 @interface XRGAITokenMiner ()
 - (NSData *)xrg_syncDataForRequest:(NSURLRequest *)request returningResponse:(NSHTTPURLResponse * _Nullable __autoreleasing *)response error:(NSError * _Nullable __autoreleasing *)error;
@@ -132,6 +271,10 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
         cachedCodexOutputTokens = 0;
         cachedGeminiInputTokens = 0;
         cachedGeminiOutputTokens = 0;
+
+        // Initialize per-model cost tracking
+        claudeModelCosts = [[NSMutableDictionary alloc] init];
+        cachedClaudeCost = 0.0;
 
         lastJSONLScanTime = nil;
         lastCodexScanTime = nil;
@@ -485,12 +628,17 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
     // CRITICAL: Return immediately with cached value (non-blocking!)
     // File operations happen asynchronously on background queue
 
-    // Thread-safe read of cached values (including input/output for cost calc)
+    // Thread-safe read of cached values (including input/output AND per-model costs)
     dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
     _totalClaudeTokens = cachedJSONLTokens;
     claudeInputTokens = cachedClaudeInputTokens;
     claudeOutputTokens = cachedClaudeOutputTokens;
+    // Use per-model calculated cost (not estimated from defaults)
+    double perModelCost = cachedClaudeCost;
     dispatch_semaphore_signal(cacheSemaphore);
+
+    // Store the per-model cost for use in claudeCostUSD
+    claudeModelCosts[@"_total"] = @(perModelCost);
 
     // Check if we should trigger background update
     NSDate *now = [NSDate date];
@@ -538,6 +686,7 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
     UInt64 totalTokens = cachedJSONLTokens;
     UInt64 totalInputTokens = cachedClaudeInputTokens;
     UInt64 totalOutputTokens = cachedClaudeOutputTokens;
+    double totalCost = cachedClaudeCost;
     NSMutableDictionary *modTimes = [jsonlFileModTimes mutableCopy]; // Work on copy
     dispatch_semaphore_signal(cacheSemaphore);
 
@@ -573,10 +722,11 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
                 // File is new or modified - parse it
                 anyChanges = YES;
 
-                // Subtract old tokens if file was previously cached
+                // Subtract old values if file was previously cached
                 NSNumber *oldFileTokens = modTimes[[filePath stringByAppendingString:@"_tokens"]];
                 NSNumber *oldInputTokens = modTimes[[filePath stringByAppendingString:@"_input"]];
                 NSNumber *oldOutputTokens = modTimes[[filePath stringByAppendingString:@"_output"]];
+                NSNumber *oldFileCost = modTimes[[filePath stringByAppendingString:@"_cost"]];
                 if (oldFileTokens) {
                     totalTokens -= [oldFileTokens unsignedLongLongValue];
                 }
@@ -586,23 +736,33 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
                 if (oldOutputTokens) {
                     totalOutputTokens -= [oldOutputTokens unsignedLongLongValue];
                 }
+                if (oldFileCost) {
+                    totalCost -= [oldFileCost doubleValue];
+                }
 
-                // Parse this file with input/output tracking (on background thread)
+                // Parse this file with input/output tracking AND per-model costs
                 UInt64 fileInputTokens = 0;
                 UInt64 fileOutputTokens = 0;
+                double fileCostIn = 0.0;
+                double fileCostOut = 0.0;
                 UInt64 fileTokens = [self parseJSONLFile:filePath
                                              inputTokens:&fileInputTokens
-                                            outputTokens:&fileOutputTokens];
+                                            outputTokens:&fileOutputTokens
+                                             modelCostIn:&fileCostIn
+                                            modelCostOut:&fileCostOut];
 
+                double fileCost = fileCostIn + fileCostOut;
                 totalTokens += fileTokens;
                 totalInputTokens += fileInputTokens;
                 totalOutputTokens += fileOutputTokens;
+                totalCost += fileCost;
 
                 // Update local copy of cache
                 modTimes[filePath] = modTime;
                 modTimes[[filePath stringByAppendingString:@"_tokens"]] = @(fileTokens);
                 modTimes[[filePath stringByAppendingString:@"_input"]] = @(fileInputTokens);
                 modTimes[[filePath stringByAppendingString:@"_output"]] = @(fileOutputTokens);
+                modTimes[[filePath stringByAppendingString:@"_cost"]] = @(fileCost);
             }
         }
     }
@@ -613,31 +773,38 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
         cachedJSONLTokens = totalTokens;
         cachedClaudeInputTokens = totalInputTokens;
         cachedClaudeOutputTokens = totalOutputTokens;
+        cachedClaudeCost = totalCost;
         jsonlFileModTimes = modTimes; // Replace with updated copy
         dispatch_semaphore_signal(cacheSemaphore);
 
 #ifdef XRG_DEBUG
-        NSLog(@"[XRGAITokenMiner] JSONL cache updated: total=%llu input=%llu output=%llu",
-              totalTokens, totalInputTokens, totalOutputTokens);
+        NSLog(@"[XRGAITokenMiner] JSONL cache updated: total=%llu input=%llu output=%llu cost=$%.4f",
+              totalTokens, totalInputTokens, totalOutputTokens, totalCost);
 #endif
     }
 }
 
 // Helper method to parse a single JSONL file using streaming (memory efficient)
-// Returns total tokens, optionally outputs input/output breakdown via pointers
+// Returns total tokens, optionally outputs input/output breakdown and per-model costs
 - (UInt64)parseJSONLFile:(NSString *)filePath
              inputTokens:(UInt64 *)outInputTokens
-            outputTokens:(UInt64 *)outOutputTokens {
+            outputTokens:(UInt64 *)outOutputTokens
+             modelCostIn:(double *)outModelCostIn
+            modelCostOut:(double *)outModelCostOut {
     FILE *file = fopen([filePath UTF8String], "r");
     if (!file) {
         if (outInputTokens) *outInputTokens = 0;
         if (outOutputTokens) *outOutputTokens = 0;
+        if (outModelCostIn) *outModelCostIn = 0.0;
+        if (outModelCostOut) *outModelCostOut = 0.0;
         return 0;
     }
 
     UInt64 fileTokens = 0;
     UInt64 fileInputTokens = 0;
     UInt64 fileOutputTokens = 0;
+    double fileCostIn = 0.0;
+    double fileCostOut = 0.0;
     char *line = NULL;
     size_t linecap = 0;
     ssize_t linelen;
@@ -658,6 +825,10 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
             if (!data || [data isKindOfClass:[NSNull class]]) continue;
             NSDictionary *message = data[@"message"];
             if (!message || [message isKindOfClass:[NSNull class]]) continue;
+
+            // Extract model name for accurate pricing
+            NSString *modelName = message[@"model"];
+
             NSDictionary *usage = message[@"usage"];
             if (usage && ![usage isKindOfClass:[NSNull class]]) {
                 // Calculate prompt and completion tokens
@@ -669,6 +840,11 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
                 fileInputTokens += promptTokens;
                 fileOutputTokens += completionTokens;
                 fileTokens += promptTokens + completionTokens;
+
+                // Calculate cost using actual model pricing
+                XRGModelPricing pricing = getClaudeModelPricing(modelName);
+                fileCostIn += (promptTokens / 1000000.0) * pricing.inputPrice;
+                fileCostOut += (completionTokens / 1000000.0) * pricing.outputPrice;
             }
         }
     }
@@ -678,8 +854,21 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
 
     if (outInputTokens) *outInputTokens = fileInputTokens;
     if (outOutputTokens) *outOutputTokens = fileOutputTokens;
+    if (outModelCostIn) *outModelCostIn = fileCostIn;
+    if (outModelCostOut) *outModelCostOut = fileCostOut;
 
     return fileTokens;
+}
+
+// Wrapper for backward compatibility
+- (UInt64)parseJSONLFile:(NSString *)filePath
+             inputTokens:(UInt64 *)outInputTokens
+            outputTokens:(UInt64 *)outOutputTokens {
+    return [self parseJSONLFile:filePath
+                    inputTokens:outInputTokens
+                   outputTokens:outOutputTokens
+                    modelCostIn:NULL
+                   modelCostOut:NULL];
 }
 
 // Legacy method for backward compatibility
@@ -973,46 +1162,51 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
 #pragma mark - Cost Intelligence Methods
 
 - (void)calculateCosts {
-    // Calculate costs based on input/output token counts
-    // Using per-million pricing model
-
-    // For JSONL strategy, we track input/output separately in the parser
-    // For other strategies, we estimate 70/30 input/output split (typical for coding)
+    // Calculate costs using DYNAMIC PER-MODEL PRICING
+    // Claude: Use per-model cost calculated during JSONL parsing (accurate)
+    // Codex/Gemini: Use default pricing with estimation (model name parsing TODO)
 
     double claudeCost = 0.0;
     double codexCost = 0.0;
     double geminiCost = 0.0;
 
-    if (claudeInputTokens > 0 || claudeOutputTokens > 0) {
-        // We have granular data - use it
-        claudeCost = (claudeInputTokens / 1000000.0) * kClaudeInputPricePerMillion +
-                     (claudeOutputTokens / 1000000.0) * kClaudeOutputPricePerMillion;
+    // CLAUDE: Use per-model calculated cost if available (from JSONL parsing)
+    NSNumber *perModelCost = claudeModelCosts[@"_total"];
+    if (perModelCost && [perModelCost doubleValue] > 0) {
+        // We have accurate per-model costs calculated during file parsing
+        claudeCost = [perModelCost doubleValue];
+    } else if (claudeInputTokens > 0 || claudeOutputTokens > 0) {
+        // Fallback: Use default Sonnet pricing with actual input/output counts
+        claudeCost = (claudeInputTokens / 1000000.0) * kClaudeDefaultInputPrice +
+                     (claudeOutputTokens / 1000000.0) * kClaudeDefaultOutputPrice;
     } else if (_totalClaudeTokens > 0) {
-        // Estimate with 70/30 split (input tokens are typically ~70% for coding tasks)
+        // Last resort: Estimate with 70/30 split and default pricing
         UInt64 estimatedInput = (UInt64)(_totalClaudeTokens * 0.70);
         UInt64 estimatedOutput = _totalClaudeTokens - estimatedInput;
-        claudeCost = (estimatedInput / 1000000.0) * kClaudeInputPricePerMillion +
-                     (estimatedOutput / 1000000.0) * kClaudeOutputPricePerMillion;
+        claudeCost = (estimatedInput / 1000000.0) * kClaudeDefaultInputPrice +
+                     (estimatedOutput / 1000000.0) * kClaudeDefaultOutputPrice;
     }
 
+    // CODEX: Use default pricing (model name parsing in Codex JSONL TODO)
     if (codexInputTokens > 0 || codexOutputTokens > 0) {
-        codexCost = (codexInputTokens / 1000000.0) * kCodexInputPricePerMillion +
-                    (codexOutputTokens / 1000000.0) * kCodexOutputPricePerMillion;
+        codexCost = (codexInputTokens / 1000000.0) * kCodexDefaultInputPrice +
+                    (codexOutputTokens / 1000000.0) * kCodexDefaultOutputPrice;
     } else if (_totalCodexTokens > 0) {
         UInt64 estimatedInput = (UInt64)(_totalCodexTokens * 0.70);
         UInt64 estimatedOutput = _totalCodexTokens - estimatedInput;
-        codexCost = (estimatedInput / 1000000.0) * kCodexInputPricePerMillion +
-                    (estimatedOutput / 1000000.0) * kCodexOutputPricePerMillion;
+        codexCost = (estimatedInput / 1000000.0) * kCodexDefaultInputPrice +
+                    (estimatedOutput / 1000000.0) * kCodexDefaultOutputPrice;
     }
 
+    // GEMINI: Use default pricing (model name parsing in Gemini JSON TODO)
     if (geminiInputTokens > 0 || geminiOutputTokens > 0) {
-        geminiCost = (geminiInputTokens / 1000000.0) * kGeminiInputPricePerMillion +
-                     (geminiOutputTokens / 1000000.0) * kGeminiOutputPricePerMillion;
+        geminiCost = (geminiInputTokens / 1000000.0) * kGeminiDefaultInputPrice +
+                     (geminiOutputTokens / 1000000.0) * kGeminiDefaultOutputPrice;
     } else if (_totalGeminiTokens > 0) {
         UInt64 estimatedInput = (UInt64)(_totalGeminiTokens * 0.70);
         UInt64 estimatedOutput = _totalGeminiTokens - estimatedInput;
-        geminiCost = (estimatedInput / 1000000.0) * kGeminiInputPricePerMillion +
-                     (estimatedOutput / 1000000.0) * kGeminiOutputPricePerMillion;
+        geminiCost = (estimatedInput / 1000000.0) * kGeminiDefaultInputPrice +
+                     (estimatedOutput / 1000000.0) * kGeminiDefaultOutputPrice;
     }
 
     _totalCostUSD = claudeCost + codexCost + geminiCost;
@@ -1030,40 +1224,47 @@ static const double kGeminiOutputPricePerMillion = 0.40;  // $0.40/M output
 }
 
 - (double)claudeCostUSD {
+    // PRIORITY: Use per-model calculated cost (most accurate)
+    NSNumber *perModelCost = claudeModelCosts[@"_total"];
+    if (perModelCost && [perModelCost doubleValue] > 0) {
+        return [perModelCost doubleValue];
+    }
+
+    // Fallback: Use default pricing with token counts
     if (claudeInputTokens > 0 || claudeOutputTokens > 0) {
-        return (claudeInputTokens / 1000000.0) * kClaudeInputPricePerMillion +
-               (claudeOutputTokens / 1000000.0) * kClaudeOutputPricePerMillion;
+        return (claudeInputTokens / 1000000.0) * kClaudeDefaultInputPrice +
+               (claudeOutputTokens / 1000000.0) * kClaudeDefaultOutputPrice;
     } else if (_totalClaudeTokens > 0) {
         UInt64 estimatedInput = (UInt64)(_totalClaudeTokens * 0.70);
         UInt64 estimatedOutput = _totalClaudeTokens - estimatedInput;
-        return (estimatedInput / 1000000.0) * kClaudeInputPricePerMillion +
-               (estimatedOutput / 1000000.0) * kClaudeOutputPricePerMillion;
+        return (estimatedInput / 1000000.0) * kClaudeDefaultInputPrice +
+               (estimatedOutput / 1000000.0) * kClaudeDefaultOutputPrice;
     }
     return 0.0;
 }
 
 - (double)codexCostUSD {
     if (codexInputTokens > 0 || codexOutputTokens > 0) {
-        return (codexInputTokens / 1000000.0) * kCodexInputPricePerMillion +
-               (codexOutputTokens / 1000000.0) * kCodexOutputPricePerMillion;
+        return (codexInputTokens / 1000000.0) * kCodexDefaultInputPrice +
+               (codexOutputTokens / 1000000.0) * kCodexDefaultOutputPrice;
     } else if (_totalCodexTokens > 0) {
         UInt64 estimatedInput = (UInt64)(_totalCodexTokens * 0.70);
         UInt64 estimatedOutput = _totalCodexTokens - estimatedInput;
-        return (estimatedInput / 1000000.0) * kCodexInputPricePerMillion +
-               (estimatedOutput / 1000000.0) * kCodexOutputPricePerMillion;
+        return (estimatedInput / 1000000.0) * kCodexDefaultInputPrice +
+               (estimatedOutput / 1000000.0) * kCodexDefaultOutputPrice;
     }
     return 0.0;
 }
 
 - (double)geminiCostUSD {
     if (geminiInputTokens > 0 || geminiOutputTokens > 0) {
-        return (geminiInputTokens / 1000000.0) * kGeminiInputPricePerMillion +
-               (geminiOutputTokens / 1000000.0) * kGeminiOutputPricePerMillion;
+        return (geminiInputTokens / 1000000.0) * kGeminiDefaultInputPrice +
+               (geminiOutputTokens / 1000000.0) * kGeminiDefaultOutputPrice;
     } else if (_totalGeminiTokens > 0) {
         UInt64 estimatedInput = (UInt64)(_totalGeminiTokens * 0.70);
         UInt64 estimatedOutput = _totalGeminiTokens - estimatedInput;
-        return (estimatedInput / 1000000.0) * kGeminiInputPricePerMillion +
-               (estimatedOutput / 1000000.0) * kGeminiOutputPricePerMillion;
+        return (estimatedInput / 1000000.0) * kGeminiDefaultInputPrice +
+               (estimatedOutput / 1000000.0) * kGeminiDefaultOutputPrice;
     }
     return 0.0;
 }

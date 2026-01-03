@@ -109,6 +109,10 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     UInt64 cachedGeminiInputTokens;           // Cached Gemini input tokens
     UInt64 cachedGeminiOutputTokens;          // Cached Gemini output tokens
 
+    // Dynamic model-based cost tracking (parsed from actual API responses)
+    NSMutableDictionary *claudeModelCosts;    // Per-model cost tracking {modelName: {input:X, output:Y, cost:Z}}
+    double cachedClaudeCost;                   // Cached total Claude cost (calculated from per-model data)
+
     NSDate *lastJSONLScanTime;                // Last time we scanned for new files
     NSDate *lastCodexScanTime;                // Last time we scanned Codex files
     NSDate *lastGeminiScanTime;               // Last time we scanned Gemini files
