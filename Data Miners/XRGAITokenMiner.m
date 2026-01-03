@@ -499,48 +499,47 @@
     }
 }
 
-// Helper method to parse a single JSONL file
+// Helper method to parse a single JSONL file using streaming (memory efficient)
 - (UInt64)parseJSONLFile:(NSString *)filePath {
-    NSString *content = [NSString stringWithContentsOfFile:filePath
-                                                  encoding:NSUTF8StringEncoding
-                                                     error:nil];
-    if (!content) return 0;
+    FILE *file = fopen([filePath UTF8String], "r");
+    if (!file) return 0;
 
     UInt64 fileTokens = 0;
-    
-    // NOTE: We DON'T call observer.recordEvent here anymore!
-    // This was causing massive queue buildup and freezing.
-    // The observer should be updated separately by the actual API calls,
-    // not by parsing historical files.
+    char *line = NULL;
+    size_t linecap = 0;
+    ssize_t linelen;
 
-    // Parse line-delimited JSON (JSONL format - one JSON object per line)
-    NSArray *lines = [content componentsSeparatedByString:@"\n"];
-    for (NSString *line in lines) {
-        if ([line length] == 0) continue;
+    // Read file line-by-line to minimize memory usage
+    // This avoids loading 443MB+ of JSONL files into memory at once
+    while ((linelen = getline(&line, &linecap, file)) > 0) {
+        if (linelen <= 1) continue;  // Skip empty lines
 
-        NSData *jsonData = [line dataUsingEncoding:NSUTF8StringEncoding];
-        NSError *parseError = nil;
-        NSDictionary *data = [NSJSONSerialization JSONObjectWithData:jsonData
-                                                            options:0
-                                                              error:&parseError];
+        @autoreleasepool {
+            NSData *jsonData = [NSData dataWithBytesNoCopy:line length:linelen freeWhenDone:NO];
+            NSError *parseError = nil;
+            NSDictionary *data = [NSJSONSerialization JSONObjectWithData:jsonData
+                                                                options:0
+                                                                  error:&parseError];
 
-        // Extract token usage from message.usage
-        if (!data || [data isKindOfClass:[NSNull class]]) continue;
-        NSDictionary *message = data[@"message"];
-        if (!message || [message isKindOfClass:[NSNull class]]) continue;
-        NSDictionary *usage = message[@"usage"];
-        if (usage && ![usage isKindOfClass:[NSNull class]]) {
+            // Extract token usage from message.usage
+            if (!data || [data isKindOfClass:[NSNull class]]) continue;
+            NSDictionary *message = data[@"message"];
+            if (!message || [message isKindOfClass:[NSNull class]]) continue;
+            NSDictionary *usage = message[@"usage"];
+            if (usage && ![usage isKindOfClass:[NSNull class]]) {
+                // Calculate prompt and completion tokens
+                UInt64 promptTokens = [usage[@"input_tokens"] unsignedLongLongValue] +
+                                     [usage[@"cache_creation_input_tokens"] unsignedLongLongValue] +
+                                     [usage[@"cache_read_input_tokens"] unsignedLongLongValue];
+                UInt64 completionTokens = [usage[@"output_tokens"] unsignedLongLongValue];
 
-            // Calculate prompt and completion tokens
-            UInt64 promptTokens = [usage[@"input_tokens"] unsignedLongLongValue] +
-                                 [usage[@"cache_creation_input_tokens"] unsignedLongLongValue] +
-                                 [usage[@"cache_read_input_tokens"] unsignedLongLongValue];
-            UInt64 completionTokens = [usage[@"output_tokens"] unsignedLongLongValue];
-
-            // Sum all token types for total (for graph display)
-            fileTokens += promptTokens + completionTokens;
+                fileTokens += promptTokens + completionTokens;
+            }
         }
     }
+
+    free(line);
+    fclose(file);
 
     return fileTokens;
 }
@@ -632,49 +631,50 @@
 #endif
 }
 
+// Memory-efficient streaming parser for Codex JSONL files
 - (UInt64)parseCodexJSONLFile:(NSString *)filePath {
-    NSString *content = [NSString stringWithContentsOfFile:filePath
-                                                  encoding:NSUTF8StringEncoding
-                                                     error:nil];
-    if (!content) return 0;
+    FILE *file = fopen([filePath UTF8String], "r");
+    if (!file) return 0;
 
-    UInt64 lastTotal = 0;  // Keep track of the last token_count event
+    UInt64 lastTotal = 0;
+    char *line = NULL;
+    size_t linecap = 0;
+    ssize_t linelen;
 
-    NSArray *lines = [content componentsSeparatedByString:@"\n"];
-    for (NSString *line in lines) {
-        if ([line length] == 0) continue;
+    while ((linelen = getline(&line, &linecap, file)) > 0) {
+        if (linelen <= 1) continue;
 
-        NSData *jsonData = [line dataUsingEncoding:NSUTF8StringEncoding];
-        NSError *parseError = nil;
-        NSDictionary *data = [NSJSONSerialization JSONObjectWithData:jsonData
-                                                            options:0
-                                                              error:&parseError];
-        if (!data) continue;
+        @autoreleasepool {
+            NSData *jsonData = [NSData dataWithBytesNoCopy:line length:linelen freeWhenDone:NO];
+            NSDictionary *data = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:nil];
+            if (!data) continue;
 
-        // Check for event_msg type with token_count payload
-        if (![data[@"type"] isEqualToString:@"event_msg"]) continue;
+            if (![data[@"type"] isEqualToString:@"event_msg"]) continue;
 
-        NSDictionary *payload = data[@"payload"];
-        if (!payload || [payload isKindOfClass:[NSNull class]]) continue;
-        if (![payload[@"type"] isEqualToString:@"token_count"]) continue;
+            NSDictionary *payload = data[@"payload"];
+            if (!payload || [payload isKindOfClass:[NSNull class]]) continue;
+            if (![payload[@"type"] isEqualToString:@"token_count"]) continue;
 
-        NSDictionary *info = payload[@"info"];
-        if (!info || [info isKindOfClass:[NSNull class]]) continue;
+            NSDictionary *info = payload[@"info"];
+            if (!info || [info isKindOfClass:[NSNull class]]) continue;
 
-        NSDictionary *totalUsage = info[@"total_token_usage"];
-        if (!totalUsage || [totalUsage isKindOfClass:[NSNull class]]) continue;
+            NSDictionary *totalUsage = info[@"total_token_usage"];
+            if (!totalUsage || [totalUsage isKindOfClass:[NSNull class]]) continue;
 
-        // Use total_tokens if available, otherwise sum input + output
-        if (totalUsage[@"total_tokens"]) {
-            lastTotal = [totalUsage[@"total_tokens"] unsignedLongLongValue];
-        } else {
-            UInt64 input = [totalUsage[@"input_tokens"] unsignedLongLongValue];
-            UInt64 output = [totalUsage[@"output_tokens"] unsignedLongLongValue];
-            lastTotal = input + output;
+            if (totalUsage[@"total_tokens"]) {
+                lastTotal = [totalUsage[@"total_tokens"] unsignedLongLongValue];
+            } else {
+                UInt64 input = [totalUsage[@"input_tokens"] unsignedLongLongValue];
+                UInt64 output = [totalUsage[@"output_tokens"] unsignedLongLongValue];
+                lastTotal = input + output;
+            }
         }
     }
 
-    return lastTotal;  // Return the last total (most recent)
+    free(line);
+    fclose(file);
+
+    return lastTotal;
 }
 
 #pragma mark - Gemini CLI Methods
