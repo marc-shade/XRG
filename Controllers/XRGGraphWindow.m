@@ -489,6 +489,10 @@ void sleepNotification(void *refcon, io_service_t service, natural_t messageType
 
         // Manually trigger the initialization that would normally happen in awakeFromNib
         [self.aiTokenView awakeFromNib];
+
+        // Force layout recalculation after adding the AI Token module
+        // This ensures the module is positioned correctly on initial load
+        [self.moduleManager windowChangedToSize:self.frame.size];
     }
 }
 

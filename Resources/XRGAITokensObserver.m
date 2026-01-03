@@ -1,5 +1,4 @@
 #import "XRGAITokensObserver.h"
-#import "XRGAITokensObserver.h"
 #import "XRGAITokensNotifications.h"
 #import "XRGAISettingsKeys.h"
 #import "XRGSettings.h"
@@ -147,43 +146,55 @@
 }
 
 - (NSDictionary<NSString *, NSNumber *> *)dailyByModel {
-    NSMutableDictionary *totals = [NSMutableDictionary dictionary];
+    __block NSDictionary *result = nil;
 
-    // Combine prompt and completion tokens for each model
-    for (NSString *model in self.dailyModelPromptTokens) {
-        NSUInteger promptTokens = [self.dailyModelPromptTokens[model] unsignedIntegerValue];
-        NSUInteger completionTokens = [self.dailyModelCompletionTokens[model] unsignedIntegerValue];
-        totals[model] = @(promptTokens + completionTokens);
-    }
+    dispatch_sync(self.serialQueue, ^{
+        NSMutableDictionary *totals = [NSMutableDictionary dictionary];
 
-    // Add any models that only have completion tokens
-    for (NSString *model in self.dailyModelCompletionTokens) {
-        if (!totals[model]) {
-            totals[model] = self.dailyModelCompletionTokens[model];
+        // Combine prompt and completion tokens for each model
+        for (NSString *model in self.dailyModelPromptTokens) {
+            NSUInteger promptTokens = [self.dailyModelPromptTokens[model] unsignedIntegerValue];
+            NSUInteger completionTokens = [self.dailyModelCompletionTokens[model] unsignedIntegerValue];
+            totals[model] = @(promptTokens + completionTokens);
         }
-    }
 
-    return [totals copy];
+        // Add any models that only have completion tokens
+        for (NSString *model in self.dailyModelCompletionTokens) {
+            if (!totals[model]) {
+                totals[model] = self.dailyModelCompletionTokens[model];
+            }
+        }
+
+        result = [totals copy];
+    });
+
+    return result;
 }
 
 - (NSDictionary<NSString *, NSNumber *> *)dailyByProvider {
-    NSMutableDictionary *totals = [NSMutableDictionary dictionary];
+    __block NSDictionary *result = nil;
 
-    // Combine prompt and completion tokens for each provider
-    for (NSString *provider in self.dailyProviderPromptTokens) {
-        NSUInteger promptTokens = [self.dailyProviderPromptTokens[provider] unsignedIntegerValue];
-        NSUInteger completionTokens = [self.dailyProviderCompletionTokens[provider] unsignedIntegerValue];
-        totals[provider] = @(promptTokens + completionTokens);
-    }
+    dispatch_sync(self.serialQueue, ^{
+        NSMutableDictionary *totals = [NSMutableDictionary dictionary];
 
-    // Add any providers that only have completion tokens
-    for (NSString *provider in self.dailyProviderCompletionTokens) {
-        if (!totals[provider]) {
-            totals[provider] = self.dailyProviderCompletionTokens[provider];
+        // Combine prompt and completion tokens for each provider
+        for (NSString *provider in self.dailyProviderPromptTokens) {
+            NSUInteger promptTokens = [self.dailyProviderPromptTokens[provider] unsignedIntegerValue];
+            NSUInteger completionTokens = [self.dailyProviderCompletionTokens[provider] unsignedIntegerValue];
+            totals[provider] = @(promptTokens + completionTokens);
         }
-    }
 
-    return [totals copy];
+        // Add any providers that only have completion tokens
+        for (NSString *provider in self.dailyProviderCompletionTokens) {
+            if (!totals[provider]) {
+                totals[provider] = self.dailyProviderCompletionTokens[provider];
+            }
+        }
+
+        result = [totals copy];
+    });
+
+    return result;
 }
 
 #pragma mark - Private

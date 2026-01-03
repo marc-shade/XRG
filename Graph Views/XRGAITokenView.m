@@ -29,6 +29,7 @@
 #import "XRGCommon.h"
 #import "XRGAITokensObserver.h"
 #import "XRGSettings.h"
+#import "XRGDataSet.h"
 
 @implementation XRGAITokenView
 
@@ -38,10 +39,24 @@
     tokenMiner = [[XRGAITokenMiner alloc] init];
 
     parentWindow = (XRGGraphWindow *)[self window];
+    if (!parentWindow) {
+#ifdef XRG_DEBUG
+        NSLog(@"[XRGAITokenView] Warning: parentWindow is nil during awakeFromNib");
+#endif
+        return;
+    }
+
     [parentWindow setAiTokenView:self];
     [parentWindow initTimers];
     appSettings = [parentWindow appSettings];
     moduleManager = [parentWindow moduleManager];
+
+    if (!appSettings || !moduleManager) {
+#ifdef XRG_DEBUG
+        NSLog(@"[XRGAITokenView] Warning: appSettings or moduleManager is nil");
+#endif
+        return;
+    }
 
     textRectHeight = [appSettings textRectHeight];
 
@@ -55,7 +70,7 @@
     [self updateMinSize];
     [m setIsDisplayed:(bool)[defs boolForKey:XRG_showAITokenGraph]];
 
-    [[parentWindow moduleManager] addModule:m];
+    [moduleManager addModule:m];
     [self setGraphSize:[m currentSize]];
 }
 
@@ -83,12 +98,15 @@
 }
 
 - (void)graphUpdate:(NSTimer *)aTimer {
+    if (!tokenMiner) return;  // Prevent crash if miner not initialized
     [tokenMiner getLatestTokenInfo];
     [self setNeedsDisplay:YES];
 }
 
 - (void)drawRect:(NSRect)rect {
     if ([self isHidden]) return;
+    if (!appSettings) return;  // Prevent crash if not properly initialized
+    if (!tokenMiner) return;   // Prevent crash if miner not initialized
 
     NSGraphicsContext *gc = [NSGraphicsContext currentContext];
 
@@ -121,22 +139,57 @@
         [self drawPixelGrid:graphRect withSpacing:4.0 color:[appSettings borderColor]];
     }
 
-    // Create stacked graph data
-    XRGDataSet *totalData = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:[tokenMiner claudeTokenData]];
-    [totalData addOtherDataSetValues:[tokenMiner codexTokenData]];
-    [totalData addOtherDataSetValues:[tokenMiner geminiTokenData]];
+    // Create/update stacked graph data using cached datasets to avoid memory leaks
+    XRGDataSet *claudeData = [tokenMiner claudeTokenData];
+    XRGDataSet *codexData = [tokenMiner codexTokenData];
+    XRGDataSet *geminiData = [tokenMiner geminiTokenData];
 
-    CGFloat maxValue = [totalData max];
+    // Defensive nil checks - skip graph drawing if data not ready
+    if (!claudeData || claudeData.numValues == 0) {
+        return;
+    }
+
+    // Lazily create or resize cached datasets
+    if (!cachedTotalData || cachedTotalData.numValues != claudeData.numValues) {
+        cachedTotalData = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:claudeData];
+        if (!cachedTotalData) return;  // Allocation failed
+    } else {
+        // Copy claude data into existing dataset
+        if (claudeData.values && cachedTotalData.values && claudeData.numValues > 0) {
+            memcpy(cachedTotalData.values, claudeData.values, claudeData.numValues * sizeof(CGFloat));
+            cachedTotalData.min = claudeData.min;
+            cachedTotalData.max = claudeData.max;
+            cachedTotalData.sum = claudeData.sum;
+            cachedTotalData.currentIndex = claudeData.currentIndex;
+        }
+    }
+    if (codexData) [cachedTotalData addOtherDataSetValues:codexData];
+    if (geminiData) [cachedTotalData addOtherDataSetValues:geminiData];
+
+    CGFloat maxValue = [cachedTotalData max];
     if (maxValue == 0) maxValue = 1000;  // Default scale
 
     // Draw stacked area graphs (bottom to top: Claude, Codex, Gemini)
-    [self drawGraphWithDataFromDataSet:totalData maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:geminiColor];
+    [self drawGraphWithDataFromDataSet:cachedTotalData maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:geminiColor];
 
-    XRGDataSet *claudeCodexData = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:[tokenMiner claudeTokenData]];
-    [claudeCodexData addOtherDataSetValues:[tokenMiner codexTokenData]];
-    [self drawGraphWithDataFromDataSet:claudeCodexData maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:codexColor];
+    // Lazily create or resize cached claude+codex dataset
+    if (!cachedClaudeCodexData || cachedClaudeCodexData.numValues != claudeData.numValues) {
+        cachedClaudeCodexData = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:claudeData];
+        if (!cachedClaudeCodexData) return;  // Allocation failed
+    } else {
+        // Copy claude data into existing dataset
+        if (claudeData.values && cachedClaudeCodexData.values && claudeData.numValues > 0) {
+            memcpy(cachedClaudeCodexData.values, claudeData.values, claudeData.numValues * sizeof(CGFloat));
+            cachedClaudeCodexData.min = claudeData.min;
+            cachedClaudeCodexData.max = claudeData.max;
+            cachedClaudeCodexData.sum = claudeData.sum;
+            cachedClaudeCodexData.currentIndex = claudeData.currentIndex;
+        }
+    }
+    if (codexData) [cachedClaudeCodexData addOtherDataSetValues:codexData];
+    [self drawGraphWithDataFromDataSet:cachedClaudeCodexData maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:codexColor];
 
-    [self drawGraphWithDataFromDataSet:[tokenMiner claudeTokenData] maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:claudeColor];
+    if (claudeData) [self drawGraphWithDataFromDataSet:claudeData maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:claudeColor];
 
     // Apply selected graph style overlay
     switch (graphStyle) {
@@ -144,8 +197,8 @@
             [self drawScanlines:graphRect];
             break;
         case 3:  // Retro Dots - data-aware version for AI Token view
-            [self drawPixelDotsWithDataFromDataSet:totalData maxValue:maxValue inRect:graphRect color:geminiColor dotSize:2.0];
-            [self drawPixelDotsWithDataFromDataSet:claudeCodexData maxValue:maxValue inRect:graphRect color:codexColor dotSize:2.0];
+            [self drawPixelDotsWithDataFromDataSet:cachedTotalData maxValue:maxValue inRect:graphRect color:geminiColor dotSize:2.0];
+            [self drawPixelDotsWithDataFromDataSet:cachedClaudeCodexData maxValue:maxValue inRect:graphRect color:codexColor dotSize:2.0];
             [self drawPixelDotsWithDataFromDataSet:[tokenMiner claudeTokenData] maxValue:maxValue inRect:graphRect color:claudeColor dotSize:2.0];
             break;
         default:  // 0 = Normal, 2 = Pixel Grid (already drawn above)
@@ -161,23 +214,63 @@
     indicatorRect.size.width = 8;
 
     // Draw Claude rate
-    CGFloat totalRate = [tokenMiner totalTokenRate];
-    if (totalRate > 0) {
-        indicatorRect.size.height = (CGFloat)[tokenMiner claudeTokenRate] / totalRate * (graphSize.height - textRectHeight);
+    CGFloat indicatorTotalRate = [tokenMiner totalTokenRate];
+    if (indicatorTotalRate > 0) {
+        indicatorRect.size.height = (CGFloat)[tokenMiner claudeTokenRate] / indicatorTotalRate * (graphSize.height - textRectHeight);
         [claudeColor set];
         NSRectFill(indicatorRect);
 
         // Draw Codex rate
         indicatorRect.origin.y += indicatorRect.size.height;
-        indicatorRect.size.height = (CGFloat)[tokenMiner codexTokenRate] / totalRate * (graphSize.height - textRectHeight);
+        indicatorRect.size.height = (CGFloat)[tokenMiner codexTokenRate] / indicatorTotalRate * (graphSize.height - textRectHeight);
         [codexColor set];
         NSRectFill(indicatorRect);
 
         // Draw Gemini rate
         indicatorRect.origin.y += indicatorRect.size.height;
-        indicatorRect.size.height = (CGFloat)[tokenMiner geminiTokenRate] / totalRate * (graphSize.height - textRectHeight);
+        indicatorRect.size.height = (CGFloat)[tokenMiner geminiTokenRate] / indicatorTotalRate * (graphSize.height - textRectHeight);
         [geminiColor set];
         NSRectFill(indicatorRect);
+    }
+
+    // Draw provider color legend at top-right of graph area
+    NSDictionary *legendAttributes = @{
+        NSFontAttributeName: [NSFont systemFontOfSize:9],
+        NSForegroundColorAttributeName: [appSettings textColor]
+    };
+
+    CGFloat legendY = graphSize.height - textRectHeight - 12;
+    CGFloat legendX = numSamples - 50;
+    CGFloat legendBoxSize = 8;
+    CGFloat legendSpacing = 11;
+
+    // Only show legend if there's any data
+    if ([tokenMiner totalClaudeTokens] > 0 || [tokenMiner totalCodexTokens] > 0 || [tokenMiner totalGeminiTokens] > 0) {
+        // Claude legend entry (bottom, since stack is bottom-to-top)
+        if ([tokenMiner totalClaudeTokens] > 0) {
+            NSRect claudeBox = NSMakeRect(legendX, legendY, legendBoxSize, legendBoxSize);
+            [claudeColor set];
+            NSRectFill(claudeBox);
+            [@"C" drawAtPoint:NSMakePoint(legendX + legendBoxSize + 2, legendY - 1) withAttributes:legendAttributes];
+            legendY -= legendSpacing;
+        }
+
+        // Codex legend entry
+        if ([tokenMiner totalCodexTokens] > 0) {
+            NSRect codexBox = NSMakeRect(legendX, legendY, legendBoxSize, legendBoxSize);
+            [codexColor set];
+            NSRectFill(codexBox);
+            [@"X" drawAtPoint:NSMakePoint(legendX + legendBoxSize + 2, legendY - 1) withAttributes:legendAttributes];
+            legendY -= legendSpacing;
+        }
+
+        // Gemini legend entry (top)
+        if ([tokenMiner totalGeminiTokens] > 0) {
+            NSRect geminiBox = NSMakeRect(legendX, legendY, legendBoxSize, legendBoxSize);
+            [geminiColor set];
+            NSRectFill(geminiBox);
+            [@"G" drawAtPoint:NSMakePoint(legendX + legendBoxSize + 2, legendY - 1) withAttributes:legendAttributes];
+        }
     }
 
     // Draw text labels
@@ -198,13 +291,57 @@
     NSUInteger sessionTotal = observer.sessionTotalTokens;
     NSUInteger dailyTotal = observer.dailyTotalTokens;
 
-    // Show current rate if enabled
-    if (showRate) {
-        UInt32 claudeRate = [tokenMiner claudeTokenRate];
-        UInt32 codexRate = [tokenMiner codexTokenRate];
-        UInt32 geminiRate = [tokenMiner geminiTokenRate];
-        UInt32 totalRate = claudeRate + codexRate + geminiRate;
+    // Get per-provider rates
+    UInt32 claudeRate = [tokenMiner claudeTokenRate];
+    UInt32 codexRate = [tokenMiner codexTokenRate];
+    UInt32 geminiRate = [tokenMiner geminiTokenRate];
+    UInt32 totalRate = claudeRate + codexRate + geminiRate;
 
+    // Get per-provider totals
+    UInt64 claudeTotal = [tokenMiner totalClaudeTokens];
+    UInt64 codexTotal = [tokenMiner totalCodexTokens];
+    UInt64 geminiTotal = [tokenMiner totalGeminiTokens];
+
+    // Always show per-provider totals for visibility
+    if (claudeTotal > 0 || codexTotal > 0 || geminiTotal > 0) {
+        [label appendString:@"\n─ Providers ─"];
+
+        // Claude (FG1 color = typically green/cyan)
+        if (claudeTotal > 0) {
+            if (claudeTotal >= 1000000) {
+                [label appendFormat:@"\n● Claude: %lluM", claudeTotal / 1000000];
+            } else if (claudeTotal >= 1000) {
+                [label appendFormat:@"\n● Claude: %lluK", claudeTotal / 1000];
+            } else {
+                [label appendFormat:@"\n● Claude: %llu", claudeTotal];
+            }
+        }
+
+        // Codex (FG2 color = typically blue)
+        if (codexTotal > 0) {
+            if (codexTotal >= 1000000) {
+                [label appendFormat:@"\n● Codex: %lluM", codexTotal / 1000000];
+            } else if (codexTotal >= 1000) {
+                [label appendFormat:@"\n● Codex: %lluK", codexTotal / 1000];
+            } else {
+                [label appendFormat:@"\n● Codex: %llu", codexTotal];
+            }
+        }
+
+        // Gemini (FG3 color = typically orange/red)
+        if (geminiTotal > 0) {
+            if (geminiTotal >= 1000000) {
+                [label appendFormat:@"\n● Gemini: %lluM", geminiTotal / 1000000];
+            } else if (geminiTotal >= 1000) {
+                [label appendFormat:@"\n● Gemini: %lluK", geminiTotal / 1000];
+            } else {
+                [label appendFormat:@"\n● Gemini: %llu", geminiTotal];
+            }
+        }
+    }
+
+    // Show current rate if enabled
+    if (showRate && totalRate > 0) {
         if (totalRate >= 1000) {
             [label appendFormat:@"\nRate: %uK/s", totalRate / 1000];
         } else {
@@ -300,14 +437,30 @@
     gc.shouldAntialias = [appSettings antiAliasing];
 
     NSRect graphRect = NSMakeRect(0, 0, rect.size.width, rect.size.height);
-    XRGDataSet *totalData = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:[tokenMiner claudeTokenData]];
-    [totalData addOtherDataSetValues:[tokenMiner codexTokenData]];
-    [totalData addOtherDataSetValues:[tokenMiner geminiTokenData]];
 
-    CGFloat maxValue = [totalData max];
+    // Reuse cached dataset to avoid memory allocations
+    XRGDataSet *claudeData = [tokenMiner claudeTokenData];
+    XRGDataSet *codexData = [tokenMiner codexTokenData];
+    XRGDataSet *geminiData = [tokenMiner geminiTokenData];
+
+    if (!cachedTotalData || cachedTotalData.numValues != claudeData.numValues) {
+        cachedTotalData = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:claudeData];
+    } else {
+        if (claudeData.values && cachedTotalData.values) {
+            memcpy(cachedTotalData.values, claudeData.values, claudeData.numValues * sizeof(CGFloat));
+            cachedTotalData.min = claudeData.min;
+            cachedTotalData.max = claudeData.max;
+            cachedTotalData.sum = claudeData.sum;
+            cachedTotalData.currentIndex = claudeData.currentIndex;
+        }
+    }
+    [cachedTotalData addOtherDataSetValues:codexData];
+    [cachedTotalData addOtherDataSetValues:geminiData];
+
+    CGFloat maxValue = [cachedTotalData max];
     if (maxValue == 0) maxValue = 1000;
 
-    [self drawGraphWithDataFromDataSet:totalData maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:[appSettings graphFG1Color]];
+    [self drawGraphWithDataFromDataSet:cachedTotalData maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:[appSettings graphFG1Color]];
 }
 
 #pragma mark - Context Menu

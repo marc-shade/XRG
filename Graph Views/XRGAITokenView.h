@@ -29,6 +29,8 @@
 #import "XRGGenericView.h"
 #import "XRGAITokenMiner.h"
 
+@class XRGDataSet;
+
 @interface XRGAITokenView : XRGGenericView
 {
 @private
@@ -37,6 +39,10 @@
     NSInteger textRectHeight;
     XRGModule *m;
     XRGAITokenMiner *tokenMiner;
+
+    // Cached datasets to avoid memory allocations in drawRect
+    XRGDataSet *cachedTotalData;
+    XRGDataSet *cachedClaudeCodexData;
 }
 
 - (void)setGraphSize:(NSSize)newSize;
