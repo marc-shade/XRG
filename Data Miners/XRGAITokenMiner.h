@@ -69,6 +69,8 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     UInt64 lastClaudeCount;
     UInt64 lastCodexCount;
     UInt64 lastGeminiCount;
+    UInt64 lastGeminiInputCount;
+    UInt64 lastGeminiOutputCount;
     UInt64 lastOllamaCount;
     double lastTotalCost;
 
@@ -97,6 +99,7 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
 
     // JSONL caching for performance (avoid re-parsing every second)
     NSMutableDictionary *jsonlFileModTimes;  // Track file modification times
+    NSMutableDictionary *geminiFileModTimes; // Track Gemini file mod times
     UInt64 cachedJSONLTokens;                 // Cached total from last parse
     UInt64 cachedCodexTokens;                 // Cached Codex tokens
     UInt64 cachedGeminiTokens;                // Cached Gemini tokens
@@ -112,6 +115,8 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     // Dynamic model-based cost tracking (parsed from actual API responses)
     NSMutableDictionary *claudeModelCosts;    // Per-model cost tracking {modelName: {input:X, output:Y, cost:Z}}
     double cachedClaudeCost;                   // Cached total Claude cost (calculated from per-model data)
+    NSMutableDictionary *geminiModelCosts;    // Per-model cost tracking for Gemini
+    double cachedGeminiCost;                   // Cached total Gemini cost
 
     NSDate *lastJSONLScanTime;                // Last time we scanned for new files
     NSDate *lastCodexScanTime;                // Last time we scanned Codex files

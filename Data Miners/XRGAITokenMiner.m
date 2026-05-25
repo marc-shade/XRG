@@ -222,6 +222,8 @@ static const double kGeminiDefaultOutputPrice = 0.40;
         lastClaudeCount = 0;
         lastCodexCount = 0;
         lastGeminiCount = 0;
+        lastGeminiInputCount = 0;
+        lastGeminiOutputCount = 0;
         lastOllamaCount = 0;
         lastTotalCost = 0.0;
 
@@ -260,6 +262,7 @@ static const double kGeminiDefaultOutputPrice = 0.40;
 
         // Initialize caches for performance
         jsonlFileModTimes = [[NSMutableDictionary alloc] init];
+        geminiFileModTimes = [[NSMutableDictionary alloc] init];
         cachedJSONLTokens = 0;
         cachedCodexTokens = 0;
         cachedGeminiTokens = 0;
@@ -275,6 +278,8 @@ static const double kGeminiDefaultOutputPrice = 0.40;
         // Initialize per-model cost tracking
         claudeModelCosts = [[NSMutableDictionary alloc] init];
         cachedClaudeCost = 0.0;
+        geminiModelCosts = [[NSMutableDictionary alloc] init];
+        cachedGeminiCost = 0.0;
 
         lastJSONLScanTime = nil;
         lastCodexScanTime = nil;
@@ -350,6 +355,8 @@ static const double kGeminiDefaultOutputPrice = 0.40;
     lastClaudeCount = 0;
     lastCodexCount = 0;
     lastGeminiCount = 0;
+    lastGeminiInputCount = 0;
+    lastGeminiOutputCount = 0;
     lastOllamaCount = 0;
     lastTotalCost = 0.0;
 
@@ -368,6 +375,12 @@ static const double kGeminiDefaultOutputPrice = 0.40;
     currentGeminiRate = 0;
     currentOllamaRate = 0;
     currentCostRate = 0.0;
+
+    // Reset model costs
+    [claudeModelCosts removeAllObjects];
+    cachedClaudeCost = 0.0;
+    [geminiModelCosts removeAllObjects];
+    cachedGeminiCost = 0.0;
 
     // Reset Ollama state
     _ollamaAvailable = NO;
@@ -465,10 +478,22 @@ static const double kGeminiDefaultOutputPrice = 0.40;
     currentGeminiRate = (UInt32)(_totalGeminiTokens - lastGeminiCount);
     currentOllamaRate = (UInt32)(_totalOllamaTokens - lastOllamaCount);
 
+    // Record events for budget tracking
+    if (currentGeminiRate > 0) {
+        UInt64 inputDelta = geminiInputTokens - lastGeminiInputCount;
+        UInt64 outputDelta = geminiOutputTokens - lastGeminiOutputCount;
+        [[XRGAITokensObserver shared] recordEventWithPromptTokens:(NSUInteger)inputDelta
+                                                 completionTokens:(NSUInteger)outputDelta
+                                                            model:@"Gemini"
+                                                         provider:@"Google"];
+    }
+
     // Update last counts
     lastClaudeCount = _totalClaudeTokens;
     lastCodexCount = _totalCodexTokens;
     lastGeminiCount = _totalGeminiTokens;
+    lastGeminiInputCount = geminiInputTokens;
+    lastGeminiOutputCount = geminiOutputTokens;
     lastOllamaCount = _totalOllamaTokens;
 
     // Store rates in data sets
@@ -1015,6 +1040,8 @@ static const double kGeminiDefaultOutputPrice = 0.40;
     // CRITICAL: Return immediately with cached value (non-blocking!)
     dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
     _totalGeminiTokens = cachedGeminiTokens;
+    geminiInputTokens = cachedGeminiInputTokens;
+    geminiOutputTokens = cachedGeminiOutputTokens;
     dispatch_semaphore_signal(cacheSemaphore);
 
     // Check if we should trigger background update (throttled)
@@ -1046,7 +1073,16 @@ static const double kGeminiDefaultOutputPrice = 0.40;
         return;
     }
 
-    UInt64 totalTokens = 0;
+    // Get current cache state (thread-safe)
+    dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+    UInt64 totalTokens = cachedGeminiTokens;
+    UInt64 totalInputTokens = cachedGeminiInputTokens;
+    UInt64 totalOutputTokens = cachedGeminiOutputTokens;
+    double totalGeminiCost = cachedGeminiCost;
+    NSMutableDictionary *modTimes = [geminiFileModTimes mutableCopy];
+    dispatch_semaphore_signal(cacheSemaphore);
+
+    BOOL anyChanges = NO;
 
     // Traverse <hash>/chats/ directories
     NSArray *hashes = [fm contentsOfDirectoryAtPath:geminiTmpPath error:nil];
@@ -1064,57 +1100,175 @@ static const double kGeminiDefaultOutputPrice = 0.40;
         if (!files) continue;
 
         for (NSString *filename in files) {
-            if ([filename hasPrefix:@"session-"] && [filename hasSuffix:@".json"]) {
+            // Support both .json and .jsonl (modern gemini CLI uses .jsonl)
+            if ([filename hasPrefix:@"session-"] && ([filename hasSuffix:@".json"] || [filename hasSuffix:@".jsonl"])) {
                 NSString *filePath = [chatsPath stringByAppendingPathComponent:filename];
-                totalTokens += [self parseGeminiSessionFile:filePath];
+                
+                NSDictionary *attrs = [fm attributesOfItemAtPath:filePath error:nil];
+                if (!attrs) continue;
+                
+                NSDate *modTime = [attrs fileModificationDate];
+                NSDate *oldModTime = modTimes[filePath];
+                
+                if (oldModTime && [modTime isEqualToDate:oldModTime]) {
+                    continue; // Skip unchanged file
+                }
+                
+                anyChanges = YES;
+                
+                // Subtract old values if they exist
+                NSNumber *oldTokens = modTimes[[filePath stringByAppendingString:@"_tokens"]];
+                NSNumber *oldInput = modTimes[[filePath stringByAppendingString:@"_input"]];
+                NSNumber *oldOutput = modTimes[[filePath stringByAppendingString:@"_output"]];
+                NSNumber *oldCost = modTimes[[filePath stringByAppendingString:@"_cost"]];
+                
+                if (oldTokens) totalTokens -= [oldTokens unsignedLongLongValue];
+                if (oldInput) totalInputTokens -= [oldInput unsignedLongLongValue];
+                if (oldOutput) totalOutputTokens -= [oldOutput unsignedLongLongValue];
+                if (oldCost) totalGeminiCost -= [oldCost doubleValue];
+                
+                UInt64 fileInput = 0;
+                UInt64 fileOutput = 0;
+                double fileCost = 0.0;
+                
+                UInt64 fileTokens = [self parseGeminiSessionFile:filePath inputTokens:&fileInput outputTokens:&fileOutput cost:&fileCost];
+                
+                totalTokens += fileTokens;
+                totalInputTokens += fileInput;
+                totalOutputTokens += fileOutput;
+                totalGeminiCost += fileCost;
+                
+                // Update mod times and cached values for this file
+                modTimes[filePath] = modTime;
+                modTimes[[filePath stringByAppendingString:@"_tokens"]] = @(fileTokens);
+                modTimes[[filePath stringByAppendingString:@"_input"]] = @(fileInput);
+                modTimes[[filePath stringByAppendingString:@"_output"]] = @(fileOutput);
+                modTimes[[filePath stringByAppendingString:@"_cost"]] = @(fileCost);
             }
         }
     }
 
-    // Thread-safe update of cache
-    dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
-    cachedGeminiTokens = totalTokens;
-    dispatch_semaphore_signal(cacheSemaphore);
+    // Thread-safe update of cache if any changes detected
+    if (anyChanges) {
+        dispatch_semaphore_wait(cacheSemaphore, DISPATCH_TIME_FOREVER);
+        cachedGeminiTokens = totalTokens;
+        cachedGeminiInputTokens = totalInputTokens;
+        cachedGeminiOutputTokens = totalOutputTokens;
+        cachedGeminiCost = totalGeminiCost;
+        geminiFileModTimes = modTimes;
+        dispatch_semaphore_signal(cacheSemaphore);
 
 #ifdef XRG_DEBUG
-    if (totalTokens > 0) {
-        NSLog(@"[XRGAITokenMiner] Gemini cache updated: tokens=%llu", totalTokens);
-    }
+        NSLog(@"[XRGAITokenMiner] Gemini cache updated: tokens=%llu (in=%llu out=%llu) cost=$%.4f",
+              totalTokens, totalInputTokens, totalOutputTokens, totalGeminiCost);
 #endif
+    }
 }
 
-- (UInt64)parseGeminiSessionFile:(NSString *)filePath {
-    NSData *jsonData = [NSData dataWithContentsOfFile:filePath];
-    if (!jsonData) return 0;
+- (UInt64)parseGeminiSessionFile:(NSString *)filePath inputTokens:(UInt64 *)outInput outputTokens:(UInt64 *)outOutput cost:(double *)outCost {
+    UInt64 fileTotal = 0;
+    UInt64 fileInput = 0;
+    UInt64 fileOutput = 0;
+    double fileCost = 0.0;
 
-    NSError *parseError = nil;
-    NSDictionary *data = [NSJSONSerialization JSONObjectWithData:jsonData
-                                                        options:0
-                                                          error:&parseError];
-    if (!data) return 0;
+    if ([filePath hasSuffix:@".jsonl"]) {
+        // Handle JSONL format (one JSON object per line)
+        FILE *file = fopen([filePath UTF8String], "r");
+        if (!file) return 0;
 
-    UInt64 totalTokens = 0;
+        char *line = NULL;
+        size_t linecap = 0;
+        ssize_t linelen;
 
-    // Look for messages array
-    NSArray *messages = data[@"messages"];
-    if (!messages || [messages isKindOfClass:[NSNull class]]) return 0;
+        while ((linelen = getline(&line, &linecap, file)) > 0) {
+            if (linelen <= 1) continue;
 
-    for (NSDictionary *msg in messages) {
-        if (!msg || [msg isKindOfClass:[NSNull class]]) continue;
-        NSDictionary *tokens = msg[@"tokens"];
-        if (!tokens || [tokens isKindOfClass:[NSNull class]]) continue;
+            @autoreleasepool {
+                NSData *jsonData = [NSData dataWithBytesNoCopy:line length:linelen freeWhenDone:NO];
+                NSDictionary *msg = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:nil];
+                if (!msg || ![msg isKindOfClass:[NSDictionary class]]) continue;
 
-        // Use "total" if available, otherwise sum input + output
-        if (tokens[@"total"]) {
-            totalTokens += [tokens[@"total"] unsignedLongLongValue];
-        } else {
-            UInt64 input = [tokens[@"input"] unsignedLongLongValue];
-            UInt64 output = [tokens[@"output"] unsignedLongLongValue];
-            totalTokens += input + output;
+                NSDictionary *tokens = msg[@"tokens"];
+                if (tokens && [tokens isKindOfClass:[NSDictionary class]]) {
+                    UInt64 input = [tokens[@"input"] unsignedLongLongValue];
+                    UInt64 output = [tokens[@"output"] unsignedLongLongValue];
+                    UInt64 total = [tokens[@"total"] unsignedLongLongValue];
+                    NSString *modelName = msg[@"model"];
+                    
+                    if (total == 0) total = input + output;
+                    
+                    fileInput += input;
+                    fileOutput += output;
+                    fileTotal += total;
+                    
+                    // Calculate cost using actual model pricing
+                    if (modelName) {
+                        XRGModelPricing pricing = getGeminiModelPricing(modelName);
+                        fileCost += (input / 1000000.0) * pricing.inputPrice;
+                        fileCost += (output / 1000000.0) * pricing.outputPrice;
+                    } else {
+                        fileCost += (input / 1000000.0) * kGeminiDefaultInputPrice;
+                        fileCost += (output / 1000000.0) * kGeminiDefaultOutputPrice;
+                    }
+                }
+            }
+        }
+        free(line);
+        fclose(file);
+    } else {
+        // Handle legacy single JSON object format
+        NSData *jsonData = [NSData dataWithContentsOfFile:filePath];
+        if (!jsonData) return 0;
+
+        NSDictionary *data = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:nil];
+        if (!data || ![data isKindOfClass:[NSDictionary class]]) return 0;
+
+        NSArray *messages = data[@"messages"];
+        NSString *modelName = data[@"model"]; // Try top-level model name
+        
+        if (messages && [messages isKindOfClass:[NSArray class]]) {
+            for (NSDictionary *msg in messages) {
+                if (!msg || ![msg isKindOfClass:[NSDictionary class]]) continue;
+                NSDictionary *tokens = msg[@"tokens"];
+                if (tokens && [tokens isKindOfClass:[NSDictionary class]]) {
+                    UInt64 input = [tokens[@"input"] unsignedLongLongValue];
+                    UInt64 output = [tokens[@"output"] unsignedLongLongValue];
+                    UInt64 total = [tokens[@"total"] unsignedLongLongValue];
+                    
+                    if (total == 0) total = input + output;
+                    
+                    fileInput += input;
+                    fileOutput += output;
+                    fileTotal += total;
+                    
+                    // Calculate cost
+                    if (modelName) {
+                        XRGModelPricing pricing = getGeminiModelPricing(modelName);
+                        fileCost += (input / 1000000.0) * pricing.inputPrice;
+                        fileCost += (output / 1000000.0) * pricing.outputPrice;
+                    } else {
+                        fileCost += (input / 1000000.0) * kGeminiDefaultInputPrice;
+                        fileCost += (output / 1000000.0) * kGeminiDefaultOutputPrice;
+                    }
+                }
+            }
         }
     }
 
-    return totalTokens;
+    if (outInput) *outInput = fileInput;
+    if (outOutput) *outOutput = fileOutput;
+    if (outCost) *outCost = fileCost;
+
+    return fileTotal;
+}
+
+// Backward compatibility wrappers
+- (UInt64)parseGeminiSessionFile:(NSString *)filePath inputTokens:(UInt64 *)outInput outputTokens:(UInt64 *)outOutput {
+    return [self parseGeminiSessionFile:filePath inputTokens:outInput outputTokens:outOutput cost:NULL];
+}
+
+- (UInt64)parseGeminiSessionFile:(NSString *)filePath {
+    return [self parseGeminiSessionFile:filePath inputTokens:NULL outputTokens:NULL cost:NULL];
 }
 
 #pragma mark - Accessor Methods
@@ -1198,8 +1352,10 @@ static const double kGeminiDefaultOutputPrice = 0.40;
                     (estimatedOutput / 1000000.0) * kCodexDefaultOutputPrice;
     }
 
-    // GEMINI: Use default pricing (model name parsing in Gemini JSON TODO)
-    if (geminiInputTokens > 0 || geminiOutputTokens > 0) {
+    // GEMINI: Use accurate cached cost if available, otherwise estimate
+    if (cachedGeminiCost > 0.0) {
+        geminiCost = cachedGeminiCost;
+    } else if (geminiInputTokens > 0 || geminiOutputTokens > 0) {
         geminiCost = (geminiInputTokens / 1000000.0) * kGeminiDefaultInputPrice +
                      (geminiOutputTokens / 1000000.0) * kGeminiDefaultOutputPrice;
     } else if (_totalGeminiTokens > 0) {
@@ -1257,6 +1413,10 @@ static const double kGeminiDefaultOutputPrice = 0.40;
 }
 
 - (double)geminiCostUSD {
+    if (cachedGeminiCost > 0.0) {
+        return cachedGeminiCost;
+    }
+    
     if (geminiInputTokens > 0 || geminiOutputTokens > 0) {
         return (geminiInputTokens / 1000000.0) * kGeminiDefaultInputPrice +
                (geminiOutputTokens / 1000000.0) * kGeminiDefaultOutputPrice;
