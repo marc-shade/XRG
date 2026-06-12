@@ -17,6 +17,16 @@ pkg_check_modules(JSON_GLIB REQUIRED json-glib-1.0)
 
 # Find optional packages
 pkg_check_modules(SENSORS libsensors)
+if(NOT SENSORS_FOUND)
+    # Some distros (e.g. Fedora) ship libsensors without a pkg-config file
+    find_library(SENSORS_LIBRARY sensors)
+    find_path(SENSORS_INCLUDE_DIR sensors/sensors.h)
+    if(SENSORS_LIBRARY AND SENSORS_INCLUDE_DIR)
+        set(SENSORS_FOUND TRUE)
+        set(SENSORS_LIBRARIES ${SENSORS_LIBRARY})
+        set(SENSORS_INCLUDE_DIRS ${SENSORS_INCLUDE_DIR})
+    endif()
+endif()
 pkg_check_modules(UPOWER upower-glib)
 
 # Include directories
@@ -154,8 +164,10 @@ endif()
 
 # Installation
 install(TARGETS xrg-linux xrg-cli-test DESTINATION bin)
-install(FILES data/xrg-linux.desktop DESTINATION share/applications)
-install(FILES data/icons/xrg-linux.svg DESTINATION share/icons/hicolor/scalable/apps)
+# Desktop entry + icon are named after the GApplication id so GNOME can
+# associate the running window with its launcher
+install(FILES data/com.gaucho.xrg-linux.desktop DESTINATION share/applications)
+install(FILES data/icons/com.gaucho.xrg-linux.svg DESTINATION share/icons/hicolor/scalable/apps)
 
 # Tests (optional)
 option(BUILD_TESTS "Build tests" OFF)
