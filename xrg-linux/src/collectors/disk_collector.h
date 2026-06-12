@@ -13,7 +13,7 @@
  * - Total I/O activity
  */
 
-#define MAX_DISKS 16
+#define MAX_DISKS 32
 #define DISK_NAME_LEN 32
 
 typedef struct {

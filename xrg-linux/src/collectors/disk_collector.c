@@ -25,6 +25,11 @@ static gboolean is_whole_disk(const gchar *name) {
         return !strstr(name, "p");  /* Has 'p' means partition */
     }
 
+    /* md RAID arrays (md0, md127) are whole disks; md0p1 is a partition */
+    if (g_str_has_prefix(name, "md") && isdigit(name[2])) {
+        return !strstr(name + 2, "p");
+    }
+
     /* For regular disks (sd*, vd*, hd*), check if ends with digit */
     if (isdigit(last_char))
         return FALSE;  /* Partition */
@@ -36,6 +41,32 @@ static gboolean is_whole_disk(const gchar *name) {
  * Find primary disk device (first whole disk with activity)
  */
 static gint find_primary_disk(XRGDiskCollector *collector) {
+    /* Prefer the whole disk with the highest current I/O rate, so the graph
+     * follows the active device (e.g. an md RAID array under load) instead
+     * of being pinned to whichever disk appears first in /proc/diskstats */
+    gint busiest = -1;
+    gdouble busiest_rate = 0.0;
+    for (gint i = 0; i < collector->num_devices; i++) {
+        DiskDevice *disk = &collector->devices[i];
+
+        if (!is_whole_disk(disk->name))
+            continue;
+
+        gdouble rate = disk->read_rate + disk->write_rate;
+        if (rate > busiest_rate) {
+            busiest_rate = rate;
+            busiest = i;
+        }
+    }
+    if (busiest >= 0)
+        return busiest;
+
+    /* Idle system: keep the previous primary to avoid flapping */
+    if (collector->primary_device_idx >= 0 &&
+        collector->primary_device_idx < collector->num_devices &&
+        is_whole_disk(collector->devices[collector->primary_device_idx].name))
+        return collector->primary_device_idx;
+
     /* Look for first whole disk with I/O activity */
     for (gint i = 0; i < collector->num_devices; i++) {
         DiskDevice *disk = &collector->devices[i];
@@ -133,6 +164,10 @@ void xrg_disk_collector_update(XRGDiskCollector *collector) {
             if (!is_whole_disk(device_name))
                 continue;
 
+            /* First sighting: no previous sample, so a rate would wrongly
+             * count all I/O since boot as one interval */
+            gboolean first_sight = !disk->active;
+
             /* Save previous values */
             disk->prev_sectors_read = disk->sectors_read;
             disk->prev_sectors_written = disk->sectors_written;
@@ -146,12 +181,15 @@ void xrg_disk_collector_update(XRGDiskCollector *collector) {
             disk->active = TRUE;
 
             /* Calculate rates (bytes per second) */
-            if (time_delta > 0) {
+            if (time_delta > 0 && !first_sight) {
                 guint64 read_delta = disk->sectors_read - disk->prev_sectors_read;
                 guint64 write_delta = disk->sectors_written - disk->prev_sectors_written;
 
                 disk->read_rate = (gdouble)(read_delta * SECTOR_SIZE) / time_delta;
                 disk->write_rate = (gdouble)(write_delta * SECTOR_SIZE) / time_delta;
+            } else {
+                disk->read_rate = 0.0;
+                disk->write_rate = 0.0;
             }
 
             disk_idx++;

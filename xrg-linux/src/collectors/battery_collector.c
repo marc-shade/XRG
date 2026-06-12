@@ -209,6 +209,19 @@ void xrg_battery_collector_update(XRGBatteryCollector *collector) {
             continue;
         }
 
+        /* Skip peripheral batteries (mice, keyboards, gamepads): they expose
+         * scope=Device, while system batteries have no scope or scope=System */
+        gchar *scope_path = g_strdup_printf(POWER_SUPPLY_PATH "/%s/scope", entry->d_name);
+        gchar *scope = read_sysfs_string(scope_path);
+        g_free(scope_path);
+        if (scope) {
+            gboolean is_peripheral = (strcmp(scope, "Device") == 0);
+            g_free(scope);
+            if (is_peripheral) {
+                continue;
+            }
+        }
+
         XRGBatteryInfo *info = xrg_battery_info_read(entry->d_name);
         if (info) {
             collector->batteries = g_slist_append(collector->batteries, info);

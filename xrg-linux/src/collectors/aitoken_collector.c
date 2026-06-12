@@ -571,11 +571,14 @@ static void read_jsonl_tokens(const gchar *dir_path, AITokenStats *stats, gchar 
     if (most_recent_file) {
         FILE *fp = fopen(most_recent_file, "r");
         if (fp) {
-            gchar line[8192];
+            /* Lines holding message.usage routinely exceed any fixed buffer;
+             * getline() grows the allocation as needed */
+            gchar *line = NULL;
+            size_t line_cap = 0;
             gchar *detected_session = NULL;
 
             /* First, scan the last few lines to find the current session ID */
-            while (fgets(line, sizeof(line), fp)) {
+            while (getline(&line, &line_cap, fp) != -1) {
                 guint64 input = 0, output = 0;
                 gchar *model = NULL;
                 parse_jsonl_tokens(line, &input, &output, &detected_session, &model);
@@ -600,7 +603,7 @@ static void read_jsonl_tokens(const gchar *dir_path, AITokenStats *stats, gchar 
 
                 /* Now read the entire file and sum tokens for current session */
                 rewind(fp);
-                while (fgets(line, sizeof(line), fp)) {
+                while (getline(&line, &line_cap, fp) != -1) {
                     guint64 input = 0, output = 0;
                     gchar *line_session = NULL;
                     gchar *model = NULL;
@@ -628,6 +631,7 @@ static void read_jsonl_tokens(const gchar *dir_path, AITokenStats *stats, gchar 
                     }
                 }
             }
+            free(line);
             fclose(fp);
         }
         g_free(most_recent_file);
@@ -681,7 +685,8 @@ XRGAITokenCollector* xrg_aitoken_collector_new(gint dataset_capacity) {
     collector->current_session_id = NULL;
     collector->session_baseline_tokens = 0;
 
-    collector->last_update_time = g_get_monotonic_time();
+    /* 0 (not now) so the first update() call is not swallowed by the 5s throttle */
+    collector->last_update_time = 0;
     collector->prev_total_tokens = 0;
 
     /* Initialize cost tracking */

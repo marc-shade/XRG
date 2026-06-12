@@ -54,6 +54,9 @@ static void test_cpu(gboolean verbose) {
 
     printf("[2/3] Updating CPU collector...\n");
     xrg_cpu_collector_update(cpu);
+    /* CPU usage is computed from the delta between two /proc/stat samples */
+    g_usleep(G_USEC_PER_SEC);
+    xrg_cpu_collector_update(cpu);
     printf("  OK: Update complete\n");
 
     printf("[3/3] Reading CPU data...\n");
@@ -64,7 +67,7 @@ static void test_cpu(gboolean verbose) {
     gdouble load15 = xrg_cpu_collector_get_load_average_15min(cpu);
 
     printf("  Cores: %d\n", num_cores);
-    printf("  Total Usage: %.1f%%\n", total * 100);
+    printf("  Total Usage: %.1f%%\n", total);
     printf("  Load Average: %.2f %.2f %.2f\n", load1, load5, load15);
 
     if (verbose) {
@@ -104,7 +107,7 @@ static void test_memory(gboolean verbose) {
     guint64 swap = xrg_memory_collector_get_swap_used(mem);
 
     printf("  Total: %.1f GB\n", total / (1024.0 * 1024 * 1024));
-    printf("  Used: %.1f GB (%.1f%%)\n", used / (1024.0 * 1024 * 1024), percent * 100);
+    printf("  Used: %.1f GB (%.1f%%)\n", used / (1024.0 * 1024 * 1024), percent);
     printf("  Free: %.1f GB\n", free_mem / (1024.0 * 1024 * 1024));
     printf("  Swap Used: %.1f GB\n", swap / (1024.0 * 1024 * 1024));
 
@@ -161,6 +164,9 @@ static void test_disk(gboolean verbose) {
 
     printf("[2/3] Updating Disk collector...\n");
     xrg_disk_collector_update(disk);
+    /* Rates need a second sample over a real interval */
+    g_usleep(G_USEC_PER_SEC);
+    xrg_disk_collector_update(disk);
     printf("  OK: Update complete\n");
 
     printf("[3/3] Reading Disk data...\n");
@@ -171,8 +177,9 @@ static void test_disk(gboolean verbose) {
     guint64 write_total = xrg_disk_collector_get_total_written(disk);
 
     printf("  Device: %s\n", device ? device : "(none)");
-    printf("  Read Rate: %.2f KB/s\n", read_rate / 1024.0);
-    printf("  Write Rate: %.2f KB/s\n", write_rate / 1024.0);
+    /* Getters return MB/s (same contract the disk widget relies on) */
+    printf("  Read Rate: %.2f MB/s\n", read_rate);
+    printf("  Write Rate: %.2f MB/s\n", write_rate);
     printf("  Read Total: %.2f GB\n", read_total / (1024.0 * 1024 * 1024));
     printf("  Write Total: %.2f GB\n", write_total / (1024.0 * 1024 * 1024));
 
