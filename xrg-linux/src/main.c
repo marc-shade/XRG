@@ -379,18 +379,33 @@ static gboolean on_title_bar_button_press(GtkWidget *widget, GdkEventButton *eve
     AppState *state = (AppState *)user_data;
 
     if (event->button == 1) {  /* Left click */
-        state->is_dragging = TRUE;
-        state->drag_start_x = event->x_root;
-        state->drag_start_y = event->y_root;
-
-        /* Get current window position */
-        gtk_window_get_position(GTK_WINDOW(state->window),
-                               &state->window_start_x,
-                               &state->window_start_y);
-
+        /* Hand the drag to the compositor: manual gtk_window_move() is a
+         * no-op on Wayland, and the WM-native drag is smoother on X11 too */
+        gtk_window_begin_move_drag(GTK_WINDOW(state->window),
+                                   event->button,
+                                   (gint)event->x_root, (gint)event->y_root,
+                                   event->time);
         return TRUE;
     } else if (event->button == 3) {  /* Right click */
         show_title_bar_context_menu(state, event);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+/**
+ * Fallback drag: left-dragging any non-interactive area moves the window
+ * (graph areas only consume right-clicks, so left presses bubble up here)
+ */
+static gboolean on_window_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+    (void)user_data;
+
+    if (event->button == 1) {
+        gtk_window_begin_move_drag(GTK_WINDOW(widget),
+                                   event->button,
+                                   (gint)event->x_root, (gint)event->y_root,
+                                   event->time);
         return TRUE;
     }
 
@@ -611,15 +626,13 @@ static gboolean on_resize_grip_button_press(GtkWidget *widget, GdkEventButton *e
     AppState *state = (AppState *)user_data;
 
     if (event->button == 1) {  /* Left click */
-        state->is_resizing = TRUE;
-        state->resize_start_x = event->x_root;
-        state->resize_start_y = event->y_root;
-
-        gint width, height;
-        gtk_window_get_size(GTK_WINDOW(state->window), &width, &height);
-        state->resize_start_width = width;
-        state->resize_start_height = height;
-
+        /* Compositor-native resize: works on Wayland where manual
+         * x_root/y_root deltas are unreliable */
+        gtk_window_begin_resize_drag(GTK_WINDOW(state->window),
+                                     GDK_WINDOW_EDGE_SOUTH_EAST,
+                                     event->button,
+                                     (gint)event->x_root, (gint)event->y_root,
+                                     event->time);
         return TRUE;
     }
 
@@ -1058,6 +1071,10 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
 
     /* Connect configure event (window moved or resized) */
     g_signal_connect(state->window, "configure-event", G_CALLBACK(on_window_configure), state);
+
+    /* Grab-anywhere window dragging (unhandled left presses bubble up here) */
+    gtk_widget_add_events(state->window, GDK_BUTTON_PRESS_MASK);
+    g_signal_connect(state->window, "button-press-event", G_CALLBACK(on_window_button_press), state);
 
     /* Connect destroy signal */
     g_signal_connect(state->window, "destroy", G_CALLBACK(on_window_destroy), state);
