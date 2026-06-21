@@ -198,6 +198,7 @@ static const double kGeminiDefaultOutputPrice = 0.40;
 @synthesize totalCodexTokens = _totalCodexTokens;
 @synthesize totalGeminiTokens = _totalGeminiTokens;
 @synthesize totalOllamaTokens = _totalOllamaTokens;
+@synthesize totalHermesTokens = _totalHermesTokens;
 @synthesize totalCostUSD = _totalCostUSD;
 @synthesize activeStrategy;
 @synthesize ollamaAvailable = _ollamaAvailable;
@@ -211,6 +212,7 @@ static const double kGeminiDefaultOutputPrice = 0.40;
         codexTokens = [[XRGDataSet alloc] init];
         geminiTokens = [[XRGDataSet alloc] init];
         ollamaTokens = [[XRGDataSet alloc] init];
+        hermesTokens = [[XRGDataSet alloc] init];
         costPerSecond = [[XRGDataSet alloc] init];
 
         // Initialize counters
@@ -218,6 +220,7 @@ static const double kGeminiDefaultOutputPrice = 0.40;
         _totalCodexTokens = 0;
         _totalGeminiTokens = 0;
         _totalOllamaTokens = 0;
+        _totalHermesTokens = 0;
         _totalCostUSD = 0.0;
         lastClaudeCount = 0;
         lastCodexCount = 0;
@@ -225,6 +228,7 @@ static const double kGeminiDefaultOutputPrice = 0.40;
         lastGeminiInputCount = 0;
         lastGeminiOutputCount = 0;
         lastOllamaCount = 0;
+        lastHermesCount = 0;
         lastTotalCost = 0.0;
 
         // Initialize input/output token counters for cost calculation
@@ -236,12 +240,16 @@ static const double kGeminiDefaultOutputPrice = 0.40;
         geminiOutputTokens = 0;
         ollamaInputTokens = 0;
         ollamaOutputTokens = 0;
+        hermesInputTokens = 0;
+        hermesOutputTokens = 0;
+        hermesCostUSD = 0.0;
 
         // Initialize current rates
         currentClaudeRate = 0;
         currentCodexRate = 0;
         currentGeminiRate = 0;
         currentOllamaRate = 0;
+        currentHermesRate = 0;
         currentCostRate = 0.0;
 
         // Initialize Ollama API tracking
@@ -259,6 +267,7 @@ static const double kGeminiDefaultOutputPrice = 0.40;
         geminiTmpPath = [homeDir stringByAppendingPathComponent:@".gemini/tmp"];
         dbPath = [homeDir stringByAppendingPathComponent:@".claude/monitoring/claude_usage.db"];
         otelEndpoint = @"http://localhost:8889/metrics";
+        hermesDbPath = [homeDir stringByAppendingPathComponent:@".hermes/state.db"];
 
         // Initialize caches for performance
         jsonlFileModTimes = [[NSMutableDictionary alloc] init];
@@ -280,6 +289,10 @@ static const double kGeminiDefaultOutputPrice = 0.40;
         cachedClaudeCost = 0.0;
         geminiModelCosts = [[NSMutableDictionary alloc] init];
         cachedGeminiCost = 0.0;
+
+        // Hermes per-model tracking
+        hermesModelTokens = [[NSMutableDictionary alloc] init];
+        hermesTopModel = nil;
 
         lastJSONLScanTime = nil;
         lastCodexScanTime = nil;
@@ -316,11 +329,12 @@ static const double kGeminiDefaultOutputPrice = 0.40;
 - (void)setDataSize:(int)newNumSamples {
     if (newNumSamples < 0) return;
 
-    if (claudeCodeTokens && codexTokens && geminiTokens && ollamaTokens && costPerSecond) {
+    if (claudeCodeTokens && codexTokens && geminiTokens && ollamaTokens && hermesTokens && costPerSecond) {
         [claudeCodeTokens resize:(size_t)newNumSamples];
         [codexTokens resize:(size_t)newNumSamples];
         [geminiTokens resize:(size_t)newNumSamples];
         [ollamaTokens resize:(size_t)newNumSamples];
+        [hermesTokens resize:(size_t)newNumSamples];
         [costPerSecond resize:(size_t)newNumSamples];
     }
     else {
@@ -328,12 +342,14 @@ static const double kGeminiDefaultOutputPrice = 0.40;
         codexTokens = [[XRGDataSet alloc] init];
         geminiTokens = [[XRGDataSet alloc] init];
         ollamaTokens = [[XRGDataSet alloc] init];
+        hermesTokens = [[XRGDataSet alloc] init];
         costPerSecond = [[XRGDataSet alloc] init];
 
         [claudeCodeTokens resize:(size_t)newNumSamples];
         [codexTokens resize:(size_t)newNumSamples];
         [geminiTokens resize:(size_t)newNumSamples];
         [ollamaTokens resize:(size_t)newNumSamples];
+        [hermesTokens resize:(size_t)newNumSamples];
         [costPerSecond resize:(size_t)newNumSamples];
     }
 
@@ -345,12 +361,14 @@ static const double kGeminiDefaultOutputPrice = 0.40;
     [codexTokens reset];
     [geminiTokens reset];
     [ollamaTokens reset];
+    [hermesTokens reset];
     [costPerSecond reset];
 
     _totalClaudeTokens = 0;
     _totalCodexTokens = 0;
     _totalGeminiTokens = 0;
     _totalOllamaTokens = 0;
+    _totalHermesTokens = 0;
     _totalCostUSD = 0.0;
     lastClaudeCount = 0;
     lastCodexCount = 0;
@@ -358,6 +376,7 @@ static const double kGeminiDefaultOutputPrice = 0.40;
     lastGeminiInputCount = 0;
     lastGeminiOutputCount = 0;
     lastOllamaCount = 0;
+    lastHermesCount = 0;
     lastTotalCost = 0.0;
 
     // Reset input/output token counters
@@ -369,11 +388,15 @@ static const double kGeminiDefaultOutputPrice = 0.40;
     geminiOutputTokens = 0;
     ollamaInputTokens = 0;
     ollamaOutputTokens = 0;
+    hermesInputTokens = 0;
+    hermesOutputTokens = 0;
+    hermesCostUSD = 0.0;
 
     currentClaudeRate = 0;
     currentCodexRate = 0;
     currentGeminiRate = 0;
     currentOllamaRate = 0;
+    currentHermesRate = 0;
     currentCostRate = 0.0;
 
     // Reset model costs
@@ -381,6 +404,10 @@ static const double kGeminiDefaultOutputPrice = 0.40;
     cachedClaudeCost = 0.0;
     [geminiModelCosts removeAllObjects];
     cachedGeminiCost = 0.0;
+
+    // Reset Hermes per-model tracking
+    [hermesModelTokens removeAllObjects];
+    hermesTopModel = nil;
 
     // Reset Ollama state
     _ollamaAvailable = NO;
@@ -472,11 +499,15 @@ static const double kGeminiDefaultOutputPrice = 0.40;
     // === Fetch Ollama local inference status ===
     [self fetchFromOllamaAPI];
 
+    // === Fetch Hermes agent tokens (SQLite ~/.hermes/state.db) ===
+    [self fetchFromHermesDatabase];
+
     // Calculate rates (delta from last update) - CRITICAL: Calculate BEFORE updating lastCount
     currentClaudeRate = (UInt32)(_totalClaudeTokens - lastClaudeCount);
     currentCodexRate = (UInt32)(_totalCodexTokens - lastCodexCount);
     currentGeminiRate = (UInt32)(_totalGeminiTokens - lastGeminiCount);
     currentOllamaRate = (UInt32)(_totalOllamaTokens - lastOllamaCount);
+    currentHermesRate = (UInt32)(_totalHermesTokens - lastHermesCount);
 
     // Record events for budget tracking
     if (currentGeminiRate > 0) {
@@ -495,12 +526,14 @@ static const double kGeminiDefaultOutputPrice = 0.40;
     lastGeminiInputCount = geminiInputTokens;
     lastGeminiOutputCount = geminiOutputTokens;
     lastOllamaCount = _totalOllamaTokens;
+    lastHermesCount = _totalHermesTokens;
 
     // Store rates in data sets
     if (claudeCodeTokens) [claudeCodeTokens setNextValue:currentClaudeRate];
     if (codexTokens) [codexTokens setNextValue:currentCodexRate];
     if (geminiTokens) [geminiTokens setNextValue:currentGeminiRate];
     if (ollamaTokens) [ollamaTokens setNextValue:currentOllamaRate];
+    if (hermesTokens) [hermesTokens setNextValue:currentHermesRate];
 
     // === Calculate costs ===
     [self calculateCosts];
@@ -551,6 +584,100 @@ static const double kGeminiDefaultOutputPrice = 0.40;
 
     sqlite3_finalize(stmt);
     sqlite3_close(db);
+
+    return YES;
+}
+
+#pragma mark - Hermes Agent (SQLite ~/.hermes/state.db)
+
+// Read Hermes token/model/cost stats from its SQLite state DB.
+//
+// The Hermes `sessions` table records, per session: the model used, the
+// input/output token split, and a cost Hermes computes itself
+// (actual_cost_usd, falling back to estimated_cost_usd). We aggregate across
+// all sessions and build a per-model breakdown so the models we run in Hermes
+// (e.g. MiniMax-M3) are visible in XRG. Opened read-only + immutable so XRG
+// never blocks or interferes with a live Hermes holding the DB open (WAL mode).
+- (BOOL)fetchFromHermesDatabase {
+    NSFileManager *fm = [NSFileManager defaultManager];
+    if (![fm fileExistsAtPath:hermesDbPath]) {
+        return NO;
+    }
+
+    NSString *uri = [NSString stringWithFormat:@"file:%@?immutable=1&mode=ro", hermesDbPath];
+    sqlite3 *db = NULL;
+    int rc = sqlite3_open_v2([uri UTF8String], &db,
+                             SQLITE_OPEN_READONLY | SQLITE_OPEN_URI, NULL);
+    if (rc != SQLITE_OK) {
+#ifdef XRG_DEBUG
+        NSLog(@"[XRGAITokenMiner] Failed to open Hermes DB: %s", db ? sqlite3_errmsg(db) : "(null)");
+#endif
+        if (db) sqlite3_close(db);
+        return NO;
+    }
+
+    const char *sql =
+        "SELECT model, "
+        "       SUM(COALESCE(input_tokens,0)), "
+        "       SUM(COALESCE(output_tokens,0)), "
+        "       SUM(COALESCE(actual_cost_usd, estimated_cost_usd, 0)) "
+        "FROM sessions "
+        "WHERE model IS NOT NULL AND model != '' "
+        "GROUP BY model";
+
+    sqlite3_stmt *stmt = NULL;
+    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+#ifdef XRG_DEBUG
+        NSLog(@"[XRGAITokenMiner] Failed to prepare Hermes statement: %s", sqlite3_errmsg(db));
+#endif
+        sqlite3_close(db);
+        return NO;
+    }
+
+    UInt64 totalInput = 0, totalOutput = 0;
+    double totalCost = 0.0;
+    UInt64 mostUsedTokens = 0;
+    NSString *topModel = nil;
+    NSMutableDictionary *models = [[NSMutableDictionary alloc] init];
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        const unsigned char *modelText = sqlite3_column_text(stmt, 0);
+        UInt64 input = (UInt64)sqlite3_column_int64(stmt, 1);
+        UInt64 output = (UInt64)sqlite3_column_int64(stmt, 2);
+        double cost = sqlite3_column_double(stmt, 3);
+
+        totalInput += input;
+        totalOutput += output;
+        totalCost += cost;
+
+        if (modelText) {
+            NSString *model = [NSString stringWithUTF8String:(const char *)modelText];
+            if (model) {
+                models[model] = @{@"input": @(input), @"output": @(output)};
+                UInt64 modelTotal = input + output;
+                if (modelTotal > mostUsedTokens) {
+                    mostUsedTokens = modelTotal;
+                    topModel = model;
+                }
+            }
+        }
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+
+    hermesInputTokens = totalInput;
+    hermesOutputTokens = totalOutput;
+    _totalHermesTokens = totalInput + totalOutput;
+    hermesCostUSD = totalCost;
+    hermesModelTokens = models;
+    hermesTopModel = topModel;
+
+#ifdef XRG_DEBUG
+    NSLog(@"[XRGAITokenMiner] Hermes: tokens=%llu, topModel=%@, cost=$%.4f",
+          _totalHermesTokens, topModel, totalCost);
+#endif
 
     return YES;
 }
@@ -1289,8 +1416,12 @@ static const double kGeminiDefaultOutputPrice = 0.40;
     return currentOllamaRate;
 }
 
+- (UInt32)hermesTokenRate {
+    return currentHermesRate;
+}
+
 - (UInt32)totalTokenRate {
-    return currentClaudeRate + currentCodexRate + currentGeminiRate + currentOllamaRate;
+    return currentClaudeRate + currentCodexRate + currentGeminiRate + currentOllamaRate + currentHermesRate;
 }
 
 - (XRGDataSet *)claudeTokenData {
@@ -1307,6 +1438,22 @@ static const double kGeminiDefaultOutputPrice = 0.40;
 
 - (XRGDataSet *)ollamaTokenData {
     return ollamaTokens;
+}
+
+- (XRGDataSet *)hermesTokenData {
+    return hermesTokens;
+}
+
+- (double)hermesCostUSD {
+    return hermesCostUSD;
+}
+
+- (NSDictionary *)hermesModelTokens {
+    return [hermesModelTokens copy];
+}
+
+- (NSString *)hermesTopModel {
+    return hermesTopModel;
 }
 
 - (XRGDataSet *)costData {
@@ -1365,7 +1512,9 @@ static const double kGeminiDefaultOutputPrice = 0.40;
                      (estimatedOutput / 1000000.0) * kGeminiDefaultOutputPrice;
     }
 
-    _totalCostUSD = claudeCost + codexCost + geminiCost;
+    // HERMES: cost comes straight from its own DB (actual/estimated_cost_usd),
+    // already aggregated in fetchFromHermesDatabase. Do not re-price it.
+    _totalCostUSD = claudeCost + codexCost + geminiCost + hermesCostUSD;
 }
 
 - (double)costPerHour {

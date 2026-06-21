@@ -46,6 +46,7 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     XRGDataSet *codexTokens;            // OpenAI Codex CLI tokens/sec
     XRGDataSet *geminiTokens;           // Google Gemini CLI tokens/sec
     XRGDataSet *ollamaTokens;           // Ollama local inference tokens/sec
+    XRGDataSet *hermesTokens;           // Hermes agent tokens/sec
     XRGDataSet *costPerSecond;          // Cost tracking ($/sec for burn rate)
 
     // Cumulative counters
@@ -53,6 +54,7 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     UInt64 totalCodexTokens;
     UInt64 totalGeminiTokens;
     UInt64 totalOllamaTokens;
+    UInt64 totalHermesTokens;
     double totalCostUSD;
 
     // Input/Output token tracking for accurate cost calculation
@@ -64,6 +66,9 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     UInt64 geminiOutputTokens;
     UInt64 ollamaInputTokens;
     UInt64 ollamaOutputTokens;
+    UInt64 hermesInputTokens;
+    UInt64 hermesOutputTokens;
+    double hermesCostUSD;                // Hermes cost straight from its own DB
 
     // Rate tracking (for proper delta calculation)
     UInt64 lastClaudeCount;
@@ -72,6 +77,7 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     UInt64 lastGeminiInputCount;
     UInt64 lastGeminiOutputCount;
     UInt64 lastOllamaCount;
+    UInt64 lastHermesCount;
     double lastTotalCost;
 
     // Current rates (stored to avoid recalculation bug)
@@ -79,6 +85,7 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     UInt32 currentCodexRate;
     UInt32 currentGeminiRate;
     UInt32 currentOllamaRate;
+    UInt32 currentHermesRate;
     double currentCostRate;  // $/second burn rate
 
     // Ollama local inference tracking
@@ -96,6 +103,7 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     NSString *geminiTmpPath;            // Gemini CLI tmp path
     NSString *dbPath;                   // SQLite database path (advanced)
     NSString *otelEndpoint;             // OTel metrics endpoint (advanced)
+    NSString *hermesDbPath;             // Hermes agent state DB (~/.hermes/state.db)
 
     // JSONL caching for performance (avoid re-parsing every second)
     NSMutableDictionary *jsonlFileModTimes;  // Track file modification times
@@ -118,6 +126,11 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
     NSMutableDictionary *geminiModelCosts;    // Per-model cost tracking for Gemini
     double cachedGeminiCost;                   // Cached total Gemini cost
 
+    // Hermes per-model tracking (key: model name -> @{@"input":@(n), @"output":@(n)})
+    // Kept separate so Hermes' DB-supplied cost is never re-priced elsewhere.
+    NSMutableDictionary *hermesModelTokens;
+    NSString *hermesTopModel;                  // Most-used Hermes model (by tokens)
+
     NSDate *lastJSONLScanTime;                // Last time we scanned for new files
     NSDate *lastCodexScanTime;                // Last time we scanned Codex files
     NSDate *lastGeminiScanTime;               // Last time we scanned Gemini files
@@ -130,6 +143,7 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
 @property (nonatomic, assign) UInt64 totalCodexTokens;
 @property (nonatomic, assign) UInt64 totalGeminiTokens;
 @property (nonatomic, assign) UInt64 totalOllamaTokens;
+@property (nonatomic, assign) UInt64 totalHermesTokens;
 @property (nonatomic, assign) double totalCostUSD;
 @property (nonatomic, assign, readonly) XRGAIDataStrategy activeStrategy;
 @property (nonatomic, assign, readonly) BOOL ollamaAvailable;
@@ -145,6 +159,7 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
 - (UInt32)codexTokenRate;
 - (UInt32)geminiTokenRate;
 - (UInt32)ollamaTokenRate;
+- (UInt32)hermesTokenRate;
 - (UInt32)totalTokenRate;
 
 // Cost intelligence methods
@@ -153,6 +168,7 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
 - (double)claudeCostUSD;            // Total Claude cost
 - (double)codexCostUSD;             // Total Codex cost
 - (double)geminiCostUSD;            // Total Gemini cost
+- (double)hermesCostUSD;            // Total Hermes cost (from its own DB)
 - (XRGDataSet *)costData;           // Cost per second data for graphing
 
 // Data set accessors for graphing
@@ -160,6 +176,11 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
 - (XRGDataSet *)codexTokenData;
 - (XRGDataSet *)geminiTokenData;
 - (XRGDataSet *)ollamaTokenData;
+- (XRGDataSet *)hermesTokenData;
+
+// Hermes agent (SQLite ~/.hermes/state.db)
+- (NSDictionary *)hermesModelTokens;   // model name -> @{@"input":, @"output":}
+- (NSString *)hermesTopModel;          // most-used Hermes model
 
 // Strategy detection and management
 - (void)detectBestStrategy;
@@ -186,5 +207,8 @@ typedef NS_ENUM(NSInteger, XRGAIDataStrategy) {
 - (BOOL)fetchFromOllamaAPI;
 - (void)updateOllamaStatusInBackground;
 - (NSString *)ollamaStatusString;
+
+// Data collection strategies - Hermes agent (SQLite)
+- (BOOL)fetchFromHermesDatabase;
 
 @end

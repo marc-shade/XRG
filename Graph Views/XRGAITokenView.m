@@ -132,6 +132,8 @@
     NSColor *geminiColor = [appSettings graphFG3Color];
     // Ollama uses a blend of FG1 and FG3 (orange-ish local AI)
     NSColor *ollamaColor = [[appSettings graphFG3Color] blendedColorWithFraction:0.5 ofColor:[appSettings graphFG1Color]];
+    // Hermes uses a blend of FG2 and FG3 (distinct from the others)
+    NSColor *hermesColor = [[appSettings graphFG2Color] blendedColorWithFraction:0.5 ofColor:[appSettings graphFG3Color]];
 
     NSRect graphRect = NSMakeRect(0, 0, numSamples, graphSize.height - textRectHeight);
     NSInteger graphStyle = [appSettings graphStyle];
@@ -146,6 +148,7 @@
     XRGDataSet *codexData = [tokenMiner codexTokenData];
     XRGDataSet *geminiData = [tokenMiner geminiTokenData];
     XRGDataSet *ollamaData = [tokenMiner ollamaTokenData];
+    XRGDataSet *hermesData = [tokenMiner hermesTokenData];
 
     // Defensive nil checks - skip graph drawing if data not ready
     if (!claudeData || claudeData.numValues == 0) {
@@ -170,10 +173,19 @@
     if (geminiData) [cachedTotalData addOtherDataSetValues:geminiData];
     if (ollamaData) [cachedTotalData addOtherDataSetValues:ollamaData];
 
-    CGFloat maxValue = [cachedTotalData max];
+    // Grand total = cachedTotalData + Hermes. Drawn first (bottom-most, largest
+    // band) so the Hermes contribution shows above the other providers; the
+    // ollama-inclusive layer below is then painted on top of it.
+    XRGDataSet *grandTotalData = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:cachedTotalData];
+    if (grandTotalData && hermesData) [grandTotalData addOtherDataSetValues:hermesData];
+
+    CGFloat maxValue = grandTotalData ? [grandTotalData max] : [cachedTotalData max];
     if (maxValue == 0) maxValue = 1000;  // Default scale
 
-    // Draw stacked area graphs (bottom to top: Claude, Codex, Gemini, Ollama)
+    // Draw stacked area graphs (bottom to top: Claude, Codex, Gemini, Ollama, Hermes)
+    if (grandTotalData) {
+        [self drawGraphWithDataFromDataSet:grandTotalData maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:hermesColor];
+    }
     [self drawGraphWithDataFromDataSet:cachedTotalData maxValue:maxValue inRect:graphRect flipped:NO filled:YES color:ollamaColor];
 
     // Create cached dataset for Claude+Codex+Gemini (without Ollama)
@@ -249,6 +261,12 @@
         indicatorRect.size.height = (CGFloat)[tokenMiner ollamaTokenRate] / indicatorTotalRate * (graphSize.height - textRectHeight);
         [ollamaColor set];
         NSRectFill(indicatorRect);
+
+        // Draw Hermes rate
+        indicatorRect.origin.y += indicatorRect.size.height;
+        indicatorRect.size.height = (CGFloat)[tokenMiner hermesTokenRate] / indicatorTotalRate * (graphSize.height - textRectHeight);
+        [hermesColor set];
+        NSRectFill(indicatorRect);
     }
 
     // Draw provider color legend at top-right of graph area
@@ -263,7 +281,7 @@
     CGFloat legendSpacing = 11;
 
     // Only show legend if there's any data
-    if ([tokenMiner totalClaudeTokens] > 0 || [tokenMiner totalCodexTokens] > 0 || [tokenMiner totalGeminiTokens] > 0 || [tokenMiner ollamaAvailable]) {
+    if ([tokenMiner totalClaudeTokens] > 0 || [tokenMiner totalCodexTokens] > 0 || [tokenMiner totalGeminiTokens] > 0 || [tokenMiner ollamaAvailable] || [tokenMiner totalHermesTokens] > 0) {
         // Claude legend entry (bottom, since stack is bottom-to-top)
         if ([tokenMiner totalClaudeTokens] > 0) {
             NSRect claudeBox = NSMakeRect(legendX, legendY, legendBoxSize, legendBoxSize);
@@ -291,12 +309,21 @@
             legendY -= legendSpacing;
         }
 
-        // Ollama legend entry (top)
+        // Ollama legend entry
         if ([tokenMiner ollamaAvailable]) {
             NSRect ollamaBox = NSMakeRect(legendX, legendY, legendBoxSize, legendBoxSize);
             [ollamaColor set];
             NSRectFill(ollamaBox);
             [@"O" drawAtPoint:NSMakePoint(legendX + legendBoxSize + 2, legendY - 1) withAttributes:legendAttributes];
+            legendY -= legendSpacing;
+        }
+
+        // Hermes legend entry (top)
+        if ([tokenMiner totalHermesTokens] > 0) {
+            NSRect hermesBox = NSMakeRect(legendX, legendY, legendBoxSize, legendBoxSize);
+            [hermesColor set];
+            NSRectFill(hermesBox);
+            [@"H" drawAtPoint:NSMakePoint(legendX + legendBoxSize + 2, legendY - 1) withAttributes:legendAttributes];
         }
     }
 
@@ -323,17 +350,19 @@
     UInt32 codexRate = [tokenMiner codexTokenRate];
     UInt32 geminiRate = [tokenMiner geminiTokenRate];
     UInt32 ollamaRate = [tokenMiner ollamaTokenRate];
-    UInt32 totalRate = claudeRate + codexRate + geminiRate + ollamaRate;
+    UInt32 hermesRate = [tokenMiner hermesTokenRate];
+    UInt32 totalRate = claudeRate + codexRate + geminiRate + ollamaRate + hermesRate;
 
     // Get per-provider totals
     UInt64 claudeTotal = [tokenMiner totalClaudeTokens];
     UInt64 codexTotal = [tokenMiner totalCodexTokens];
     UInt64 geminiTotal = [tokenMiner totalGeminiTokens];
     UInt64 ollamaTotal = [tokenMiner totalOllamaTokens];
+    UInt64 hermesTotal = [tokenMiner totalHermesTokens];
     BOOL ollamaAvailable = [tokenMiner ollamaAvailable];
 
     // Always show per-provider totals for visibility
-    if (claudeTotal > 0 || codexTotal > 0 || geminiTotal > 0 || ollamaAvailable) {
+    if (claudeTotal > 0 || codexTotal > 0 || geminiTotal > 0 || ollamaAvailable || hermesTotal > 0) {
         [label appendString:@"\n─ Providers ─"];
 
         // Claude (FG1 color = typically green/cyan)
@@ -374,6 +403,24 @@
             NSString *ollamaStatus = [tokenMiner ollamaStatusString];
             [label appendFormat:@"\n● %@", ollamaStatus];
         }
+
+        // Hermes (agent) — show total and the most-used model
+        if (hermesTotal > 0) {
+            NSString *hermesTop = [tokenMiner hermesTopModel];
+            NSString *hermesAmount;
+            if (hermesTotal >= 1000000) {
+                hermesAmount = [NSString stringWithFormat:@"%lluM", hermesTotal / 1000000];
+            } else if (hermesTotal >= 1000) {
+                hermesAmount = [NSString stringWithFormat:@"%lluK", hermesTotal / 1000];
+            } else {
+                hermesAmount = [NSString stringWithFormat:@"%llu", hermesTotal];
+            }
+            if (hermesTop) {
+                [label appendFormat:@"\n● Hermes: %@ (%@)", hermesAmount, hermesTop];
+            } else {
+                [label appendFormat:@"\n● Hermes: %@", hermesAmount];
+            }
+        }
     }
 
     // === TOKEN TOTALS SECTION ===
@@ -381,7 +428,8 @@
     UInt64 totalCodexTokens = [tokenMiner totalCodexTokens];
     UInt64 totalGeminiTokens = [tokenMiner totalGeminiTokens];
     UInt64 totalOllamaTokens = [tokenMiner totalOllamaTokens];
-    UInt64 grandTotalTokens = totalClaudeTokens + totalCodexTokens + totalGeminiTokens + totalOllamaTokens;
+    UInt64 totalHermesTokens = [tokenMiner totalHermesTokens];
+    UInt64 grandTotalTokens = totalClaudeTokens + totalCodexTokens + totalGeminiTokens + totalOllamaTokens + totalHermesTokens;
 
     if (grandTotalTokens > 0) {
         [label appendString:@"\n─ Tokens ─"];
@@ -434,6 +482,15 @@
                 [label appendFormat:@"\n● O: %llu", totalOllamaTokens];
             }
         }
+        if (totalHermesTokens > 0) {
+            if (totalHermesTokens >= 1000000) {
+                [label appendFormat:@"\n● H: %.2fM", totalHermesTokens / 1000000.0];
+            } else if (totalHermesTokens >= 1000) {
+                [label appendFormat:@"\n● H: %.1fK", totalHermesTokens / 1000.0];
+            } else {
+                [label appendFormat:@"\n● H: %llu", totalHermesTokens];
+            }
+        }
     }
 
     // === EQUIVALENT API COST SECTION (Reference only for subscription users) ===
@@ -477,8 +534,9 @@
         double claudeCost = [tokenMiner claudeCostUSD];
         double codexCost = [tokenMiner codexCostUSD];
         double geminiCost = [tokenMiner geminiCostUSD];
+        double hermesCost = [tokenMiner hermesCostUSD];
 
-        if (claudeCost > 0.001 || codexCost > 0.001 || geminiCost > 0.001) {
+        if (claudeCost > 0.001 || codexCost > 0.001 || geminiCost > 0.001 || hermesCost > 0.001) {
             if (claudeCost > 0.001) {
                 if (claudeCost >= 1.0) {
                     [label appendFormat:@"\n● C: ≈$%.2f", claudeCost];
@@ -498,6 +556,13 @@
                     [label appendFormat:@"\n● G: $%.2f", geminiCost];
                 } else {
                     [label appendFormat:@"\n● G: $%.4f", geminiCost];
+                }
+            }
+            if (hermesCost > 0.001) {
+                if (hermesCost >= 1.0) {
+                    [label appendFormat:@"\n● H: $%.2f", hermesCost];
+                } else {
+                    [label appendFormat:@"\n● H: $%.4f", hermesCost];
                 }
             }
         }
@@ -606,6 +671,7 @@
     XRGDataSet *codexData = [tokenMiner codexTokenData];
     XRGDataSet *geminiData = [tokenMiner geminiTokenData];
     XRGDataSet *ollamaData = [tokenMiner ollamaTokenData];
+    XRGDataSet *hermesData = [tokenMiner hermesTokenData];
 
     if (!cachedTotalData || cachedTotalData.numValues != claudeData.numValues) {
         cachedTotalData = [[XRGDataSet alloc] initWithContentsOfOtherDataSet:claudeData];
@@ -621,6 +687,7 @@
     [cachedTotalData addOtherDataSetValues:codexData];
     [cachedTotalData addOtherDataSetValues:geminiData];
     [cachedTotalData addOtherDataSetValues:ollamaData];
+    if (hermesData) [cachedTotalData addOtherDataSetValues:hermesData];
 
     CGFloat maxValue = [cachedTotalData max];
     if (maxValue == 0) maxValue = 1000;
