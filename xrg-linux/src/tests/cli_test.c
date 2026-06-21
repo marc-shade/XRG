@@ -337,6 +337,30 @@ static void test_aitoken(gboolean verbose) {
     printf("  Output: %lu tokens\n", (unsigned long)output);
     printf("  Rate: %.1f tokens/min\n", rate);
 
+    /* Hermes agent (SQLite ~/.hermes/state.db) */
+    guint64 hermes = xrg_aitoken_collector_get_hermes_tokens(ai);
+    if (hermes > 0) {
+        const gchar *hmodel = xrg_aitoken_collector_get_hermes_model(ai);
+        gdouble hcost = xrg_aitoken_collector_get_hermes_cost(ai);
+        printf("  Hermes: %lu tokens, top model: %s, cost: $%.4f\n",
+               (unsigned long)hermes, hmodel ? hmodel : "(none)", hcost);
+
+        GHashTable *hm = xrg_aitoken_collector_get_hermes_model_tokens(ai);
+        if (hm && g_hash_table_size(hm) > 0) {
+            GHashTableIter it;
+            gpointer k, v;
+            g_hash_table_iter_init(&it, hm);
+            while (g_hash_table_iter_next(&it, &k, &v)) {
+                ModelTokens *mt = (ModelTokens *)v;
+                printf("    - %s: in=%lu out=%lu\n", (const gchar *)k,
+                       (unsigned long)mt->input_tokens,
+                       (unsigned long)mt->output_tokens);
+            }
+        }
+    } else {
+        printf("  Hermes: (no ~/.hermes/state.db data)\n");
+    }
+
     xrg_aitoken_collector_free(ai);
     printf("  OK: AI Token collector freed\n");
 }

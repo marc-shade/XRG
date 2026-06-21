@@ -5,6 +5,7 @@
 #endif
 #include <glib/gstdio.h>
 #include <json-glib/json-glib.h>
+#include <sqlite3.h>
 #include <string.h>
 
 /**
@@ -64,6 +65,105 @@ static gchar* auto_detect_gemini_path(void) {
 
     g_free(gemini_path);
     return NULL;
+}
+
+/**
+ * Auto-detect the Hermes agent state database.
+ * Location: ~/.hermes/state.db (SQLite). Hermes is a local agent framework
+ * that records per-session model, token, and cost data in this DB.
+ */
+static gchar* auto_detect_hermes_path(void) {
+    const gchar *home = g_get_home_dir();
+    gchar *db_path = g_build_filename(home, ".hermes", "state.db", NULL);
+
+    if (g_file_test(db_path, G_FILE_TEST_IS_REGULAR)) {
+        return db_path;
+    }
+
+    g_free(db_path);
+    return NULL;
+}
+
+/**
+ * Read Hermes token/model/cost stats from its SQLite state DB.
+ *
+ * The Hermes `sessions` table records, per session: the model used, the
+ * input/output token split, and a cost that Hermes itself computes
+ * (actual_cost_usd, falling back to estimated_cost_usd). We aggregate across
+ * all sessions and also build a per-model breakdown so the "models we use in
+ * Hermes" are visible in XRG's per-model display.
+ *
+ * Opened read-only and immutable so XRG never blocks or interferes with a
+ * Hermes process that holds the DB open (WAL mode).
+ */
+static void read_hermes_tokens(const gchar *db_path, AITokenStats *stats) {
+    if (!db_path)
+        return;
+
+    /* file:...?immutable=1 => no locks taken, safe alongside a live Hermes. */
+    gchar *uri = g_strdup_printf("file:%s?immutable=1&mode=ro", db_path);
+
+    sqlite3 *db = NULL;
+    int rc = sqlite3_open_v2(uri, &db,
+                             SQLITE_OPEN_READONLY | SQLITE_OPEN_URI, NULL);
+    g_free(uri);
+    if (rc != SQLITE_OK) {
+        if (db)
+            sqlite3_close(db);
+        return;
+    }
+
+    const char *sql =
+        "SELECT model, "
+        "       SUM(COALESCE(input_tokens,0)), "
+        "       SUM(COALESCE(output_tokens,0)), "
+        "       SUM(COALESCE(actual_cost_usd, estimated_cost_usd, 0)) "
+        "FROM sessions "
+        "WHERE model IS NOT NULL AND model != '' "
+        "GROUP BY model";
+
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        sqlite3_close(db);
+        return;
+    }
+
+    guint64 most_used_tokens = 0;
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        const unsigned char *model = sqlite3_column_text(stmt, 0);
+        guint64 input = (guint64)sqlite3_column_int64(stmt, 1);
+        guint64 output = (guint64)sqlite3_column_int64(stmt, 2);
+        gdouble cost = sqlite3_column_double(stmt, 3);
+
+        stats->hermes_input_tokens += input;
+        stats->hermes_output_tokens += output;
+        stats->hermes_cost_usd += cost;
+
+        if (model && stats->hermes_model_tokens) {
+            const gchar *model_name = (const gchar *)model;
+            ModelTokens *mt = g_hash_table_lookup(stats->hermes_model_tokens, model_name);
+            if (!mt) {
+                mt = g_new0(ModelTokens, 1);
+                g_hash_table_insert(stats->hermes_model_tokens, g_strdup(model_name), mt);
+            }
+            mt->input_tokens += input;
+            mt->output_tokens += output;
+
+            /* Track the most-used Hermes model (by total tokens). */
+            guint64 model_total = mt->input_tokens + mt->output_tokens;
+            if (model_total > most_used_tokens) {
+                most_used_tokens = model_total;
+                g_free(stats->hermes_model);
+                stats->hermes_model = g_strdup(model_name);
+            }
+        }
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+
+    stats->hermes_tokens = stats->hermes_input_tokens + stats->hermes_output_tokens;
 }
 
 /**
@@ -607,28 +707,39 @@ static void read_jsonl_tokens(const gchar *dir_path, AITokenStats *stats, gchar 
                     guint64 input = 0, output = 0;
                     gchar *line_session = NULL;
                     gchar *model = NULL;
-                    if (parse_jsonl_tokens(line, &input, &output, &line_session, &model)) {
-                        /* Only count tokens from the current session */
-                        if (line_session && *current_session_id &&
-                            strcmp(line_session, *current_session_id) == 0) {
-                            stats->total_input_tokens += input;
-                            stats->total_output_tokens += output;
 
-                            /* Track per-model tokens */
-                            if (model && stats->model_tokens) {
-                                ModelTokens *mt = g_hash_table_lookup(stats->model_tokens, model);
-                                if (!mt) {
-                                    /* Create new entry for this model */
-                                    mt = g_new0(ModelTokens, 1);
-                                    g_hash_table_insert(stats->model_tokens, g_strdup(model), mt);
-                                }
-                                mt->input_tokens += input;
-                                mt->output_tokens += output;
+                    /*
+                     * parse_jsonl_tokens may allocate line_session and/or model
+                     * even when it returns FALSE (e.g. a JSONL line with a
+                     * "model" field but no "usage" block). Free them on every
+                     * iteration to avoid leaking one strdup per such line on
+                     * every poll (root cause of the ~2 GB/day memory growth
+                     * seen on long-running XRG sessions).
+                     */
+                    gboolean parsed = parse_jsonl_tokens(line, &input, &output, &line_session, &model);
+
+                    if (parsed &&
+                        line_session && *current_session_id &&
+                        strcmp(line_session, *current_session_id) == 0) {
+                        /* Only count tokens from the current session */
+                        stats->total_input_tokens += input;
+                        stats->total_output_tokens += output;
+
+                        /* Track per-model tokens */
+                        if (model && stats->model_tokens) {
+                            ModelTokens *mt = g_hash_table_lookup(stats->model_tokens, model);
+                            if (!mt) {
+                                /* Create new entry for this model */
+                                mt = g_new0(ModelTokens, 1);
+                                g_hash_table_insert(stats->model_tokens, g_strdup(model), mt);
                             }
+                            mt->input_tokens += input;
+                            mt->output_tokens += output;
                         }
-                        g_free(line_session);
-                        g_free(model);
                     }
+
+                    g_free(line_session);
+                    g_free(model);
                 }
             }
             free(line);
@@ -655,11 +766,13 @@ XRGAITokenCollector* xrg_aitoken_collector_new(gint dataset_capacity) {
     collector->claude_tokens_rate = xrg_dataset_new(dataset_capacity);
     collector->codex_tokens_rate = xrg_dataset_new(dataset_capacity);
     collector->gemini_tokens_rate = xrg_dataset_new(dataset_capacity);
+    collector->hermes_tokens_rate = xrg_dataset_new(dataset_capacity);
 
     /* Initialize per-provider previous values */
     collector->prev_claude_tokens = 0;
     collector->prev_codex_tokens = 0;
     collector->prev_gemini_tokens = 0;
+    collector->prev_hermes_tokens = 0;
 
     /* Initialize stats */
     collector->stats.source_type = AITOKEN_SOURCE_NONE;
@@ -674,6 +787,14 @@ XRGAITokenCollector* xrg_aitoken_collector_new(gint dataset_capacity) {
     /* Initialize per-model tracking */
     collector->stats.model_tokens = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
     collector->stats.current_model = NULL;
+
+    /* Initialize Hermes per-model tracking (kept separate from model_tokens) */
+    collector->stats.hermes_model_tokens = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+    collector->stats.hermes_model = NULL;
+    collector->stats.hermes_tokens = 0;
+    collector->stats.hermes_input_tokens = 0;
+    collector->stats.hermes_output_tokens = 0;
+    collector->stats.hermes_cost_usd = 0.0;
 
     /* Auto-detect by default */
     collector->auto_detect = TRUE;
@@ -693,6 +814,7 @@ XRGAITokenCollector* xrg_aitoken_collector_new(gint dataset_capacity) {
     memset(&collector->claude_cost, 0, sizeof(ProviderCostStats));
     memset(&collector->codex_cost, 0, sizeof(ProviderCostStats));
     memset(&collector->gemini_cost, 0, sizeof(ProviderCostStats));
+    memset(&collector->hermes_cost, 0, sizeof(ProviderCostStats));
     collector->total_cost_usd = 0.0;
     collector->session_cost_usd = 0.0;
     collector->cost_rate_per_minute = 0.0;
@@ -718,11 +840,17 @@ void xrg_aitoken_collector_free(XRGAITokenCollector *collector) {
     xrg_dataset_free(collector->claude_tokens_rate);
     xrg_dataset_free(collector->codex_tokens_rate);
     xrg_dataset_free(collector->gemini_tokens_rate);
+    xrg_dataset_free(collector->hermes_tokens_rate);
 
     g_free(collector->stats.source_path);
     g_free(collector->stats.current_model);
     if (collector->stats.model_tokens) {
         g_hash_table_destroy(collector->stats.model_tokens);
+    }
+
+    g_free(collector->stats.hermes_model);
+    if (collector->stats.hermes_model_tokens) {
+        g_hash_table_destroy(collector->stats.hermes_model_tokens);
     }
 
     g_free(collector->jsonl_path);
@@ -795,10 +923,17 @@ void xrg_aitoken_collector_update(XRGAITokenCollector *collector) {
     collector->stats.codex_tokens = 0;
     collector->stats.gemini_tokens = 0;
     collector->stats.other_tokens = 0;
+    collector->stats.hermes_tokens = 0;
+    collector->stats.hermes_input_tokens = 0;
+    collector->stats.hermes_output_tokens = 0;
+    collector->stats.hermes_cost_usd = 0.0;
 
     /* Clear per-model tracking for fresh read */
     if (collector->stats.model_tokens) {
         g_hash_table_remove_all(collector->stats.model_tokens);
+    }
+    if (collector->stats.hermes_model_tokens) {
+        g_hash_table_remove_all(collector->stats.hermes_model_tokens);
     }
 
     /* === Read from Claude Code === */
@@ -846,6 +981,23 @@ void xrg_aitoken_collector_update(XRGAITokenCollector *collector) {
         g_free(gemini_path);
     }
 
+    /* === Read from Hermes agent (SQLite) === */
+    gchar *hermes_path = NULL;
+    if (collector->auto_detect) {
+        hermes_path = auto_detect_hermes_path();
+    } else if (collector->db_path) {
+        hermes_path = g_strdup(collector->db_path);
+    }
+    if (hermes_path) {
+        read_hermes_tokens(hermes_path, &collector->stats);
+
+        /* Hermes provides its own input/output split and authoritative cost */
+        collector->stats.total_tokens += collector->stats.hermes_tokens;
+        collector->hermes_cost.total_cost = collector->stats.hermes_cost_usd;
+
+        g_free(hermes_path);
+    }
+
     /* Check if session changed (based on Claude session) */
     gboolean session_changed = FALSE;
     if (prev_session_id == NULL && collector->current_session_id != NULL) {
@@ -880,9 +1032,10 @@ void xrg_aitoken_collector_update(XRGAITokenCollector *collector) {
         collector->stats.session_output_tokens = 0;
     }
 
-    /* Recalculate total tokens (Claude input/output + Codex + Gemini) */
+    /* Recalculate total tokens (Claude input/output + Codex + Gemini + Hermes) */
     collector->stats.total_tokens = collector->stats.total_input_tokens + collector->stats.total_output_tokens +
-                                    collector->stats.codex_tokens + collector->stats.gemini_tokens;
+                                    collector->stats.codex_tokens + collector->stats.gemini_tokens +
+                                    collector->stats.hermes_tokens;
 
     /* Calculate rates (tokens per minute) */
     gdouble input_rate = 0.0;
@@ -890,6 +1043,7 @@ void xrg_aitoken_collector_update(XRGAITokenCollector *collector) {
     gdouble claude_rate = 0.0;
     gdouble codex_rate = 0.0;
     gdouble gemini_rate = 0.0;
+    gdouble hermes_rate = 0.0;
 
     if (time_delta > 0 && !session_changed) {
         guint64 input_delta = collector->stats.total_input_tokens - prev_input;
@@ -908,22 +1062,27 @@ void xrg_aitoken_collector_update(XRGAITokenCollector *collector) {
         if (collector->stats.gemini_tokens > collector->prev_gemini_tokens) {
             gemini_rate = (gdouble)(collector->stats.gemini_tokens - collector->prev_gemini_tokens) / time_delta * 60.0;
         }
+        if (collector->stats.hermes_tokens > collector->prev_hermes_tokens) {
+            hermes_rate = (gdouble)(collector->stats.hermes_tokens - collector->prev_hermes_tokens) / time_delta * 60.0;
+        }
     }
 
     /* Update previous values for next rate calculation */
     collector->prev_claude_tokens = collector->stats.claude_tokens;
     collector->prev_codex_tokens = collector->stats.codex_tokens;
     collector->prev_gemini_tokens = collector->stats.gemini_tokens;
+    collector->prev_hermes_tokens = collector->stats.hermes_tokens;
 
     /* Add to datasets - total */
     xrg_dataset_add_value(collector->input_tokens_rate, input_rate);
     xrg_dataset_add_value(collector->output_tokens_rate, output_rate);
-    xrg_dataset_add_value(collector->total_tokens_rate, input_rate + output_rate + codex_rate + gemini_rate);
+    xrg_dataset_add_value(collector->total_tokens_rate, input_rate + output_rate + codex_rate + gemini_rate + hermes_rate);
 
     /* Add to datasets - per provider */
     xrg_dataset_add_value(collector->claude_tokens_rate, claude_rate);
     xrg_dataset_add_value(collector->codex_tokens_rate, codex_rate);
     xrg_dataset_add_value(collector->gemini_tokens_rate, gemini_rate);
+    xrg_dataset_add_value(collector->hermes_tokens_rate, hermes_rate);
 
     collector->last_update_time = current_time;
 }
@@ -1080,6 +1239,38 @@ XRGDataset* xrg_aitoken_collector_get_gemini_dataset(XRGAITokenCollector *collec
     return collector->gemini_tokens_rate;
 }
 
+/**
+ * Get Hermes total tokens
+ */
+guint64 xrg_aitoken_collector_get_hermes_tokens(XRGAITokenCollector *collector) {
+    g_return_val_if_fail(collector != NULL, 0);
+    return collector->stats.hermes_tokens;
+}
+
+/**
+ * Get Hermes tokens rate dataset
+ */
+XRGDataset* xrg_aitoken_collector_get_hermes_dataset(XRGAITokenCollector *collector) {
+    g_return_val_if_fail(collector != NULL, NULL);
+    return collector->hermes_tokens_rate;
+}
+
+/**
+ * Get Hermes per-model token table (key: model name, value: ModelTokens*)
+ */
+GHashTable* xrg_aitoken_collector_get_hermes_model_tokens(XRGAITokenCollector *collector) {
+    g_return_val_if_fail(collector != NULL, NULL);
+    return collector->stats.hermes_model_tokens;
+}
+
+/**
+ * Get the most-used Hermes model name
+ */
+const gchar* xrg_aitoken_collector_get_hermes_model(XRGAITokenCollector *collector) {
+    g_return_val_if_fail(collector != NULL, NULL);
+    return collector->stats.hermes_model;
+}
+
 /* ============================================================================
  * Cost Tracking Functions
  * ============================================================================ */
@@ -1130,6 +1321,14 @@ gdouble xrg_aitoken_collector_get_codex_cost(XRGAITokenCollector *collector) {
 gdouble xrg_aitoken_collector_get_gemini_cost(XRGAITokenCollector *collector) {
     g_return_val_if_fail(collector != NULL, 0.0);
     return collector->gemini_cost.total_cost;
+}
+
+/**
+ * Get Hermes cost (authoritative cost from Hermes' own DB)
+ */
+gdouble xrg_aitoken_collector_get_hermes_cost(XRGAITokenCollector *collector) {
+    g_return_val_if_fail(collector != NULL, 0.0);
+    return collector->hermes_cost.total_cost;
 }
 
 /**
@@ -1269,10 +1468,15 @@ void xrg_aitoken_collector_update_costs(XRGAITokenCollector *collector,
             input_price, output_price);
     }
 
-    /* Sum up total cost */
+    /*
+     * Sum up total cost. Hermes supplies its own authoritative cost from its
+     * DB (set in xrg_aitoken_collector_update via read_hermes_tokens), so it is
+     * added directly rather than recomputed from a pricing table.
+     */
     collector->total_cost_usd = collector->claude_cost.total_cost +
                                 collector->codex_cost.total_cost +
-                                collector->gemini_cost.total_cost;
+                                collector->gemini_cost.total_cost +
+                                collector->hermes_cost.total_cost;
 
     /* Calculate cost rate ($/minute) */
     gdouble cost_delta = collector->total_cost_usd - prev_total_cost;

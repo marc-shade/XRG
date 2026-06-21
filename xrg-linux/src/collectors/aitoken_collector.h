@@ -26,6 +26,7 @@ typedef enum {
     AITOKEN_PROVIDER_CLAUDE,
     AITOKEN_PROVIDER_CODEX,
     AITOKEN_PROVIDER_GEMINI,
+    AITOKEN_PROVIDER_HERMES,
     AITOKEN_PROVIDER_OTHER
 } AITokenProvider;
 
@@ -66,6 +67,20 @@ typedef struct {
     guint64 codex_tokens;      /* OpenAI Codex tokens */
     guint64 gemini_tokens;     /* Google Gemini CLI tokens */
     guint64 other_tokens;      /* Other AI providers */
+
+    /*
+     * Hermes (https://github.com/...): a local agent framework that records
+     * per-session model + token + cost in a SQLite DB (~/.hermes/state.db).
+     * Tracked separately because Hermes supplies its own authoritative cost
+     * (estimated_cost_usd / actual_cost_usd), so its per-model tokens are kept
+     * in a dedicated table to avoid being re-priced by the Claude cost loop.
+     */
+    guint64 hermes_tokens;          /* Hermes total tokens (input + output) */
+    guint64 hermes_input_tokens;    /* Hermes input tokens */
+    guint64 hermes_output_tokens;   /* Hermes output tokens */
+    gdouble hermes_cost_usd;        /* Hermes cost from its own DB (USD) */
+    gchar *hermes_model;            /* Most-used Hermes model (by tokens) */
+    GHashTable *hermes_model_tokens;/* key: model name, value: ModelTokens* */
 } AITokenStats;
 
 typedef struct _XRGAITokenCollector XRGAITokenCollector;
@@ -83,6 +98,7 @@ struct _XRGAITokenCollector {
     XRGDataset *claude_tokens_rate;  /* Claude Code tokens per minute */
     XRGDataset *codex_tokens_rate;   /* OpenAI Codex tokens per minute */
     XRGDataset *gemini_tokens_rate;  /* Google Gemini tokens per minute */
+    XRGDataset *hermes_tokens_rate;  /* Hermes tokens per minute */
 
     /* Configuration */
     gboolean auto_detect;
@@ -98,6 +114,7 @@ struct _XRGAITokenCollector {
     guint64 prev_claude_tokens;
     guint64 prev_codex_tokens;
     guint64 prev_gemini_tokens;
+    guint64 prev_hermes_tokens;
 
     /* Update tracking */
     gint64 last_update_time;
@@ -107,6 +124,7 @@ struct _XRGAITokenCollector {
     ProviderCostStats claude_cost;
     ProviderCostStats codex_cost;
     ProviderCostStats gemini_cost;
+    ProviderCostStats hermes_cost;
 
     /* Aggregate cost tracking */
     gdouble total_cost_usd;       /* Total estimated cost in USD */
@@ -152,9 +170,15 @@ GHashTable* xrg_aitoken_collector_get_model_tokens(XRGAITokenCollector *collecto
 guint64 xrg_aitoken_collector_get_claude_tokens(XRGAITokenCollector *collector);
 guint64 xrg_aitoken_collector_get_codex_tokens(XRGAITokenCollector *collector);
 guint64 xrg_aitoken_collector_get_gemini_tokens(XRGAITokenCollector *collector);
+guint64 xrg_aitoken_collector_get_hermes_tokens(XRGAITokenCollector *collector);
 XRGDataset* xrg_aitoken_collector_get_claude_dataset(XRGAITokenCollector *collector);
 XRGDataset* xrg_aitoken_collector_get_codex_dataset(XRGAITokenCollector *collector);
 XRGDataset* xrg_aitoken_collector_get_gemini_dataset(XRGAITokenCollector *collector);
+XRGDataset* xrg_aitoken_collector_get_hermes_dataset(XRGAITokenCollector *collector);
+
+/* Hermes per-model tokens (key: model name, value: ModelTokens*) */
+GHashTable* xrg_aitoken_collector_get_hermes_model_tokens(XRGAITokenCollector *collector);
+const gchar* xrg_aitoken_collector_get_hermes_model(XRGAITokenCollector *collector);
 
 /* Cost tracking getters */
 gdouble xrg_aitoken_collector_get_total_cost(XRGAITokenCollector *collector);
@@ -163,6 +187,7 @@ gdouble xrg_aitoken_collector_get_cost_rate(XRGAITokenCollector *collector);
 gdouble xrg_aitoken_collector_get_claude_cost(XRGAITokenCollector *collector);
 gdouble xrg_aitoken_collector_get_codex_cost(XRGAITokenCollector *collector);
 gdouble xrg_aitoken_collector_get_gemini_cost(XRGAITokenCollector *collector);
+gdouble xrg_aitoken_collector_get_hermes_cost(XRGAITokenCollector *collector);
 
 /* Cap usage getters (returns percentage 0.0-1.0+) */
 gdouble xrg_aitoken_collector_get_claude_cap_usage(XRGAITokenCollector *collector, guint64 cap);

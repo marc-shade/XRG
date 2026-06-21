@@ -429,6 +429,39 @@ static void aitoken_widget_draw(XRGBaseWidget *base, cairo_t *cr, int width, int
                 next_y += 12;
             }
         }
+
+        /* Hermes models (separate table, prefixed "H " to mark the provider) */
+        GHashTable *hermes_models = xrg_aitoken_collector_get_hermes_model_tokens(widget->collector);
+        const gchar *hermes_top = xrg_aitoken_collector_get_hermes_model(widget->collector);
+        if (hermes_models && g_hash_table_size(hermes_models) > 0) {
+            GHashTableIter iter;
+            gpointer key, value;
+            g_hash_table_iter_init(&iter, hermes_models);
+
+            while (g_hash_table_iter_next(&iter, &key, &value)) {
+                const gchar *model_name = (const gchar *)key;
+                ModelTokens *tokens = (ModelTokens *)value;
+                guint64 model_total = tokens->input_tokens + tokens->output_tokens;
+
+                gchar *display_name = g_strdup(model_name);
+                if (strlen(display_name) > 18) {
+                    display_name[15] = '.';
+                    display_name[16] = '.';
+                    display_name[17] = '.';
+                    display_name[18] = '\0';
+                }
+
+                const gchar *mark = (hermes_top && g_strcmp0(model_name, hermes_top) == 0) ? "*" : " ";
+                gchar *model_line = g_strdup_printf("%sH %s: %lu", mark, display_name,
+                                                    (unsigned long)model_total);
+
+                cairo_move_to(cr, 5, next_y);
+                cairo_show_text(cr, model_line);
+                g_free(model_line);
+                g_free(display_name);
+                next_y += 12;
+            }
+        }
     }
 
     /* Draw activity bar on the right (if enabled) */
@@ -534,6 +567,7 @@ static gchar* aitoken_widget_tooltip(XRGBaseWidget *base, int x, int y) {
     guint64 claude_tokens = xrg_aitoken_collector_get_claude_tokens(widget->collector);
     guint64 codex_tokens = xrg_aitoken_collector_get_codex_tokens(widget->collector);
     guint64 gemini_tokens = xrg_aitoken_collector_get_gemini_tokens(widget->collector);
+    guint64 hermes_tokens = xrg_aitoken_collector_get_hermes_tokens(widget->collector);
 
     g_string_append(tooltip_str, "\n--- By Provider ---\n");
     if (claude_tokens > 0)
@@ -542,6 +576,12 @@ static gchar* aitoken_widget_tooltip(XRGBaseWidget *base, int x, int y) {
         g_string_append_printf(tooltip_str, "Codex: %lu\n", (unsigned long)codex_tokens);
     if (gemini_tokens > 0)
         g_string_append_printf(tooltip_str, "Gemini: %lu\n", (unsigned long)gemini_tokens);
+    if (hermes_tokens > 0) {
+        const gchar *hermes_top = xrg_aitoken_collector_get_hermes_model(widget->collector);
+        g_string_append_printf(tooltip_str, "Hermes: %lu (%s)\n",
+                               (unsigned long)hermes_tokens,
+                               hermes_top ? hermes_top : "?");
+    }
 
     /* Cost info */
     xrg_aitoken_collector_update_costs(widget->collector, prefs);
