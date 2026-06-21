@@ -20,6 +20,8 @@
 
 #define SNAP_DISTANCE 20  /* Pixels from edge to snap */
 #define TITLE_BAR_HEIGHT 20
+/* Width of the left-clickable "menu dots" hit zone at the title bar's right edge */
+#define MENU_DOTS_HIT_WIDTH 40
 
 /* Application state */
 typedef struct {
@@ -313,11 +315,12 @@ static gboolean on_draw_title_bar(GtkWidget *widget, cairo_t *cr, gpointer user_
     cairo_move_to(cr, 5, 14);
     cairo_show_text(cr, "XRG-Linux");
     
-    /* Draw drag indicator (three dots) */
+    /* Draw the menu button (three "kebab" dots, top-right). Left-clicking this
+     * region opens the context menu; see on_title_bar_button_press. */
     gdouble dot_y = height / 2.0;
     for (gint i = 0; i < 3; i++) {
         gdouble dot_x = width - 30 + (i * 8);
-        cairo_arc(cr, dot_x, dot_y, 1.5, 0, 2 * G_PI);
+        cairo_arc(cr, dot_x, dot_y, 2.0, 0, 2 * G_PI);
         cairo_fill(cr);
     }
     
@@ -379,8 +382,20 @@ static gboolean on_title_bar_button_press(GtkWidget *widget, GdkEventButton *eve
     AppState *state = (AppState *)user_data;
 
     if (event->button == 1) {  /* Left click */
-        /* Hand the drag to the compositor: manual gtk_window_move() is a
-         * no-op on Wayland, and the WM-native drag is smoother on X11 too */
+        /* If the click landed on the menu dots (the kebab indicator drawn in
+         * the top-right corner, see on_draw_title_bar), open the menu instead
+         * of starting a drag. The dots span x in [width-30, width-14]; use a
+         * slightly wider hit zone so they are easy to hit. */
+        GtkAllocation alloc;
+        gtk_widget_get_allocation(widget, &alloc);
+        if (event->x >= alloc.width - MENU_DOTS_HIT_WIDTH) {
+            show_title_bar_context_menu(state, event);
+            return TRUE;
+        }
+
+        /* Otherwise drag: hand the drag to the compositor. Manual
+         * gtk_window_move() is a no-op on Wayland, and the WM-native drag is
+         * smoother on X11 too. No modifier/hotkey required. */
         gtk_window_begin_move_drag(GTK_WINDOW(state->window),
                                    event->button,
                                    (gint)event->x_root, (gint)event->y_root,
