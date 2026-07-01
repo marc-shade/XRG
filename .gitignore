@@ -18,3 +18,12 @@ profile
 # Claude Code / Swarm
 .swarm/
 .claude-flow/
+
+# Editor / OS / build artifacts
+*.backup
+*.orig
+*~
+DerivedData/
+
+# Linux port build output
+xrg-linux/build/

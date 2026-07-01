@@ -31,6 +31,13 @@
 #import "XRGSettings.h"
 #import "XRGDataSet.h"
 
+// Format a token count compactly (1500000 -> "1.5M", 2500 -> "2.5K").
+static NSString *XRGFormatTokenCount(UInt64 n) {
+    if (n >= 1000000) return [NSString stringWithFormat:@"%.1fM", n / 1000000.0];
+    if (n >= 1000)    return [NSString stringWithFormat:@"%.1fK", n / 1000.0];
+    return [NSString stringWithFormat:@"%llu", n];
+}
+
 @implementation XRGAITokenView
 
 - (void)awakeFromNib {
@@ -357,7 +364,6 @@
     UInt64 claudeTotal = [tokenMiner totalClaudeTokens];
     UInt64 codexTotal = [tokenMiner totalCodexTokens];
     UInt64 geminiTotal = [tokenMiner totalGeminiTokens];
-    UInt64 ollamaTotal = [tokenMiner totalOllamaTokens];
     UInt64 hermesTotal = [tokenMiner totalHermesTokens];
     BOOL ollamaAvailable = [tokenMiner ollamaAvailable];
 
@@ -404,21 +410,29 @@
             [label appendFormat:@"\n● %@", ollamaStatus];
         }
 
-        // Hermes (agent) — show total and the most-used model
+        // Hermes (agent) — show total, then every model that ran under Hermes.
+        // Data comes from ~/.hermes/state.db via the miner (all models, no filter).
         if (hermesTotal > 0) {
-            NSString *hermesTop = [tokenMiner hermesTopModel];
-            NSString *hermesAmount;
-            if (hermesTotal >= 1000000) {
-                hermesAmount = [NSString stringWithFormat:@"%lluM", hermesTotal / 1000000];
-            } else if (hermesTotal >= 1000) {
-                hermesAmount = [NSString stringWithFormat:@"%lluK", hermesTotal / 1000];
-            } else {
-                hermesAmount = [NSString stringWithFormat:@"%llu", hermesTotal];
-            }
-            if (hermesTop) {
-                [label appendFormat:@"\n● Hermes: %@ (%@)", hermesAmount, hermesTop];
-            } else {
-                [label appendFormat:@"\n● Hermes: %@", hermesAmount];
+            [label appendFormat:@"\n● Hermes: %@", XRGFormatTokenCount(hermesTotal)];
+
+            NSDictionary *hermesModels = [tokenMiner hermesModelTokens];
+            if (hermesModels.count > 0) {
+                // Sort model names by (input+output) tokens, descending.
+                NSArray *modelNames = [hermesModels keysSortedByValueUsingComparator:
+                    ^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+                        UInt64 ta = [a[@"input"] unsignedLongLongValue] + [a[@"output"] unsignedLongLongValue];
+                        UInt64 tb = [b[@"input"] unsignedLongLongValue] + [b[@"output"] unsignedLongLongValue];
+                        if (ta > tb) return NSOrderedAscending;   // larger first
+                        if (ta < tb) return NSOrderedDescending;
+                        return NSOrderedSame;
+                    }];
+                for (NSString *modelName in modelNames) {
+                    NSDictionary *counts = hermesModels[modelName];
+                    UInt64 modelTotal = [counts[@"input"] unsignedLongLongValue] +
+                                        [counts[@"output"] unsignedLongLongValue];
+                    if (modelTotal == 0) continue;
+                    [label appendFormat:@"\n    %@: %@", modelName, XRGFormatTokenCount(modelTotal)];
+                }
             }
         }
     }
@@ -493,80 +507,8 @@
         }
     }
 
-    // === EQUIVALENT API COST SECTION (Reference only for subscription users) ===
-    double totalCost = [tokenMiner totalCostUSD];
-    double burnRate = [tokenMiner costPerHour];
-
-    if (totalCost > 0.001 || burnRate > 0.001) {
-        [label appendString:@"\n─ API Cost ─"];  // Labeled as API cost (reference)
-
-        // Total equivalent API cost
-        if (totalCost >= 100.0) {
-            [label appendFormat:@"\n≈ $%.0f", totalCost];
-        } else if (totalCost >= 1.0) {
-            [label appendFormat:@"\n≈ $%.2f", totalCost];
-        } else {
-            [label appendFormat:@"\n≈ $%.4f", totalCost];
-        }
-
-        // Burn rate ($/hour) - only show if actively burning
-        if (burnRate > 0.001) {
-            if (burnRate >= 10.0) {
-                [label appendFormat:@"\n≈ $%.0f/hr", burnRate];
-            } else if (burnRate >= 1.0) {
-                [label appendFormat:@"\n≈ $%.2f/hr", burnRate];
-            } else {
-                [label appendFormat:@"\n≈ $%.4f/hr", burnRate];
-            }
-
-            // Projected daily cost (at API rates)
-            double projectedDaily = [tokenMiner projectedDailyCost];
-            if (projectedDaily >= 100.0) {
-                [label appendFormat:@"\n≈ $%.0f/day", projectedDaily];
-            } else if (projectedDaily >= 1.0) {
-                [label appendFormat:@"\n≈ $%.2f/day", projectedDaily];
-            } else if (projectedDaily > 0.001) {
-                [label appendFormat:@"\n≈ $%.4f/day", projectedDaily];
-            }
-        }
-
-        // Per-provider API costs (reference)
-        double claudeCost = [tokenMiner claudeCostUSD];
-        double codexCost = [tokenMiner codexCostUSD];
-        double geminiCost = [tokenMiner geminiCostUSD];
-        double hermesCost = [tokenMiner hermesCostUSD];
-
-        if (claudeCost > 0.001 || codexCost > 0.001 || geminiCost > 0.001 || hermesCost > 0.001) {
-            if (claudeCost > 0.001) {
-                if (claudeCost >= 1.0) {
-                    [label appendFormat:@"\n● C: ≈$%.2f", claudeCost];
-                } else {
-                    [label appendFormat:@"\n● C: ≈$%.4f", claudeCost];
-                }
-            }
-            if (codexCost > 0.001) {
-                if (codexCost >= 1.0) {
-                    [label appendFormat:@"\n● X: ≈$%.2f", codexCost];
-                } else {
-                    [label appendFormat:@"\n● X: ≈$%.4f", codexCost];
-                }
-            }
-            if (geminiCost > 0.001) {
-                if (geminiCost >= 1.0) {
-                    [label appendFormat:@"\n● G: $%.2f", geminiCost];
-                } else {
-                    [label appendFormat:@"\n● G: $%.4f", geminiCost];
-                }
-            }
-            if (hermesCost > 0.001) {
-                if (hermesCost >= 1.0) {
-                    [label appendFormat:@"\n● H: $%.2f", hermesCost];
-                } else {
-                    [label appendFormat:@"\n● H: $%.4f", hermesCost];
-                }
-            }
-        }
-    }
+    // (On-graph "API Cost" section removed per request. Cost data is still
+    //  tracked by the miner and shown in the right-click "Cost Intelligence" menu.)
 
     // Show current rate if enabled
     if (showRate && totalRate > 0) {
