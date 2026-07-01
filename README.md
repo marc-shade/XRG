@@ -26,7 +26,7 @@ XRG displays real-time graphs for:
 - **Temperature** - CPU, GPU, and system sensors
 - **Weather** - Current conditions and forecast
 - **Stock Prices** - Real-time market data
-- **AI Token Usage** - Live token consumption and cost tracking for Claude, Codex, Gemini, and Ollama
+- **AI Token Usage** - Live token consumption and cost tracking for Claude, Codex, Gemini, Ollama, and Hermes agents
 
 ## AI Token Monitoring
 
@@ -40,16 +40,18 @@ XRG displays real-time graphs for:
 | **OpenAI Codex CLI** | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` | Cloud API | ✓ |
 | **Google Gemini CLI** | `~/.gemini/tmp/<hash>/chats/session-*.json` | Cloud API | ✓ |
 | **Ollama** | REST API (localhost:11434) | Local Inference | ✓ |
+| **Hermes agents** | SQLite (`~/.hermes/state.db`) | Agent orchestrator | ✓ |
 
 ### Features
 
-- **4-Provider Support** - Track Claude, Codex, Gemini, and Ollama in a single stacked graph
-- **Cost Intelligence** - Real-time $/hour burn rate and projected daily costs
+- **5-Provider Support** - Track Claude, Codex, Gemini, Ollama, and Hermes agents in a single stacked graph
+- **Cost Intelligence** - Total cost, $/hour burn rate, and projected daily cost in the right-click menu
 - **Per-Provider Costs** - Accurate pricing (Claude $3/$15, Codex $2.50/$10, Gemini $0.15/$0.60 per MTok)
 - **Ollama Integration** - Detect available models, show running models, track local inference
+- **Hermes Agent Tracking** - Per-model token breakdown and cost read straight from the Hermes state DB
 - **Zero Configuration** - Auto-detects installed AI tools, no setup required
 - **Real-Time Tracking** - Updates within 1-2 seconds during active AI usage
-- **Per-Provider Breakdown** - Color-coded visualization shows usage by provider
+- **Per-Provider Breakdown** - Color-coded visualization shows usage by provider (and per-model for Hermes)
 - **Performance Optimized** - Background threading, intelligent caching, 95MB memory footprint
 
 ### How It Works
@@ -76,6 +78,12 @@ The AI Token monitor automatically detects all installed AI coding tools:
    - Queries `/api/tags` for available models
    - Queries `/api/ps` for currently loaded models
    - Zero cost (local inference)
+
+5. **Hermes Agents** - Agent Orchestrator
+   - Source: SQLite database at `~/.hermes/state.db`
+   - Aggregates every model the agent ran (e.g. gpt-5.5, MiniMax, qwen, gemma, claude-opus)
+   - Shows a per-model token breakdown under the Hermes line, sorted by usage
+   - Cost read directly from Hermes (`actual`/`estimated_cost_usd`), never re-priced
 
 ### Quick Start
 

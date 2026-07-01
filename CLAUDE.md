@@ -713,6 +713,8 @@ Multi-provider AI token tracking works on both platforms. Zero configuration req
 | Claude Code | `~/.claude/projects/*/sessionid.jsonl` |
 | OpenAI Codex CLI | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` |
 | Google Gemini CLI | `~/.gemini/tmp/<hash>/chats/session-*.json` |
+| Ollama | REST API (`http://localhost:11434/api/*`) |
+| Hermes agents | SQLite (`~/.hermes/state.db`, `sessions` table) |
 
 **Key Files**:
 - macOS: `Data Miners/XRGAITokenMiner.m`, `Graph Views/XRGAITokenView.m`
@@ -732,6 +734,8 @@ Multi-provider AI token tracking works on both platforms. Zero configuration req
 ```json
 {"messages":[{"tokens":{"input":X,"output":Y,"total":Z}}]}
 ```
+
+**Hermes Format**: Agent-orchestrator activity in SQLite `~/.hermes/state.db` (`sessions` table). Each row has `model`, `input_tokens`, `output_tokens`, and cost columns (`actual_cost_usd`, falling back to `estimated_cost_usd`). XRG aggregates every model with a per-model token breakdown and takes cost straight from the DB (never re-priced). The AI Token view shows all models under the Hermes line; the on-graph "API Cost" section was removed in favor of the right-click Cost Intelligence menu.
 
 **Settings** (macOS - `XRGAISettingsKeys.h`):
 - `aiTokensTrackingEnabled`: Master toggle (must be YES for Observer)

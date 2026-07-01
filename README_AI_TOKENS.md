@@ -14,15 +14,16 @@ open ~/Library/Developer/Xcode/DerivedData/XRG-*/Build/Products/Debug/XRG.app
 # 3. Use any AI tool - XRG auto-detects and tracks tokens!
 ```
 
-XRG will display real-time token usage in a 4-layer stacked area graph with **accurate per-model cost tracking**!
+XRG will display real-time token usage in a 5-layer stacked area graph with **accurate per-model cost tracking**!
 
 ## What It Tracks
 
-**4 Providers Supported:**
+**5 Providers Supported:**
 - ✅ **Claude Code** - All sessions, all subagents (`~/.claude/projects/`)
 - ✅ **OpenAI Codex CLI** - Session transcripts (`~/.codex/sessions/`)
 - ✅ **Google Gemini CLI** - Chat sessions (`~/.gemini/tmp/`)
 - ✅ **Ollama** - Local inference via REST API (localhost:11434)
+- ✅ **Hermes agents** - Agent-orchestrator activity via SQLite (`~/.hermes/state.db`)
 
 **Metrics Tracked:**
 - ✅ Input/output tokens per provider
@@ -71,13 +72,19 @@ XRG extracts the actual model name from each API call and calculates costs using
 - **Cost**: $0.00 (local inference)
 - Shows model availability and running status
 
+### Hermes (Agent Orchestrator)
+- **Source**: SQLite `~/.hermes/state.db` (`sessions` table)
+- Tracks every model the agent dispatched to, with a per-model token breakdown
+- **Cost**: read straight from Hermes (`actual_cost_usd`, falling back to `estimated_cost_usd`) and never re-priced by XRG — local models report $0, cloud models report their real cost
+
 **Note for Max/Subscription Users**: The displayed API costs are for reference only - they show what your usage *would* cost at API rates. Great for understanding the value of your subscription!
 
 ## Architecture
 
 ```
-Claude/Codex/Gemini → JSONL Files → XRG Parser → Graph
-   (native)           (transcripts)   (real-time)
+Claude/Codex/Gemini → JSONL files ┐
+Ollama              → REST API     ├─→ XRG Parser → Graph
+Hermes agents       → SQLite DB    ┘   (real-time)
 ```
 
 **Benefits:**
@@ -96,6 +103,7 @@ Claude/Codex/Gemini → JSONL Files → XRG Parser → Graph
   - OpenAI Codex CLI (`~/.codex/sessions/` must exist)
   - Gemini CLI (`~/.gemini/tmp/` must exist)
   - Ollama (running on localhost:11434)
+  - Hermes agents (`~/.hermes/state.db` must exist)
 
 **No additional setup required** - XRG auto-detects all installed tools!
 
@@ -115,15 +123,17 @@ Claude/Codex/Gemini → JSONL Files → XRG Parser → Graph
 | Codex CLI | `~/.codex/sessions/YYYY/MM/DD/*.jsonl` | JSONL with `token_count` events |
 | Gemini CLI | `~/.gemini/tmp/*/chats/session-*.json` | JSON with messages array |
 | Ollama | `http://localhost:11434/api/*` | REST API |
+| Hermes agents | `~/.hermes/state.db` | SQLite (`sessions` table) |
 
 ## XRG Integration
 
 The AI Token module appears in XRG alongside other system monitors:
-- **4-layer stacked area graph** (Claude, Codex, Gemini, Ollama)
+- **5-layer stacked area graph** (Claude, Codex, Gemini, Ollama, Hermes)
 - **Real-time rate indicator** (color-coded per provider)
-- **Provider legend** (C=Claude, X=Codex, G=Gemini, O=Ollama)
+- **Provider legend** (C=Claude, X=Codex, G=Gemini, O=Ollama, H=Hermes)
+- **Per-model Hermes breakdown** - lists every model the agent ran, sorted by token count
 - **Token totals** with smart B/M/K formatting
-- **Accurate API cost display** with ≈ prefix (reference for subscription users)
+- **Cost Intelligence menu** - right-click the graph for total cost, $/hour burn rate, projected 24-hour cost, and per-provider costs (cost lives in the menu, not drawn on the graph)
 - **Mini-mode support** for compact display
 
 Colors follow XRG's theme (customizable in Preferences → Appearance).
@@ -140,7 +150,7 @@ Efficient caching avoids re-parsing unchanged files.
 ## FAQ
 
 **Q: Does this track ALL AI usage on my Mac?**
-A: Yes! XRG tracks Claude Code, OpenAI Codex CLI, Gemini CLI, and Ollama - all major AI coding tools.
+A: Yes! XRG tracks Claude Code, OpenAI Codex CLI, Gemini CLI, Ollama, and Hermes agents - all major AI coding tools plus your agent orchestrator.
 
 **Q: Are the costs accurate?**
 A: Yes! XRG extracts the actual model name from each API call and uses official provider pricing. Different models (Opus vs Sonnet vs Haiku) have different costs.
@@ -179,4 +189,4 @@ XRG is licensed under GNU GPL v2.
 
 **Status:** Production Ready
 
-**Last Updated:** January 3, 2026
+**Last Updated:** July 1, 2026

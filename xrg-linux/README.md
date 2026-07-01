@@ -102,7 +102,16 @@ xrg-linux
 
 ## AI Token Monitoring
 
-XRG-Linux includes real-time monitoring of AI API token usage for Claude Code and other AI services.
+XRG-Linux includes real-time monitoring of AI API token usage across multiple providers (auto-detected):
+
+| Provider | Data Source |
+|----------|-------------|
+| Claude Code | `~/.claude/projects/*/sessionid.jsonl` (JSONL) |
+| OpenAI Codex CLI | `~/.codex/sessions/` (JSONL) |
+| Google Gemini CLI | `~/.gemini/tmp/` (JSON) |
+| Hermes agents | `~/.hermes/state.db` (SQLite, per-model tokens + cost) |
+
+Hermes activity is broken out per model (every model the agent ran), with cost read straight from the Hermes database. (Ollama tracking is macOS-only for now.)
 
 ### How It Works
 
