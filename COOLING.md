@@ -17,7 +17,8 @@ Cooling Pad Overview** to return to the existing sensor selections.
 - **Mac fan 1/2** are real SMC actual-speed readings, ordered by sensor key.
 - **Pad cmd** is an acknowledged command from the controller. It is not measured
   RPM. Disconnected, stopped and stale feeds replace the number with a status.
-- **Pad temp** shows `Unavailable`; no pad-temperature reading has been validated.
+- **Pad state** shows the controller's connection/operating state. No pad
+  temperature row is shown because no pad-temperature reading has been validated.
 
 The overview includes Mac die-temperature history. The collapsed mini view shows
 the die value; expand it for all rows. The context menu and tooltip describe pad

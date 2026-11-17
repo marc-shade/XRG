@@ -411,8 +411,9 @@
     NSString *padValue = pad.commandedRPM ? [NSString stringWithFormat:@"%@ rpm", pad.commandedRPM] :
         ([@[@"Stopped", @"Stale", @"Disconnected"] containsObject:pad.controllerState] ? pad.controllerState : @"Unavailable");
     [values addObject:padValue];
-    [labels addObject:@"Pad temp"];
-    [values addObject:@"Unavailable"];
+    [labels addObject:@"Pad state"];
+    NSArray *displayStates = @[@"Automatic", @"Failsafe", @"Stopped", @"Stale", @"Disconnected"];
+    [values addObject:[displayStates containsObject:pad.controllerState] ? pad.controllerState : @"Unavailable"];
     self.toolTip = [NSString stringWithFormat:@"Mac die: hottest available die sensor. Mac fans: measured SMC RPM.\nPad: %@. Pad RPM is an acknowledged command, not a tachometer. No pad temperature reading is exposed by the current protocol.", pad.controllerState];
 
     if ([self shouldDrawMiniGraph]) {
