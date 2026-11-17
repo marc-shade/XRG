@@ -46,6 +46,7 @@
 @property NSArray *fanCache;
 @property NSDate *fanCacheCreated;
 @property NSMutableDictionary *fanLocations;
+@property XRGCoolingPadStatus *coolingPad;
 
 @end
 
@@ -79,6 +80,7 @@
 		self.locationKeysInOrder = [NSMutableArray array];
 		self.sensorData = [NSMutableDictionary dictionary];
 		self.smcSensors = [[SMCSensors alloc] init];
+        self.coolingPad = [[XRGCoolingPadStatus alloc] init];
 	}
 
     return self;
@@ -111,6 +113,7 @@
 }
 
 - (void)updateCurrentTemperatures:(BOOL)includeUnknown {
+    [self.coolingPad refresh];
     // Only refresh the temperature every 5 seconds.
     self.temperatureCounter = (self.temperatureCounter + 1) % 5;
     if (self.temperatureCounter != 1) {
@@ -125,7 +128,7 @@
 	// Gather SMC Data
 	@try {
         [self trySMCTemperature:includeUnknown];
-	} @catch (NSException *e) {}
+	} @catch (NSException *e) { NSLog(@"SMC sensor read failed: %@", e.reason); }
     
     // Gather Apple Silicon Data
     [self tryAppleSiliconTemperature];
@@ -190,6 +193,7 @@
 
 - (void)tryAppleSiliconTemperature {
     NSDictionary *appleSiliconSensorData = [XRGAppleSiliconSensorMiner sensorData];
+    double hottestDie = -INFINITY;
     
     for (NSString *key in appleSiliconSensorData) {
         id aValue = appleSiliconSensorData[key];
@@ -204,7 +208,19 @@
         [self setCurrentValue:temperature
                      andUnits:[NSString stringWithFormat:@"%CC", (unsigned short)0x00B0]
                   forLocation:key];
+        if ([key hasPrefix:@"PMU tdie"] || [key containsString:@"MTR Temp Sensor"]) {
+            hottestDie = MAX(hottestDie, temperature);
+        }
     }
+    if (isfinite(hottestDie)) {
+        [self setCurrentValue:hottestDie andUnits:@"°C" forLocation:@"MacHottestDie"];
+        self.sensorData[@"MacHottestDie"].humanReadableName = @"Mac die (hottest)";
+    }
+}
+
+- (XRGSensorData *)hottestDieSensor {
+    XRGSensorData *sensor = self.sensorData[@"MacHottestDie"];
+    return sensor.isEnabled ? sensor : nil;
 }
 
 - (NSArray *)locationKeysIncludingUnknown:(BOOL)includeUnknown {
@@ -215,7 +231,7 @@
         NSMutableArray *filteredArray = [NSMutableArray array];
 
         for (NSString *key in self.locationKeysInOrder) {
-            if ([self.smcSensors isKnownKey:key]) {
+            if ([self.smcSensors isKnownKey:key] || [key isEqualToString:@"MacHottestDie"]) {
                 [filteredArray addObject:key];
             }
         }
@@ -485,6 +501,8 @@
             
             if ([fanValue isKindOfClass:[NSNumber class]]) {
                 if ([fanDKey hasSuffix:@"Ac"]) {
+                    double speed = [fanValue doubleValue];
+                    if (!isfinite(speed) || speed < 0 || speed > 20000) continue;
                     f.key = fanDKey;
                     f.actualSpeed = [fanValue integerValue];
                 }
@@ -500,13 +518,13 @@
             }
         }
         
-        [retFans addObject:f];
+        if (f.key && f.actualSpeed >= 0 && f.actualSpeed <= 20000) [retFans addObject:f];
     }
 
-    self.fanCache = retFans;
+    self.fanCache = [retFans sortedArrayUsingDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"key" ascending:YES]]];
     self.fanCacheCreated = [NSDate date];
     
-    return retFans;
+    return self.fanCache;
 }
 
 - (XRGFan *)fanForSensor:(XRGSensorData *)sensor {

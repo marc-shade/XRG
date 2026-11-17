@@ -24,6 +24,8 @@ XRG displays real-time graphs for:
 - **Disk Activity** - Read/write operations per volume
 - **Battery** - Charge level, time remaining, health
 - **Temperature** - CPU, GPU, and system sensors
+- **Cooling overview (macOS)** - Mac die temperature, measured internal fan RPM,
+  and Razer cooling-pad command status. See [setup and validation](COOLING.md).
 - **Weather** - Current conditions and forecast
 - **Stock Prices** - Real-time market data
 - **AI Token Usage** - Live token consumption and cost tracking for Claude, Codex, Gemini, Ollama, and Hermes agents
@@ -152,3 +154,10 @@ GNU General Public License v2.0 - see LICENSE file for details
 
 - Original XRG by Gaucho Software, LLC
 - AI Token Monitoring by marc-shade (2025)
+
+## Gaps / not covered
+
+The cooling overview was validated on one M5 Max MacBook Pro. Pad tachometer
+and pad-temperature readings are unavailable; Linux cooling integration and
+sleep/reboot recovery were not tested. See [COOLING.md](COOLING.md) for the
+executed gates and remaining limits.

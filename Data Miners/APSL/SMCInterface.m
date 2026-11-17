@@ -143,6 +143,7 @@ static IOReturn callSMCFunction(
                                        outputValues, &outStructSize);
     
 exit:    
+    if (smc != IO_OBJECT_NULL) IOObjectRelease(smc);
     if (IO_OBJECT_NULL != _SMCConnect) {
         IOConnectCallMethod(_SMCConnect, kSMCUserClientClose, 
                             NULL, 0, NULL, 0, NULL, NULL, NULL, NULL);
@@ -250,6 +251,10 @@ typedef NS_ENUM(unsigned int, SMCDataType_t) {
     stuffMeIn.key = CFSwapInt32HostToLittle( key );
     
     ret = callSMCFunction(kSMCHandleYPCEvent, &stuffMeIn, &stuffMeOut);
+    if (ret != kIOReturnSuccess) {
+        *outResult = ret;
+        return nil;
+    }
    
     if (stuffMeOut.result == kSMCKeyNotFound) {
         *outResult = kIOReturnNotFound;
@@ -292,6 +297,7 @@ typedef NS_ENUM(unsigned int, SMCDataType_t) {
     
     bzero(&stuffMeOut, sizeof(SMCParamStruct));
     ret = callSMCFunction(kSMCHandleYPCEvent, &stuffMeIn, &stuffMeOut);
+    if (ret != kIOReturnSuccess) goto exit;
     if (stuffMeOut.result == kSMCKeyNotFound) {
         ret = kIOReturnNotFound;
         goto exit;

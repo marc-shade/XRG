@@ -137,6 +137,7 @@
 }
 
 - (void)drawMiniGraph {
+    if ([self usesCoolingOverview]) { [self drawCoolingOverview]; return; }
     // Get our sensor locations.
     NSArray *locations = [[XRGTemperatureMiner shared] locationKeysIncludingUnknown:[XRGTemperatureView showUnknownSensors]];
     if ([locations count] == 0) {
@@ -205,6 +206,7 @@
 }
 
 - (void)drawGraph {
+    if ([self usesCoolingOverview]) { [self drawCoolingOverview]; return; }
     NSGraphicsContext *gc = [NSGraphicsContext currentContext];
 
     NSRect paddedTextRect = [self paddedTextRect];
@@ -375,6 +377,65 @@
     }
 }
 
+- (BOOL)usesCoolingOverview {
+    return XRGTemperatureMiner.shared.coolingPad.configured &&
+        ![NSUserDefaults.standardUserDefaults boolForKey:@"coolingOverviewHidden"];
+}
+
+- (void)toggleCoolingOverview:(id)sender {
+    BOOL hidden = [NSUserDefaults.standardUserDefaults boolForKey:@"coolingOverviewHidden"];
+    [NSUserDefaults.standardUserDefaults setBool:!hidden forKey:@"coolingOverviewHidden"];
+    [self setNeedsDisplay:YES];
+}
+
+- (void)drawCoolingOverview {
+    XRGTemperatureMiner *miner = XRGTemperatureMiner.shared;
+    XRGSensorData *die = miner.hottestDieSensor;
+    XRGCoolingPadStatus *pad = miner.coolingPad;
+    NSString *temperature = @"Unavailable";
+    if (die) {
+        BOOL fahrenheit = appSettings.tempUnits == XRGTemperatureUnitsF;
+        temperature = [NSString stringWithFormat:@"%.1f%@", fahrenheit ? die.currentValue * 1.8 + 32 : die.currentValue,
+            fahrenheit ? @"°F" : @"°C"];
+    }
+    NSMutableArray *labels = [NSMutableArray arrayWithObject:@"Mac die"];
+    NSMutableArray *values = [NSMutableArray arrayWithObject:temperature];
+    NSArray<XRGFan *> *fans = miner.fanValues;
+    for (NSUInteger i = 0; i < fans.count; i++) {
+        XRGFan *fan = fans[i];
+        [labels addObject:[NSString stringWithFormat:@"Mac fan %lu", (unsigned long)i + 1]];
+        [values addObject:[NSString stringWithFormat:@"%ld rpm", (long)fan.actualSpeed]];
+    }
+    if (fans.count == 0) { [labels addObject:@"Mac fans"]; [values addObject:@"Unavailable"]; }
+    [labels addObject:@"Pad cmd"];
+    NSString *padValue = pad.commandedRPM ? [NSString stringWithFormat:@"%@ rpm", pad.commandedRPM] :
+        ([@[@"Stopped", @"Stale", @"Disconnected"] containsObject:pad.controllerState] ? pad.controllerState : @"Unavailable");
+    [values addObject:padValue];
+    [labels addObject:@"Pad temp"];
+    [values addObject:@"Unavailable"];
+    self.toolTip = [NSString stringWithFormat:@"Mac die: hottest available die sensor. Mac fans: measured SMC RPM.\nPad: %@. Pad RPM is an acknowledged command, not a tachometer. No pad temperature reading is exposed by the current protocol.", pad.controllerState];
+
+    if ([self shouldDrawMiniGraph]) {
+        [self drawLeftText:@"Mac die" centerText:nil rightText:temperature inRect:[self paddedTextRect]];
+        return;
+    }
+    CGFloat rowHeight = appSettings.textRectHeight;
+    NSRect padded = [self paddedTextRect];
+    CGFloat textHeight = MIN(self.bounds.size.height, labels.count * rowHeight);
+    NSRect textRect = NSMakeRect(padded.origin.x, NSMaxY(self.bounds) - textHeight, padded.size.width, textHeight);
+    [self drawLeftText:[labels componentsJoinedByString:@"\n"] centerText:nil
+            rightText:[values componentsJoinedByString:@"\n"] inRect:textRect];
+    NSRect graphRect = NSMakeRect(0, 0, self.bounds.size.width, MAX(0, textRect.origin.y - 2));
+    if (die.dataSet && graphRect.size.height > 2) {
+        double low = die.dataSet.min - 5;
+        double high = MAX(low + 20, die.dataSet.max + 5);
+        [self drawRangedGraphWithDataFromDataSet:die.dataSet upperBound:high lowerBound:low
+            inRect:graphRect flipped:NO filled:YES color:appSettings.graphFG1Color];
+    }
+    [appSettings.borderColor set];
+    NSRectFill(NSMakeRect(0, textRect.origin.y - 1, self.bounds.size.width, 1));
+}
+
 - (XRGSensorData *)sensor1 {
     NSString *sensorKey = [appSettings tempFG1Location];
     return [XRGTemperatureMiner.shared sensorForLocation:sensorKey];
@@ -481,6 +542,18 @@
 - (NSMenu *)menuForEvent:(NSEvent *)theEvent {
     NSMenu *myMenu = [[NSMenu alloc] initWithTitle:@"Temperature View"];
     NSMenuItem *tMI;
+    XRGCoolingPadStatus *pad = XRGTemperatureMiner.shared.coolingPad;
+    if (pad.configured) {
+        NSMenuItem *overview = [[NSMenuItem alloc] initWithTitle:@"Show Mac and Cooling Pad Overview"
+            action:@selector(toggleCoolingOverview:) keyEquivalent:@""];
+        overview.target = self;
+        overview.state = [self usesCoolingOverview] ? NSControlStateValueOn : NSControlStateValueOff;
+        [myMenu addItem:overview];
+        [myMenu addItemWithTitle:[NSString stringWithFormat:@"Cooling pad: %@", pad.controllerState] action:nil keyEquivalent:@""];
+        [myMenu addItemWithTitle:[NSString stringWithFormat:@"Pad command: %@", pad.commandedRPM ? [NSString stringWithFormat:@"%@ rpm", pad.commandedRPM] : @"unavailable"] action:nil keyEquivalent:@""];
+        [myMenu addItemWithTitle:@"Pad tachometer / temperature: unavailable" action:nil keyEquivalent:@""];
+        [myMenu addItem:NSMenuItem.separatorItem];
+    }
 
     NSArray *locations = [[XRGTemperatureMiner shared] locationKeysIncludingUnknown:[XRGTemperatureView showUnknownSensors]];
     int i;    

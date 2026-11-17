@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        C001CAFE0000000000000001 /* XRGCoolingPadStatus.m in Sources */ = {isa = PBXBuildFile; fileRef = C001CAFE0000000000000002 /* XRGCoolingPadStatus.m */; };
 		09233112854F9BFB5EF66F4D /* XRGAITokenMiner.m in Sources */ = {isa = PBXBuildFile; fileRef = FCE32C499808A2D4B4FD36C1 /* XRGAITokenMiner.m */; };
 		27186E2C1D88EA7A003DF559 /* XRGCommon.m in Sources */ = {isa = PBXBuildFile; fileRef = 27186E2B1D88EA7A003DF559 /* XRGCommon.m */; };
 		271FA60F15AC79A100E16233 /* Online Help in Resources */ = {isa = PBXBuildFile; fileRef = 271FA60E15AC79A100E16233 /* Online Help */; };
@@ -75,6 +76,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        C001CAFE0000000000000002 /* XRGCoolingPadStatus.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = XRGCoolingPadStatus.m; sourceTree = "<group>"; };
+        C001CAFE0000000000000003 /* XRGCoolingPadStatus.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XRGCoolingPadStatus.h; sourceTree = "<group>"; };
 		27186E2A1D88EA7A003DF559 /* XRGCommon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = XRGCommon.h; sourceTree = "<group>"; };
 		27186E2B1D88EA7A003DF559 /* XRGCommon.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = XRGCommon.m; sourceTree = "<group>"; };
 		271FA60E15AC79A100E16233 /* Online Help */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Online Help"; sourceTree = "<group>"; };
@@ -298,6 +301,8 @@
 				273ECE9C15740EAF00E65D82 /* XRGProcessMiner.m */,
 				273ECE9D15740EAF00E65D82 /* XRGTemperatureMiner.h */,
 				273ECE9E15740EAF00E65D82 /* XRGTemperatureMiner.m */,
+                C001CAFE0000000000000002 /* XRGCoolingPadStatus.m */,
+                C001CAFE0000000000000003 /* XRGCoolingPadStatus.h */,
 				2786061F1B445FED00CC6249 /* XRGGPUMiner.h */,
 				278606201B445FED00CC6249 /* XRGGPUMiner.m */,
 				275842161D8E3F4800D0281F /* XRGNetMiner.h */,
@@ -536,6 +541,7 @@
 				4956E8B82EBEA6AC00E88F19 /* XRGAITokensNotifications.m in Sources */,
 				27C3A8A52551B4A40004F2EC /* XRGStatsManager.m in Sources */,
 				273ECF0215740EAF00E65D82 /* XRGTemperatureMiner.m in Sources */,
+                C001CAFE0000000000000001 /* XRGCoolingPadStatus.m in Sources */,
 				273ECF0315740EAF00E65D82 /* XRGBackgroundView.m in Sources */,
 				27186E2C1D88EA7A003DF559 /* XRGCommon.m in Sources */,
 				27DA9FA22566232500DACB07 /* XRGFlippedView.m in Sources */,

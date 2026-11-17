@@ -27,6 +27,7 @@
 #import <Foundation/Foundation.h>
 #import "XRGDataSet.h"
 #import "SMCSensors.h"
+#import "XRGCoolingPadStatus.h"
 
 @class SMCSensors;
 
@@ -69,6 +70,8 @@
 }
 
 @property (nonnull) SMCSensors *smcSensors;
+@property (nonnull, readonly) XRGCoolingPadStatus *coolingPad;
+- (nullable XRGSensorData *)hottestDieSensor;
 
 + (nonnull instancetype)shared;
 

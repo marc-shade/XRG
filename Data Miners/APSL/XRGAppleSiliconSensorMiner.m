@@ -51,14 +51,15 @@ IOHIDFloat IOHIDEventGetFloatValue(IOHIDEventRef event, int32_t field);
 #if TARGET_CPU_ARM64
     CFStringRef productKey = CFSTR("Product");
     
-    IOHIDEventSystemClientRef eventSystemClient = IOHIDEventSystemClientCreate(kCFAllocatorDefault);;
+    IOHIDEventSystemClientRef eventSystemClient = IOHIDEventSystemClientCreate(kCFAllocatorDefault);
+    if (!eventSystemClient) return nil;
     IOHIDEventSystemClientSetMatching(eventSystemClient, (__bridge CFDictionaryRef)@{
         @"PrimaryUsagePage": @(kHIDPage_AppleVendor),
         @"PrimaryUsage": @(kHIDUsage_AppleVendor_TemperatureSensor)
     });
 
     CFArrayRef hidServices = IOHIDEventSystemClientCopyServices(eventSystemClient);
-    if (!hidServices) return nil;
+    if (!hidServices) { CFRelease(eventSystemClient); return nil; }
     
     NSMutableDictionary *sensorDictionary = [NSMutableDictionary dictionary];
     CFIndex count = CFArrayGetCount(hidServices);
@@ -70,7 +71,12 @@ IOHIDFloat IOHIDEventGetFloatValue(IOHIDEventRef event, int32_t field);
         
         if (name && event) {
             IOHIDFloat temperature = IOHIDEventGetFloatValue(event, IOHIDEventFieldBase(kIOHIDEventTypeTemperature));
-            sensorDictionary[name] = @(temperature);
+            // Duplicate die sensor names occur on newer Apple Silicon. Retain
+            // the hottest real reading instead of whichever service was last.
+            if (isfinite(temperature) && temperature >= 0 && temperature <= 150) {
+                NSNumber *previous = sensorDictionary[name];
+                sensorDictionary[name] = @(previous ? MAX(previous.doubleValue, temperature) : temperature);
+            }
         }
         
         if (event) CFRelease(event);
